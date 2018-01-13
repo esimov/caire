@@ -18,8 +18,8 @@ var (
 	// Flags
 	source         = flag.String("in", "", "Source")
 	destination    = flag.String("out", "", "Destination")
-	blurRadius     = flag.Int("blur", 1, "Blur radius")
-	sobelThreshold = flag.Int("sobel", 1, "Sobel filter threshold")
+	blurRadius     = flag.Int("blur", 10, "Blur radius")
+	sobelThreshold = flag.Int("sobel", 140, "Sobel filter threshold")
 )
 
 func main() {
@@ -102,16 +102,17 @@ func main() {
 		defer file.Close()
 
 		s := new(spinner)
-		s.start("Process start...")
+		s.start("Processing...")
+
 		start := time.Now()
-		_, processErr := p.Process(file, out)
+		_, err = p.Process(file, out)
 		s.stop()
 
 		if err == nil {
 			fmt.Printf("\nRescaled in: \x1b[92m%.2fs\n", time.Since(start).Seconds())
 			fmt.Printf("Saved as: %s \x1b[92m✓\n\n", path.Base(out))
 		} else {
-			fmt.Printf("\nError rescaling image: %s: %s", file.Name(), processErr.Error())
+			fmt.Printf("\nError rescaling image: %s: %s", file.Name(), err.Error())
 		}
 	}
 }

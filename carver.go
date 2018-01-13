@@ -2,8 +2,10 @@ package caire
 
 import (
 	"image"
-	"fmt"
 	"math"
+	"os"
+	"image/png"
+	"image/draw"
 )
 
 type DPTable struct {
@@ -12,9 +14,7 @@ type DPTable struct {
 	table []float64
 }
 
-type Seam []Point
-
-type Point struct {
+type Seam struct {
 	X int
 	Y int
 }
@@ -38,50 +38,56 @@ func (dpt *DPTable) set(x, y int, px float64) {
 //
 //	- the minimum energy level is calculated by summing up the current pixel value
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
-func (dpt *DPTable) ComputeSeams(img *image.NRGBA) []float64 {
-	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
+func (dpt *DPTable) computeSeams(img *image.NRGBA, threshold, blur int) []float64 {
+	var src *image.NRGBA
+	bounds := img.Bounds()
+	iw, ih := bounds.Dx(), bounds.Dy()
 
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			r, _, _, a := img.At(x, y).RGBA()
+	sobel := SobelFilter(Grayscale(img), float64(threshold))
+	if blur > 0 {
+		src = Stackblur(sobel, uint32(iw), uint32(ih), uint32(blur))
+	} else {
+		src = sobel
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, iw, ih))
+	draw.Draw(dst, img.Bounds(), src, img.Bounds().Min, draw.Src)
+
+	for x := 0; x < dpt.width; x++ {
+		for y := 0; y < dpt.height; y++ {
+			r, _, _, a := dst.At(x, y).RGBA()
 			dpt.set(x, y, float64(r) / float64(a))
 		}
 	}
 
-	computeEnergyLevel := func(x, y int) {
-		var left, middle, right float64
-		left, right = dpt.get(x, y-1), dpt.get(x, y-1)
+	// Compute the minimum energy level and set the resulting value into dpt table.
+	for x := 0; x < dpt.width; x++ {
+		for y := 1; y < dpt.height; y++ {
+			var left, middle, right float64
+			left, right = math.MaxFloat64, math.MaxFloat64
 
-		// Do not compute edge cases: pixels are far left.
-		if x > 0 {
-			left = dpt.get(x-1, y-1)
-		}
-		middle = dpt.get(x, y-1)
-		// Do not compute edge cases: pixels are far right.
-		if x < width-1 {
-			right = dpt.get(x+1, y-1)
-		}
-		// Obtain the minimum pixel value
-		min := math.Min(math.Min(left, middle), right)
-		dpt.set(x, y, dpt.get(x, y) + min)
-	}
-
-	for x := 0; x < width; x++ {
-		for y := 1; y < height; y++ {
-			computeEnergyLevel(x, y)
+			// Do not compute edge cases: pixels are far left.
+			if x > 0 {
+				left = dpt.get(x-1, y-1)
+			}
+			middle = dpt.get(x, y-1)
+			// Do not compute edge cases: pixels are far right.
+			if x < dpt.width-1 {
+				right = dpt.get(x+1, y-1)
+			}
+			// Obtain the minimum pixel value
+			min := math.Min(math.Min(left, middle), right)
+			dpt.set(x, y, dpt.get(x, y) + min)
 		}
 	}
-
-	//fmt.Println(dpt.table)
 	return dpt.table
 }
 
 // Find the lowest vertical energy seam.
-func (dpt *DPTable) FindLowestEnergySeams() []Point {
+func (dpt *DPTable) findLowestEnergySeams() []Seam {
 	// Find the lowest cost seam from the energy matrix starting from the last row.
 	var min float64 = math.MaxFloat64
 	var px int
-	seams := make([]Point, 0)
+	seams := make([]Seam, 0)
 
 	// Find the lowest seam from the bottom row
 	for x := 0; x < dpt.width; x++ {
@@ -91,32 +97,34 @@ func (dpt *DPTable) FindLowestEnergySeams() []Point {
 			px = x
 		}
 	}
-	seams = append(seams, Point{X: px, Y: dpt.height-1})
+	seams = append(seams, Seam{X: px, Y: dpt.height-1})
+
+	var left, middle, right float64
 
 	// Walk up in the matrix table,
 	// check the immediate three top pixel seam level and
 	// add add the one which has the lowest cumulative energy.
 	for y := dpt.height-2; y >= 0; y-- {
-		left, center, right := math.MaxFloat64, math.MaxFloat64, math.MaxFloat64
+		left, right = math.MaxFloat64, math.MaxFloat64
 		// Leftmost seam, no child to the left
 		if px == 0 {
 			right = dpt.get(px+1, y)
-			center = dpt.get(px, y)
-			if right < center {
+			middle = dpt.get(px, y)
+			if right < middle {
 				px += 1
 			}
 		// Rightmost seam, no child to the right
 		} else if px == dpt.width-1 {
 			left = dpt.get(px-1, y)
-			center = dpt.get(px, y)
-			if left < center {
+			middle = dpt.get(px, y)
+			if left < middle {
 				px -= 1
 			}
 		} else {
 			left = dpt.get(px-1, y)
-			center = dpt.get(px, y)
+			middle = dpt.get(px, y)
 			right = dpt.get(px+1, y)
-			min := math.Min(math.Min(left, center), right)
+			min := math.Min(math.Min(left, middle), right)
 
 			if min == left {
 				px -= 1
@@ -124,13 +132,53 @@ func (dpt *DPTable) FindLowestEnergySeams() []Point {
 				px += 1
 			}
 		}
-		seams = append(seams, Point{X: px, Y: y})
+		seams = append(seams, Seam{X: px, Y: y})
 	}
-	fmt.Println(seams)
 	return seams
 }
 
 // Remove image pixels based on energy seams level
-func (dpt *DPTable) RemoveSeams(seams Seam) {
+func (dpt *DPTable) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
+	bounds := img.Bounds()
+	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Max.X-1, bounds.Dy()))
 
+	for _, seam := range seams {
+		y := seam.Y
+		for x := 0; x < bounds.Max.X; x++ {
+			if seam.X == x {
+				continue
+			} else if seam.X < x {
+				dst.Set(x-1, y, img.At(x, y))
+			} else {
+				dst.Set(x, y, img.At(x, y))
+			}
+		}
+	}
+	return dst
+}
+
+
+func Process(src *image.NRGBA, output string, threshold, blur int) (*os.File, error) {
+	for x := 0; x < 300; x++ {
+		width, height := src.Bounds().Max.X, src.Bounds().Max.Y
+		dpt := &DPTable{
+			width,
+			height,
+			make([]float64, width*height),
+		}
+		dpt.computeSeams(src, threshold, blur)
+		seams := dpt.findLowestEnergySeams()
+		src = dpt.removeSeam(src, seams)
+	}
+
+	fq, err := os.Create(output)
+	if err != nil {
+		return nil, err
+	}
+	defer fq.Close()
+
+	if err = png.Encode(fq, src); err != nil {
+		return nil, err
+	}
+	return fq, nil
 }

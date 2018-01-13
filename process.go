@@ -3,10 +3,10 @@ package caire
 import (
 	"image"
 	"image/color"
-	"image/png"
-	"io"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
-	"github.com/fogleman/gg"
+	"io"
 )
 
 // Processor options
@@ -21,38 +21,16 @@ func (p *Processor) Process(file io.Reader, output string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	width, height := src.Bounds().Dx(), src.Bounds().Dy()
-	ctx := gg.NewContext(width, height)
-	ctx.DrawRectangle(0, 0, float64(width), float64(height))
-	ctx.SetRGBA(1, 1, 1, 1)
-	ctx.Fill()
-
-	img := toNRGBA(src)
-
-	blur := Stackblur(img, uint32(width), uint32(height), uint32(p.BlurRadius))
-	gray := Grayscale(blur)
-	sobel := SobelFilter(gray, float64(p.SobelThreshold))
-
-	dpTable := &DPTable{width, height, make([]float64, width*height)}
-	dpTable.ComputeSeams(sobel)
-	dpTable.FindLowestEnergySeams()
-
-	fq, err := os.Create(output)
+	img := imgToNRGBA(src)
+	fq, err := Process(img, output, p.SobelThreshold, p.BlurRadius)
 	if err != nil {
 		return nil, err
 	}
-	defer fq.Close()
-
-	if err = png.Encode(fq, sobel); err != nil {
-		return nil, err
-	}
-
-	return fq, err
+	return fq, nil
 }
 
-// toNRGBA converts any image type to *image.NRGBA with min-point at (0, 0).
-func toNRGBA(img image.Image) *image.NRGBA {
+// Converts any image type to *image.NRGBA with min-point at (0, 0).
+func imgToNRGBA(img image.Image) *image.NRGBA {
 	srcBounds := img.Bounds()
 	if srcBounds.Min.X == 0 && srcBounds.Min.Y == 0 {
 		if src0, ok := img.(*image.NRGBA); ok {
@@ -106,6 +84,5 @@ func toNRGBA(img image.Image) *image.NRGBA {
 			}
 		}
 	}
-
 	return dst
 }
