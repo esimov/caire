@@ -22,7 +22,8 @@ func (p *Processor) Process(file io.Reader, output string) (*os.File, error) {
 		return nil, err
 	}
 	img := imgToNRGBA(src)
-	fq, err := Process(img, output, p.SobelThreshold, p.BlurRadius)
+	sobel := SobelFilter(img, float64(p.SobelThreshold))
+	fq, err := Process(img, sobel, output, p.SobelThreshold, p.BlurRadius)
 	if err != nil {
 		return nil, err
 	}

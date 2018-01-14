@@ -5,7 +5,7 @@ import (
 	"math"
 	"os"
 	"image/png"
-	"image/draw"
+//	"image/color"
 )
 
 type DPTable struct {
@@ -42,19 +42,16 @@ func (dpt *DPTable) computeSeams(img *image.NRGBA, threshold, blur int) []float6
 	var src *image.NRGBA
 	bounds := img.Bounds()
 	iw, ih := bounds.Dx(), bounds.Dy()
-
 	sobel := SobelFilter(Grayscale(img), float64(threshold))
+
 	if blur > 0 {
 		src = Stackblur(sobel, uint32(iw), uint32(ih), uint32(blur))
 	} else {
 		src = sobel
 	}
-	dst := image.NewRGBA(image.Rect(0, 0, iw, ih))
-	draw.Draw(dst, img.Bounds(), src, img.Bounds().Min, draw.Src)
-
 	for x := 0; x < dpt.width; x++ {
 		for y := 0; y < dpt.height; y++ {
-			r, _, _, a := dst.At(x, y).RGBA()
+			r, _, _, a := src.At(x, y).RGBA()
 			dpt.set(x, y, float64(r) / float64(a))
 		}
 	}
@@ -89,16 +86,15 @@ func (dpt *DPTable) findLowestEnergySeams() []Seam {
 	var px int
 	seams := make([]Seam, 0)
 
-	// Find the lowest seam from the bottom row
+	// Find the pixel on the last row with the minimum cumulative energy and use this as the starting pixel
 	for x := 0; x < dpt.width; x++ {
 		seam := dpt.get(x, dpt.height-1)
-		if seam < min {
+		if seam < min && seam > 0 {
 			min = seam
 			px = x
 		}
 	}
 	seams = append(seams, Seam{X: px, Y: dpt.height-1})
-
 	var left, middle, right float64
 
 	// Walk up in the matrix table,
@@ -106,6 +102,7 @@ func (dpt *DPTable) findLowestEnergySeams() []Seam {
 	// add add the one which has the lowest cumulative energy.
 	for y := dpt.height-2; y >= 0; y-- {
 		left, right = math.MaxFloat64, math.MaxFloat64
+		middle = dpt.get(px, y)
 		// Leftmost seam, no child to the left
 		if px == 0 {
 			right = dpt.get(px+1, y)
@@ -140,13 +137,14 @@ func (dpt *DPTable) findLowestEnergySeams() []Seam {
 // Remove image pixels based on energy seams level
 func (dpt *DPTable) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 	bounds := img.Bounds()
-	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Max.X-1, bounds.Dy()))
+	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
 
 	for _, seam := range seams {
 		y := seam.Y
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
 				continue
+				//dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
 			} else if seam.X < x {
 				dst.Set(x-1, y, img.At(x, y))
 			} else {
@@ -158,8 +156,8 @@ func (dpt *DPTable) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 }
 
 
-func Process(src *image.NRGBA, output string, threshold, blur int) (*os.File, error) {
-	for x := 0; x < 300; x++ {
+func Process(src *image.NRGBA, sobel *image.NRGBA, output string, threshold, blur int) (*os.File, error) {
+	for x := 0; x < 180; x++ {
 		width, height := src.Bounds().Max.X, src.Bounds().Max.Y
 		dpt := &DPTable{
 			width,
