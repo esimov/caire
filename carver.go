@@ -4,7 +4,7 @@ import (
 	"image"
 	_ "image/png"
 	"math"
-//	"image/color"
+	//"image/color"
 	"github.com/pkg/errors"
 )
 
@@ -226,6 +226,10 @@ func (c *Carver) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		// Resize image vertically
 		img = c.rotateImage90(img)
+
+		// Needs to update the slice width & height because of image rotation.
+		carver.Width = img.Bounds().Dx()
+		carver.Height = img.Bounds().Dy()
 		for y := 0; y < nh; y++ {
 			resize()
 		}
@@ -247,6 +251,10 @@ func (c *Carver) Resize(img *image.NRGBA) (image.Image, error) {
 				return nil, err
 			}
 			img = c.rotateImage90(img)
+
+			// Needs to update the slice width & height because of image rotation.
+			carver.Width = img.Bounds().Dx()
+			carver.Height = img.Bounds().Dy()
 			for y := 0; y < carver.NewHeight; y++ {
 				resize()
 			}
