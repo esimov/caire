@@ -10,24 +10,35 @@ import (
 )
 
 // Processor options
-type Processor struct {
-	BlurRadius      int
-	SobelThreshold  int
+type Carver struct {
+	Width          int
+	Height         int
+	Points         []float64
+	SobelThreshold int
+	BlurRadius     int
+	NewWidth       int
+	NewHeight      int
+	Percentage     int
 }
 
-// Process : Convert image
-func (p *Processor) Process(file io.Reader, output string) (*os.File, error) {
+// Process is the main entry point for the image resize operation.
+func (c *Carver) Process(file io.Reader, output string) (*os.File, error) {
 	src, _, err := image.Decode(file)
 	if err != nil {
 		return nil, err
 	}
 	img := imgToNRGBA(src)
-	sobel := SobelFilter(img, float64(p.SobelThreshold))
-	fq, err := Process(img, sobel, output, p.SobelThreshold, p.BlurRadius)
+	sobel := SobelFilter(img, float64(c.SobelThreshold))
+	fq, err := Resize(c, img, sobel, output)
 	if err != nil {
 		return nil, err
 	}
 	return fq, nil
+}
+
+// Implement the Resize method of the Carver interface.
+func Resize(s SeamCarver, img *image.NRGBA, sobel *image.NRGBA, output string) (*os.File, error) {
+	return s.Resize(img, sobel, output)
 }
 
 // Converts any image type to *image.NRGBA with min-point at (0, 0).
