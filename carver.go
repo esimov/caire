@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 //	"image/color"
+	"github.com/pkg/errors"
 )
 
 // SeamCarver is an interface that Carver uses to implement the Resize function.
@@ -170,34 +171,87 @@ func (c *Carver) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 	return dst
 }
 
-// Resize is the main function taking the source image and encoding the rescaled image into the output file.
-func (c *Carver) Resize(src *image.NRGBA, sobel *image.NRGBA, output string) (*os.File, error) {
-	width, height := src.Bounds().Max.X, src.Bounds().Max.Y
-	carver := NewCarver(width, height, c.SobelThreshold, c.BlurRadius, c.NewWidth, c.NewWidth, c.Percentage)
-	resize := func() {
-		carver.computeSeams(src)
-		seams := carver.findLowestEnergySeams()
-		src = carver.removeSeam(src, seams)
+// Rotate image by 90 degree clockwise
+func (c *Carver) rotateImage90(src *image.NRGBA) *image.NRGBA {
+	b := src.Bounds()
+	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
+	for dstY := 0; dstY < b.Max.X; dstY++ {
+		for dstX := 0; dstX < b.Max.Y; dstX++ {
+			srcX := b.Max.X - dstY - 1
+			srcY := dstX
+
+			srcOff := srcY*src.Stride + srcX*4
+			dstOff := dstY*dst.Stride + dstX*4
+			copy(dst.Pix[dstOff:dstOff+4], src.Pix[srcOff:srcOff+4])
+		}
 	}
-	if carver.Percentage > 0 && (carver.NewWidth != 0 && carver.NewHeight != 0) {
+	return dst
+}
+
+// Rotate image by 270 degree clockwise
+func (c *Carver) rotateImage270(src *image.NRGBA) *image.NRGBA {
+	b := src.Bounds()
+	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
+	for dstY := 0; dstY < b.Max.X; dstY++ {
+		for dstX := 0; dstX < b.Max.Y; dstX++ {
+			srcX := dstY
+			srcY := b.Max.Y - dstX - 1
+
+			srcOff := srcY*src.Stride + srcX*4
+			dstOff := dstY*dst.Stride + dstX*4
+			copy(dst.Pix[dstOff:dstOff+4], src.Pix[srcOff:srcOff+4])
+		}
+	}
+	return dst
+}
+
+// Resize is the main function taking the source image and encoding the rescaled image into the output file.
+func (c *Carver) Resize(img *image.NRGBA, sobel *image.NRGBA, output string) (*os.File, error) {
+	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
+	carver := NewCarver(width, height, c.SobelThreshold, c.BlurRadius, c.NewWidth, c.NewHeight, c.Percentage)
+
+	resize := func() {
+		carver.computeSeams(img)
+		seams := carver.findLowestEnergySeams()
+		img = carver.removeSeam(img, seams)
+	}
+
+	if carver.Percentage > 0 {
 		// Calculate new sizes based on provided percentage.
-		nw := carver.Width - (carver.Width * (carver.Percentage / carver.Width))
-		nh := carver.Height - (carver.Height * (carver.Percentage / carver.Height))
+		nw := carver.Width - int(float64(carver.Width) - (float64(carver.Percentage)/100 * float64(carver.Width)))
+		nh := carver.Height - int(float64(carver.Height) - (float64(carver.Percentage)/100 * float64(carver.Height)))
+
+		// Resize image horizontally
 		for x := 0; x < nw; x++ {
 			resize()
 		}
+		// Resize image vertically
+		img = c.rotateImage90(img)
 		for y := 0; y < nh; y++ {
 			resize()
 		}
-	} else {
-		if carver.NewWidth > 0 && carver.NewWidth < carver.Width {
+		img = c.rotateImage270(img)
+	} else if carver.NewWidth > 0 || carver.NewHeight > 0 {
+		if carver.NewWidth > 0 {
+			if carver.NewWidth > carver.Width {
+				err := errors.New("new width should be less than image width.")
+				return nil, err
+			}
 			for x := 0; x < carver.NewWidth; x++ {
 				resize()
 			}
-		} else if carver.NewHeight > 0 && carver.NewHeight < carver.Height {
+		}
+
+		if carver.NewHeight > 0 {
+			if carver.NewHeight > carver.Height {
+				err := errors.New("new height should be less than image height.")
+				return nil, err
+			}
+			img = c.rotateImage90(img)
 			for y := 0; y < carver.NewHeight; y++ {
 				resize()
 			}
+			img = c.rotateImage270(img)
 		}
 	}
 
@@ -207,7 +261,7 @@ func (c *Carver) Resize(src *image.NRGBA, sobel *image.NRGBA, output string) (*o
 	}
 	defer fq.Close()
 
-	if err = png.Encode(fq, src); err != nil {
+	if err = png.Encode(fq, img); err != nil {
 		return nil, err
 	}
 	return fq, nil

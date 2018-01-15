@@ -22,7 +22,7 @@ var (
 	sobelThreshold = flag.Int("sobel", 50, "Sobel filter threshold")
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
-	percentage     = flag.Int("percentage", 0, "Reduce by percentage")
+	percentage     = flag.Int("perc", 0, "Reduce by percentage")
 )
 
 func main() {
@@ -47,7 +47,6 @@ func main() {
 			NewHeight:      *newHeight,
 			Percentage:     *percentage,
 		}
-
 		switch mode := fs.Mode(); {
 		case mode.IsDir():
 			// Supported image files.
@@ -58,7 +57,6 @@ func main() {
 			if err != nil {
 				log.Fatalf("Unable to read dir: %v", err)
 			}
-
 			// Read destination file or directory.
 			dst, err := os.Stat(*destination)
 			if err != nil {
@@ -119,7 +117,7 @@ func main() {
 				fmt.Printf("\nRescaled in: \x1b[92m%.2fs\n", time.Since(start).Seconds())
 				fmt.Printf("\x1b[39mSaved as: \x1b[92m%s \n\n", path.Base(out))
 			} else {
-				fmt.Printf("\nError rescaling image: %s: %s", file.Name(), err.Error())
+				fmt.Printf("\nError rescaling image: %s. Reason: %s\n", file.Name(), err.Error())
 			}
 		}
 	} else {
