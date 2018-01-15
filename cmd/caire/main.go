@@ -20,9 +20,9 @@ var (
 	destination    = flag.String("out", "", "Destination")
 	blurRadius     = flag.Int("blur", 2, "Blur radius")
 	sobelThreshold = flag.Int("sobel", 50, "Sobel filter threshold")
-	newWidth	= flag.Int("width", 0, "New width")
-	newHeight	= flag.Int("height", 0, "New height")
-	percentage	= flag.Int("percentage", 0, "Reduce by percentage")
+	newWidth       = flag.Int("width", 0, "New width")
+	newHeight      = flag.Int("height", 0, "New height")
+	percentage     = flag.Int("percentage", 0, "Reduce by percentage")
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 		log.Fatal("Usage: caire -in input.jpg -out out.jpg")
 	}
 
-	if (*newWidth > 0 || *newHeight > 0 || *percentage > 0) {
+	if *newWidth > 0 || *newHeight > 0 || *percentage > 0 {
 		fs, err := os.Stat(*source)
 		if err != nil {
 			log.Fatalf("Unable to open source: %v", err)
@@ -43,9 +43,9 @@ func main() {
 		p := &caire.Carver{
 			BlurRadius:     *blurRadius,
 			SobelThreshold: *sobelThreshold,
-			NewWidth: *newWidth,
-			NewHeight: *newHeight,
-			Percentage: *percentage,
+			NewWidth:       *newWidth,
+			NewHeight:      *newHeight,
+			Percentage:     *percentage,
 		}
 
 		switch mode := fs.Mode(); {

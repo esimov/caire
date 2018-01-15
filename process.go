@@ -5,8 +5,8 @@ import (
 	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
-	"os"
 	"io"
+	"os"
 )
 
 // Processor options

@@ -2,9 +2,9 @@ package caire
 
 import (
 	"image"
+	"image/png"
 	"math"
 	"os"
-	"image/png"
 //	"image/color"
 )
 
@@ -12,7 +12,7 @@ import (
 // It takes an image and the output as parameters and returns the resized image
 // and the error, if exists.
 type SeamCarver interface {
-	Resize(*image.NRGBA, *image.NRGBA, string)(*os.File, error)
+	Resize(*image.NRGBA, *image.NRGBA, string) (*os.File, error)
 }
 
 // Seam struct containing the pixel coordinate values.
@@ -36,13 +36,13 @@ func NewCarver(width, height, threshold, blur int, rw, rh, perc int) *Carver {
 
 // Get energy pixel value.
 func (c *Carver) get(x, y int) float64 {
-	px := x + y * c.Width
+	px := x + y*c.Width
 	return c.Points[px]
 }
 
 // Set energy pixel value.
 func (c *Carver) set(x, y int, px float64) {
-	idx := x + y * c.Width
+	idx := x + y*c.Width
 	c.Points[idx] = px
 }
 
@@ -67,7 +67,7 @@ func (c *Carver) computeSeams(img *image.NRGBA) []float64 {
 	for x := 0; x < c.Width; x++ {
 		for y := 0; y < c.Height; y++ {
 			r, _, _, a := src.At(x, y).RGBA()
-			c.set(x, y, float64(r) / float64(a))
+			c.set(x, y, float64(r)/float64(a))
 		}
 	}
 
@@ -88,7 +88,7 @@ func (c *Carver) computeSeams(img *image.NRGBA) []float64 {
 			}
 			// Obtain the minimum pixel value
 			min := math.Min(math.Min(left, middle), right)
-			c.set(x, y, c.get(x, y) + min)
+			c.set(x, y, c.get(x, y)+min)
 		}
 	}
 	return c.Points
@@ -109,13 +109,13 @@ func (c *Carver) findLowestEnergySeams() []Seam {
 			px = x
 		}
 	}
-	seams = append(seams, Seam{X: px, Y: c.Height-1})
+	seams = append(seams, Seam{X: px, Y: c.Height - 1})
 	var left, middle, right float64
 
 	// Walk up in the matrix table,
 	// check the immediate three top pixel seam level and
 	// add add the one which has the lowest cumulative energy.
-	for y := c.Height-2; y >= 0; y-- {
+	for y := c.Height - 2; y >= 0; y-- {
 		left, right = math.MaxFloat64, math.MaxFloat64
 		middle = c.get(px, y)
 		// Leftmost seam, no child to the left
@@ -125,7 +125,7 @@ func (c *Carver) findLowestEnergySeams() []Seam {
 			if right < middle {
 				px += 1
 			}
-		// Rightmost seam, no child to the right
+			// Rightmost seam, no child to the right
 		} else if px == c.Width-1 {
 			left = c.get(px-1, y)
 			middle = c.get(px, y)
@@ -173,7 +173,7 @@ func (c *Carver) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 // Resize is the main function taking the source image and encoding the rescaled image into the output file.
 func (c *Carver) Resize(src *image.NRGBA, sobel *image.NRGBA, output string) (*os.File, error) {
 	width, height := src.Bounds().Max.X, src.Bounds().Max.Y
-	carver := NewCarver(width, height,c.SobelThreshold, c.BlurRadius, c.NewWidth, c.NewWidth, c.Percentage)
+	carver := NewCarver(width, height, c.SobelThreshold, c.BlurRadius, c.NewWidth, c.NewWidth, c.Percentage)
 	resize := func() {
 		carver.computeSeams(src)
 		seams := carver.findLowestEnergySeams()
@@ -181,8 +181,8 @@ func (c *Carver) Resize(src *image.NRGBA, sobel *image.NRGBA, output string) (*o
 	}
 	if carver.Percentage > 0 && (carver.NewWidth != 0 && carver.NewHeight != 0) {
 		// Calculate new sizes based on provided percentage.
-		nw := carver.Width - (carver.Width * (carver.Percentage/carver.Width))
-		nh := carver.Height - (carver.Height * (carver.Percentage/carver.Height))
+		nw := carver.Width - (carver.Width * (carver.Percentage / carver.Width))
+		nh := carver.Height - (carver.Height * (carver.Percentage / carver.Height))
 		for x := 0; x < nw; x++ {
 			resize()
 		}
