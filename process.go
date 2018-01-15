@@ -7,6 +7,7 @@ import (
 	_ "image/png"
 	"io"
 	"os"
+	"image/jpeg"
 )
 
 // Processor options
@@ -21,6 +22,12 @@ type Carver struct {
 	Percentage     int
 }
 
+// Implement the Resize method of the Carver interface.
+func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
+	return s.Resize(img)
+}
+
+
 // Process is the main entry point for the image resize operation.
 func (c *Carver) Process(file io.Reader, output string) (*os.File, error) {
 	src, _, err := image.Decode(file)
@@ -28,17 +35,21 @@ func (c *Carver) Process(file io.Reader, output string) (*os.File, error) {
 		return nil, err
 	}
 	img := imgToNRGBA(src)
-	sobel := SobelFilter(img, float64(c.SobelThreshold))
-	fq, err := Resize(c, img, sobel, output)
+	res, err := Resize(c, img)
 	if err != nil {
 		return nil, err
 	}
-	return fq, nil
-}
 
-// Implement the Resize method of the Carver interface.
-func Resize(s SeamCarver, img *image.NRGBA, sobel *image.NRGBA, output string) (*os.File, error) {
-	return s.Resize(img, sobel, output)
+	fq, err := os.Create(output)
+	if err != nil {
+		return nil, err
+	}
+	defer fq.Close()
+
+	if err = jpeg.Encode(fq, res, &jpeg.Options{100}); err != nil {
+		return nil, err
+	}
+	return fq, nil
 }
 
 // Converts any image type to *image.NRGBA with min-point at (0, 0).

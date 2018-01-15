@@ -2,9 +2,8 @@ package caire
 
 import (
 	"image"
-	"image/png"
+	_ "image/png"
 	"math"
-	"os"
 //	"image/color"
 	"github.com/pkg/errors"
 )
@@ -13,7 +12,7 @@ import (
 // It takes an image and the output as parameters and returns the resized image
 // and the error, if exists.
 type SeamCarver interface {
-	Resize(*image.NRGBA, *image.NRGBA, string) (*os.File, error)
+	Resize(*image.NRGBA) (image.Image, error)
 }
 
 // Seam struct containing the pixel coordinate values.
@@ -171,7 +170,7 @@ func (c *Carver) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 	return dst
 }
 
-// Rotate image by 90 degree clockwise
+// Rotate image by 90 degree counter clockwise
 func (c *Carver) rotateImage90(src *image.NRGBA) *image.NRGBA {
 	b := src.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
@@ -188,7 +187,7 @@ func (c *Carver) rotateImage90(src *image.NRGBA) *image.NRGBA {
 	return dst
 }
 
-// Rotate image by 270 degree clockwise
+// Rotate image by 270 degree counter clockwise
 func (c *Carver) rotateImage270(src *image.NRGBA) *image.NRGBA {
 	b := src.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
@@ -206,7 +205,7 @@ func (c *Carver) rotateImage270(src *image.NRGBA) *image.NRGBA {
 }
 
 // Resize is the main function taking the source image and encoding the rescaled image into the output file.
-func (c *Carver) Resize(img *image.NRGBA, sobel *image.NRGBA, output string) (*os.File, error) {
+func (c *Carver) Resize(img *image.NRGBA) (image.Image, error) {
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	carver := NewCarver(width, height, c.SobelThreshold, c.BlurRadius, c.NewWidth, c.NewHeight, c.Percentage)
 
@@ -254,15 +253,5 @@ func (c *Carver) Resize(img *image.NRGBA, sobel *image.NRGBA, output string) (*o
 			img = c.rotateImage270(img)
 		}
 	}
-
-	fq, err := os.Create(output)
-	if err != nil {
-		return nil, err
-	}
-	defer fq.Close()
-
-	if err = png.Encode(fq, img); err != nil {
-		return nil, err
-	}
-	return fq, nil
+	return img, nil
 }
