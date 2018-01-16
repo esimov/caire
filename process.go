@@ -19,7 +19,7 @@ type Carver struct {
 	BlurRadius     int
 	NewWidth       int
 	NewHeight      int
-	Percentage     int
+	Percentage     bool
 }
 
 // Implement the Resize method of the Carver interface.

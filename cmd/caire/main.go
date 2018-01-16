@@ -22,7 +22,7 @@ var (
 	sobelThreshold = flag.Int("sobel", 50, "Sobel filter threshold")
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
-	percentage     = flag.Int("perc", 0, "Reduce by percentage")
+	percentage     = flag.Bool("perc", false, "Use percentage")
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 		log.Fatal("Usage: caire -in input.jpg -out out.jpg")
 	}
 
-	if *newWidth > 0 || *newHeight > 0 || *percentage > 0 {
+	if *newWidth > 0 || *newHeight > 0 || *percentage {
 		fs, err := os.Stat(*source)
 		if err != nil {
 			log.Fatalf("Unable to open source: %v", err)

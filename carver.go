@@ -4,7 +4,7 @@ import (
 	"image"
 	_ "image/png"
 	"math"
-	//"image/color"
+	"image/color"
 	"github.com/pkg/errors"
 )
 
@@ -22,7 +22,7 @@ type Seam struct {
 }
 
 // NewCarver returns an initialized Carver structure.
-func NewCarver(width, height, threshold, blur int, rw, rh, perc int) *Carver {
+func NewCarver(width, height, threshold, blur, rw, rh int, perc bool) *Carver {
 	return &Carver{
 		width,
 		height,
@@ -158,8 +158,8 @@ func (c *Carver) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 		y := seam.Y
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
-				continue
-				//dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
+				//continue
+				dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
 			} else if seam.X < x {
 				dst.Set(x-1, y, img.At(x, y))
 			} else {
@@ -215,10 +215,10 @@ func (c *Carver) Resize(img *image.NRGBA) (image.Image, error) {
 		img = carver.removeSeam(img, seams)
 	}
 
-	if carver.Percentage > 0 {
+	if carver.Percentage {
 		// Calculate new sizes based on provided percentage.
-		nw := carver.Width - int(float64(carver.Width) - (float64(carver.Percentage)/100 * float64(carver.Width)))
-		nh := carver.Height - int(float64(carver.Height) - (float64(carver.Percentage)/100 * float64(carver.Height)))
+		nw := carver.Width - int(float64(carver.Width) - (float64(carver.NewWidth)/100 * float64(carver.Width)))
+		nh := carver.Height - int(float64(carver.Height) - (float64(carver.NewHeight)/100 * float64(carver.Height)))
 
 		// Resize image horizontally
 		for x := 0; x < nw; x++ {
@@ -252,7 +252,8 @@ func (c *Carver) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			img = c.rotateImage90(img)
 
-			// Needs to update the slice width & height because of image rotation.
+			// Needs to update the slice width & height because of image rotation
+			// otherwise the new image will be cut off.
 			carver.Width = img.Bounds().Dx()
 			carver.Height = img.Bounds().Dy()
 			for y := 0; y < carver.NewHeight; y++ {
