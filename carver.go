@@ -2,9 +2,9 @@ package caire
 
 import (
 	"image"
+	"image/color"
 	_ "image/png"
 	"math"
-	//	"image/color"
 )
 
 type Carver struct {
@@ -147,7 +147,7 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 }
 
 // Remove image pixels based on energy seams level.
-func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
+func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	bounds := img.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
 
@@ -155,8 +155,10 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 		y := seam.Y
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
+				if debug {
+					dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
+				}
 				continue
-				//dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
 			} else if seam.X < x {
 				dst.Set(x-1, y, img.At(x, y))
 			} else {

@@ -23,6 +23,7 @@ var (
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
 	percentage     = flag.Bool("perc", false, "Use percentage")
+	debug          = flag.Bool("debug", false, "Use debugger")
 )
 
 func main() {
@@ -46,6 +47,7 @@ func main() {
 			NewWidth:       *newWidth,
 			NewHeight:      *newHeight,
 			Percentage:     *percentage,
+			Debug:          *debug,
 		}
 		switch mode := fs.Mode(); {
 		case mode.IsDir():

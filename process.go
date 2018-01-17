@@ -24,6 +24,7 @@ type Processor struct {
 	NewWidth       int
 	NewHeight      int
 	Percentage     bool
+	Debug          bool
 }
 
 // Implement the Resize method of the Carver interface.
@@ -41,7 +42,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		c = NewCarver(width, height)
 		c.ComputeSeams(img, p)
 		seams := c.FindLowestEnergySeams()
-		img = c.RemoveSeam(img, seams)
+		img = c.RemoveSeam(img, seams, p.Debug)
 	}
 
 	if p.Percentage {
