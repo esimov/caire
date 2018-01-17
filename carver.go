@@ -4,7 +4,7 @@ import (
 	"image"
 	_ "image/png"
 	"math"
-	"image/color"
+//	"image/color"
 )
 
 type Carver struct {
@@ -66,26 +66,28 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		}
 	}
 
-	// Compute the minimum energy level and set the resulting value into carver table.
-	for x := 0; x < c.Width; x++ {
-		for y := 1; y < c.Height; y++ {
-			var left, middle, right float64
-			left, right = math.MaxFloat64, math.MaxFloat64
+	left, middle, right := math.MaxFloat64, math.MaxFloat64, math.MaxFloat64
 
-			// Do not compute edge cases: pixels are far left.
-			if x > 0 {
-				left = c.get(x-1, y-1)
-			}
+	// Traverse the image from top to bottom and compute the minimum energy level.
+	// For each pixel in a row we compute the energy of the current pixel
+	// plus the energy of one of the three possible pixels above it.
+	for y := 1; y < c.Height; y++ {
+		for x := 1; x < c.Width-1; x++ {
+			left = c.get(x-1, y-1)
 			middle = c.get(x, y-1)
-			// Do not compute edge cases: pixels are far right.
-			if x < c.Width-1 {
-				right = c.get(x+1, y-1)
-			}
-			// Obtain the minimum pixel value
+			right = c.get(x+1, y-1)
 			min := math.Min(math.Min(left, middle), right)
-			c.set(x, y, c.get(x, y)+min)
+
+			// Set the minimum energy level.
+			c.set(x, y, c.get(x, y) + min)
 		}
+		// Special cases: pixels are far left or far right
+		left := c.get(0, y) + math.Min(c.get(0, y-1), c.get(1, y-1))
+		c.set(0, y, left)
+		right := c.get(0, y) + math.Min(c.get(c.Width-1, y-1), c.get(c.Width-2, y-1))
+		c.set(c.Width-1, y, right)
 	}
+
 	return c.Points
 }
 
@@ -153,8 +155,8 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 		y := seam.Y
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
-				//continue
-				dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
+				continue
+				//dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
 			} else if seam.X < x {
 				dst.Set(x-1, y, img.At(x, y))
 			} else {

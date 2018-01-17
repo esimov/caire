@@ -18,8 +18,8 @@ var (
 	// Flags
 	source         = flag.String("in", "", "Source")
 	destination    = flag.String("out", "", "Destination")
-	blurRadius     = flag.Int("blur", 2, "Blur radius")
-	sobelThreshold = flag.Int("sobel", 50, "Sobel filter threshold")
+	blurRadius     = flag.Int("blur", 1, "Blur radius")
+	sobelThreshold = flag.Int("sobel", 10, "Sobel filter threshold")
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
 	percentage     = flag.Bool("perc", false, "Use percentage")
