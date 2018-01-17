@@ -4,13 +4,13 @@ import (
 	"image"
 	_ "image/png"
 	"math"
-//	"image/color"
+	//	"image/color"
 )
 
 type Carver struct {
-	Width          int
-	Height         int
-	Points         []float64
+	Width  int
+	Height int
+	Points []float64
 }
 
 // Seam struct containing the pixel coordinate values.
@@ -79,7 +79,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 			min := math.Min(math.Min(left, middle), right)
 
 			// Set the minimum energy level.
-			c.set(x, y, c.get(x, y) + min)
+			c.set(x, y, c.get(x, y)+min)
 		}
 		// Special cases: pixels are far left or far right
 		left := c.get(0, y) + math.Min(c.get(0, y-1), c.get(1, y-1))
