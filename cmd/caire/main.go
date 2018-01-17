@@ -40,7 +40,7 @@ func main() {
 
 		toProcess := make(map[string]string)
 
-		p := &caire.Carver{
+		p := &caire.Processor{
 			BlurRadius:     *blurRadius,
 			SobelThreshold: *sobelThreshold,
 			NewWidth:       *newWidth,

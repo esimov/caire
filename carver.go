@@ -5,14 +5,12 @@ import (
 	_ "image/png"
 	"math"
 	"image/color"
-	"github.com/pkg/errors"
 )
 
-// SeamCarver is an interface that Carver uses to implement the Resize function.
-// It takes an image and the output as parameters and returns the resized image
-// and the error, if exists.
-type SeamCarver interface {
-	Resize(*image.NRGBA) (image.Image, error)
+type Carver struct {
+	Width          int
+	Height         int
+	Points         []float64
 }
 
 // Seam struct containing the pixel coordinate values.
@@ -22,15 +20,11 @@ type Seam struct {
 }
 
 // NewCarver returns an initialized Carver structure.
-func NewCarver(width, height, threshold, blur, rw, rh int, perc bool) *Carver {
+func NewCarver(width, height int) *Carver {
 	return &Carver{
 		width,
 		height,
 		make([]float64, width*height),
-		threshold,
-		blur,
-		rw, rh,
-		perc,
 	}
 }
 
@@ -53,21 +47,22 @@ func (c *Carver) set(x, y int, px float64) {
 //
 //	- the minimum energy level is calculated by summing up the current pixel value
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
-func (c *Carver) computeSeams(img *image.NRGBA) []float64 {
+func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	var src *image.NRGBA
 	bounds := img.Bounds()
 	iw, ih := bounds.Dx(), bounds.Dy()
-	sobel := SobelFilter(Grayscale(img), float64(c.SobelThreshold))
+	sobel := SobelFilter(Grayscale(img), float64(p.SobelThreshold))
 
-	if c.BlurRadius > 0 {
-		src = Stackblur(sobel, uint32(iw), uint32(ih), uint32(c.BlurRadius))
+	if p.BlurRadius > 0 {
+		src = Stackblur(sobel, uint32(iw), uint32(ih), uint32(p.BlurRadius))
 	} else {
 		src = sobel
 	}
+
 	for x := 0; x < c.Width; x++ {
 		for y := 0; y < c.Height; y++ {
-			r, _, _, a := src.At(x, y).RGBA()
-			c.set(x, y, float64(r)/float64(a))
+			r, _, _, _ := src.At(x, y).RGBA()
+			c.set(x, y, float64(r))
 		}
 	}
 
@@ -95,7 +90,7 @@ func (c *Carver) computeSeams(img *image.NRGBA) []float64 {
 }
 
 // Find the lowest vertical energy seam.
-func (c *Carver) findLowestEnergySeams() []Seam {
+func (c *Carver) FindLowestEnergySeams() []Seam {
 	// Find the lowest cost seam from the energy matrix starting from the last row.
 	var min float64 = math.MaxFloat64
 	var px int
@@ -104,7 +99,7 @@ func (c *Carver) findLowestEnergySeams() []Seam {
 	// Find the pixel on the last row with the minimum cumulative energy and use this as the starting pixel
 	for x := 0; x < c.Width; x++ {
 		seam := c.get(x, c.Height-1)
-		if seam < min && seam > 0 {
+		if seam < min {
 			min = seam
 			px = x
 		}
@@ -150,7 +145,7 @@ func (c *Carver) findLowestEnergySeams() []Seam {
 }
 
 // Remove image pixels based on energy seams level.
-func (c *Carver) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
+func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 	bounds := img.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
 
@@ -171,7 +166,7 @@ func (c *Carver) removeSeam(img *image.NRGBA, seams []Seam) *image.NRGBA {
 }
 
 // Rotate image by 90 degree counter clockwise
-func (c *Carver) rotateImage90(src *image.NRGBA) *image.NRGBA {
+func (c *Carver) RotateImage90(src *image.NRGBA) *image.NRGBA {
 	b := src.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
 	for dstY := 0; dstY < b.Max.X; dstY++ {
@@ -188,7 +183,7 @@ func (c *Carver) rotateImage90(src *image.NRGBA) *image.NRGBA {
 }
 
 // Rotate image by 270 degree counter clockwise
-func (c *Carver) rotateImage270(src *image.NRGBA) *image.NRGBA {
+func (c *Carver) RotateImage270(src *image.NRGBA) *image.NRGBA {
 	b := src.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
 	for dstY := 0; dstY < b.Max.X; dstY++ {
@@ -202,65 +197,4 @@ func (c *Carver) rotateImage270(src *image.NRGBA) *image.NRGBA {
 		}
 	}
 	return dst
-}
-
-// Resize is the main function taking the source image and encoding the rescaled image into the output file.
-func (c *Carver) Resize(img *image.NRGBA) (image.Image, error) {
-	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
-	carver := NewCarver(width, height, c.SobelThreshold, c.BlurRadius, c.NewWidth, c.NewHeight, c.Percentage)
-
-	resize := func() {
-		carver.computeSeams(img)
-		seams := carver.findLowestEnergySeams()
-		img = carver.removeSeam(img, seams)
-	}
-
-	if carver.Percentage {
-		// Calculate new sizes based on provided percentage.
-		nw := carver.Width - int(float64(carver.Width) - (float64(carver.NewWidth)/100 * float64(carver.Width)))
-		nh := carver.Height - int(float64(carver.Height) - (float64(carver.NewHeight)/100 * float64(carver.Height)))
-
-		// Resize image horizontally
-		for x := 0; x < nw; x++ {
-			resize()
-		}
-		// Resize image vertically
-		img = c.rotateImage90(img)
-
-		// Needs to update the slice width & height because of image rotation.
-		carver.Width = img.Bounds().Dx()
-		carver.Height = img.Bounds().Dy()
-		for y := 0; y < nh; y++ {
-			resize()
-		}
-		img = c.rotateImage270(img)
-	} else if carver.NewWidth > 0 || carver.NewHeight > 0 {
-		if carver.NewWidth > 0 {
-			if carver.NewWidth > carver.Width {
-				err := errors.New("new width should be less than image width.")
-				return nil, err
-			}
-			for x := 0; x < carver.NewWidth; x++ {
-				resize()
-			}
-		}
-
-		if carver.NewHeight > 0 {
-			if carver.NewHeight > carver.Height {
-				err := errors.New("new height should be less than image height.")
-				return nil, err
-			}
-			img = c.rotateImage90(img)
-
-			// Needs to update the slice width & height because of image rotation
-			// otherwise the new image will be cut off.
-			carver.Width = img.Bounds().Dx()
-			carver.Height = img.Bounds().Dy()
-			for y := 0; y < carver.NewHeight; y++ {
-				resize()
-			}
-			img = c.rotateImage270(img)
-		}
-	}
-	return img, nil
 }
