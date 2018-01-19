@@ -37,6 +37,15 @@ func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	var c *Carver = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+	newWidth := width - (width - (width - p.NewWidth))
+	newHeight := height - (height - (height - p.NewHeight))
+	if p.NewWidth == 0 {
+		newWidth = p.NewWidth
+	}
+	if p.NewHeight == 0 {
+		newHeight = p.NewHeight
+	}
 	resize := func() {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
@@ -47,36 +56,40 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 	if p.Percentage {
 		// Calculate new sizes based on provided percentage.
-		nw := c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
-		nh := c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
+		pw := c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
+		ph := c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
+		if pw > newWidth || ph > newHeight {
+			err := errors.New("the generated image size should be less than original image size.")
+			return nil, err
+		}
 		// Resize image horizontally
-		for x := 0; x < nw; x++ {
+		for x := 0; x < pw; x++ {
 			resize()
 		}
 		// Resize image vertically
 		img = c.RotateImage90(img)
-		for y := 0; y < nh; y++ {
+		for y := 0; y < ph; y++ {
 			resize()
 		}
 		img = c.RotateImage270(img)
-	} else if p.NewWidth > 0 || p.NewHeight > 0 {
-		if p.NewWidth > 0 {
-			if p.NewWidth > c.Width {
-				err := errors.New("new width should be less than image width.")
+	} else if newWidth > 0 || newHeight > 0 {
+		if newWidth > 0 {
+			if newWidth > c.Width {
+				err := errors.New("the generated image width should be less than original image width.")
 				return nil, err
 			}
-			for x := 0; x < p.NewWidth; x++ {
+			for x := 0; x < newWidth; x++ {
 				resize()
 			}
 		}
 
-		if p.NewHeight > 0 {
-			if p.NewHeight > c.Height {
-				err := errors.New("new height should be less than image height.")
+		if newHeight > 0 {
+			if newHeight > c.Height {
+				err := errors.New("the generated image height should be less than original image height.")
 				return nil, err
 			}
 			img = c.RotateImage90(img)
-			for y := 0; y < p.NewHeight; y++ {
+			for y := 0; y < newHeight; y++ {
 				resize()
 			}
 			img = c.RotateImage270(img)

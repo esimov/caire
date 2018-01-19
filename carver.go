@@ -146,7 +146,7 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	return seams
 }
 
-// Remove image pixels based on energy seams level.
+// Remove the least important columns based on the stored energy seams level.
 func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	bounds := img.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))

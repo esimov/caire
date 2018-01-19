@@ -22,7 +22,7 @@ var (
 	sobelThreshold = flag.Int("sobel", 10, "Sobel filter threshold")
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
-	percentage     = flag.Bool("perc", false, "Use percentage")
+	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	debug          = flag.Bool("debug", false, "Use debugger")
 )
 
@@ -52,7 +52,7 @@ func main() {
 		switch mode := fs.Mode(); {
 		case mode.IsDir():
 			// Supported image files.
-			extensions := []string{".jpg", ".png"}
+			extensions := []string{".jpg", ".png", ".jpeg"}
 
 			// Read source directory.
 			files, err := ioutil.ReadDir(*source)
@@ -70,7 +70,7 @@ func main() {
 				log.Fatal("Please specify a directory as destination!")
 				os.Exit(2)
 			}
-			output, err := filepath.Abs(filepath.Base(*destination))
+			output, err := filepath.Abs(*destination)
 			if err != nil {
 				log.Fatalf("Unable to get absolute path: %v", err)
 			}
@@ -91,7 +91,7 @@ func main() {
 				// Get the file base name.
 				name := strings.TrimSuffix(img, filepath.Ext(img))
 				dir := strings.TrimRight(*source, "/")
-				out := output + "/" + name + ".png"
+				out := output + "/" + name + ".jpg"
 				in := dir + "/" + img
 
 				toProcess[in] = out
