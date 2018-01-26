@@ -40,18 +40,26 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	newWidth := width - (width - (width - p.NewWidth))
 	newHeight := height - (height - (height - p.NewHeight))
+
 	if p.NewWidth == 0 {
 		newWidth = p.NewWidth
 	}
 	if p.NewHeight == 0 {
 		newHeight = p.NewHeight
 	}
-	resize := func() {
+	reduce := func() {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(img, p)
 		seams := c.FindLowestEnergySeams()
 		img = c.RemoveSeam(img, seams, p.Debug)
+	}
+	enlarge := func() {
+		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
+		c = NewCarver(width, height)
+		c.ComputeSeams(img, p)
+		seams := c.FindLowestEnergySeams()
+		img = c.AddSeam(img, seams, p.Debug)
 	}
 
 	if p.Percentage {
@@ -64,23 +72,20 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		// Resize image horizontally
 		for x := 0; x < pw; x++ {
-			resize()
+			reduce()
 		}
 		// Resize image vertically
 		img = c.RotateImage90(img)
 		for y := 0; y < ph; y++ {
-			resize()
+			reduce()
 		}
 		img = c.RotateImage270(img)
 	} else if newWidth > 0 || newHeight > 0 {
 		if newWidth > 0 {
-			if newWidth > c.Width {
-				err := errors.New("the generated image width should be less than original image width.")
-				return nil, err
-			}
-			for x := 0; x < newWidth; x++ {
-				resize()
-			}
+
+				for x := 0; x < 80; x++ {
+					enlarge()
+				}
 		}
 
 		if newHeight > 0 {
@@ -90,7 +95,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			img = c.RotateImage90(img)
 			for y := 0; y < newHeight; y++ {
-				resize()
+				reduce()
 			}
 			img = c.RotateImage270(img)
 		}

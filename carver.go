@@ -3,14 +3,28 @@ package caire
 import (
 	"image"
 	"image/color"
+	"image/draw"
 	_ "image/png"
 	"math"
 )
+
+var usedSeams []UsedSeams
 
 type Carver struct {
 	Width  int
 	Height int
 	Points []float64
+}
+
+// Struct containing the generated seams.
+type UsedSeams struct {
+	ActiveSeam []ActiveSeam
+}
+
+// Struct containing the current seam color and position.
+type ActiveSeam struct {
+	Seam
+	Pix color.Color
 }
 
 // Seam struct containing the pixel coordinate values.
@@ -51,18 +65,27 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	var src *image.NRGBA
 	bounds := img.Bounds()
 	iw, ih := bounds.Dx(), bounds.Dy()
-	sobel := SobelFilter(Grayscale(img), float64(p.SobelThreshold))
 
+	newImg := image.NewNRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
+
+	// Replace the energy map seam values with the pixel values already stored on a slice each time we add a new seam.
+	for _, seam := range usedSeams {
+		for _, as := range seam.ActiveSeam {
+			newImg.Set(as.X, as.Y, as.Pix)
+		}
+	}
+
+	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
 	if p.BlurRadius > 0 {
 		src = Stackblur(sobel, uint32(iw), uint32(ih), uint32(p.BlurRadius))
 	} else {
 		src = sobel
 	}
-
 	for x := 0; x < c.Width; x++ {
 		for y := 0; y < c.Height; y++ {
-			r, _, _, _ := src.At(x, y).RGBA()
-			c.set(x, y, float64(r))
+			r, _, _, a := src.At(x, y).RGBA()
+			c.set(x, y, float64(r)/ float64(a))
 		}
 	}
 
@@ -77,7 +100,6 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 			middle = c.get(x, y-1)
 			right = c.get(x+1, y-1)
 			min := math.Min(math.Min(left, middle), right)
-
 			// Set the minimum energy level.
 			c.set(x, y, c.get(x, y)+min)
 		}
@@ -87,7 +109,6 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		right := c.get(0, y) + math.Min(c.get(c.Width-1, y-1), c.get(c.Width-2, y-1))
 		c.set(c.Width-1, y, right)
 	}
-
 	return c.Points
 }
 
@@ -106,6 +127,7 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 			px = x
 		}
 	}
+
 	seams = append(seams, Seam{X: px, Y: c.Height - 1})
 	var left, middle, right float64
 
@@ -166,6 +188,43 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 			}
 		}
 	}
+	return dst
+}
+
+// Add new seam.
+func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
+	var currentSeam []ActiveSeam
+	bounds := img.Bounds()
+	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()+1, bounds.Dy()))
+
+	for _, seam := range seams {
+		y := seam.Y
+		for x := 0; x < bounds.Max.X; x++ {
+			if seam.X == x {
+				if debug == true {
+					dst.Set(x, y, color.RGBA{255, 0, 0, 255})
+					continue
+				}
+				// Calculate the current seam pixel color by averaging the neighboring pixels color.
+				lr, lg, lb, _ := img.At(x-1, y).RGBA()
+				rr, rg, rb, _ := img.At(x+1, y).RGBA()
+				alr, alg, alb := (lr + rr) / 2, (lg + rg) / 2, (lb + rb) / 2
+				dst.Set(x, y, color.RGBA{uint8(alr>>8),uint8(alg>>8),uint8(alb>>8),255})
+
+				// Append the current seam position and color to the existing seams.
+				// To avoid picking the same optimal seam over and over again,
+				// each time we detect an optimal seam we assign a large positive value
+				// to the corresponding pixels in the energy map.
+				currentSeam = append(currentSeam, ActiveSeam{Seam{x+1, y}, color.RGBA{R:255, G:255, B:255, A:255}})
+			} else if seam.X < x {
+				dst.Set(x, y, img.At(x-1, y))
+				dst.Set(x+1, y, img.At(x, y))
+			} else {
+				dst.Set(x, y, img.At(x, y))
+			}
+		}
+	}
+	usedSeams = append(usedSeams, UsedSeams{currentSeam})
 	return dst
 }
 
