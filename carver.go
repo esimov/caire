@@ -85,7 +85,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	for x := 0; x < c.Width; x++ {
 		for y := 0; y < c.Height; y++ {
 			r, _, _, a := src.At(x, y).RGBA()
-			c.set(x, y, float64(r)/ float64(a))
+			c.set(x, y, float64(r)/float64(a))
 		}
 	}
 
@@ -208,14 +208,14 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				// Calculate the current seam pixel color by averaging the neighboring pixels color.
 				lr, lg, lb, _ := img.At(x-1, y).RGBA()
 				rr, rg, rb, _ := img.At(x+1, y).RGBA()
-				alr, alg, alb := (lr + rr) / 2, (lg + rg) / 2, (lb + rb) / 2
-				dst.Set(x, y, color.RGBA{uint8(alr>>8),uint8(alg>>8),uint8(alb>>8),255})
+				alr, alg, alb := (lr+rr)/2, (lg+rg)/2, (lb+rb)/2
+				dst.Set(x, y, color.RGBA{uint8(alr >> 8), uint8(alg >> 8), uint8(alb >> 8), 255})
 
 				// Append the current seam position and color to the existing seams.
 				// To avoid picking the same optimal seam over and over again,
 				// each time we detect an optimal seam we assign a large positive value
 				// to the corresponding pixels in the energy map.
-				currentSeam = append(currentSeam, ActiveSeam{Seam{x+1, y}, color.RGBA{R:255, G:255, B:255, A:255}})
+				currentSeam = append(currentSeam, ActiveSeam{Seam{x + 1, y}, color.RGBA{R: 255, G: 255, B: 255, A: 255}})
 			} else if seam.X < x {
 				dst.Set(x, y, img.At(x-1, y))
 				dst.Set(x+1, y, img.At(x, y))

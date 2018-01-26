@@ -83,9 +83,9 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	} else if newWidth > 0 || newHeight > 0 {
 		if newWidth > 0 {
 
-				for x := 0; x < 80; x++ {
-					enlarge()
-				}
+			for x := 0; x < 80; x++ {
+				enlarge()
+			}
 		}
 
 		if newHeight > 0 {
