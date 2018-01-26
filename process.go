@@ -36,10 +36,19 @@ func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 // and encodes the new, rescaled image into the output file.
 func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	var c *Carver = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
+	var newWidth, newHeight int
 
-	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	newWidth := width - (width - (width - p.NewWidth))
-	newHeight := height - (height - (height - p.NewHeight))
+	if p.NewWidth > c.Width {
+		newWidth = p.NewWidth - (p.NewWidth - (p.NewWidth - c.Width))
+	} else {
+		newWidth = c.Width - (c.Width - (c.Width - p.NewWidth))
+	}
+
+	if p.NewHeight > c.Height {
+		newHeight = p.NewHeight - (p.NewHeight - (p.NewHeight - c.Height))
+	} else {
+		newHeight = c.Height - (c.Height - (c.Height - p.NewHeight))
+	}
 
 	if p.NewWidth == 0 {
 		newWidth = p.NewWidth
@@ -70,11 +79,11 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			err := errors.New("the generated image size should be less than original image size.")
 			return nil, err
 		}
-		// Resize image horizontally
+		// Reduce image size horizontally
 		for x := 0; x < pw; x++ {
 			reduce()
 		}
-		// Resize image vertically
+		// Reduce image size vertically
 		img = c.RotateImage90(img)
 		for y := 0; y < ph; y++ {
 			reduce()
@@ -82,20 +91,26 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		img = c.RotateImage270(img)
 	} else if newWidth > 0 || newHeight > 0 {
 		if newWidth > 0 {
-
-			for x := 0; x < 80; x++ {
-				enlarge()
+			if p.NewWidth > c.Width {
+				for x := 0; x < newWidth; x++ {
+					enlarge()
+				}
+			} else {
+				for x := 0; x < newWidth; x++ {
+					reduce()
+				}
 			}
 		}
-
-		if newHeight > 0 {
-			if newHeight > c.Height {
-				err := errors.New("the generated image height should be less than original image height.")
-				return nil, err
-			}
+		if p.NewHeight > 0 {
 			img = c.RotateImage90(img)
-			for y := 0; y < newHeight; y++ {
-				reduce()
+			if newHeight > c.Height {
+				for y := 0; y < newHeight; y++ {
+					enlarge()
+				}
+			} else {
+				for y := 0; y < newHeight; y++ {
+					reduce()
+				}
 			}
 			img = c.RotateImage270(img)
 		}

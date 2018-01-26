@@ -210,7 +210,6 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				rr, rg, rb, _ := img.At(x+1, y).RGBA()
 				alr, alg, alb := (lr+rr)/2, (lg+rg)/2, (lb+rb)/2
 				dst.Set(x, y, color.RGBA{uint8(alr >> 8), uint8(alg >> 8), uint8(alb >> 8), 255})
-
 				// Append the current seam position and color to the existing seams.
 				// To avoid picking the same optimal seam over and over again,
 				// each time we detect an optimal seam we assign a large positive value
