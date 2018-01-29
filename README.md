@@ -64,7 +64,15 @@ The following flags are supported:
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 
-In case you wish to resize all the images from a directory the CLI command supports this.
+In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` flag, which is a boolean flag, which means you only need to specify that you want to deal with percentages instead of concrete values. Here is a sample command using `-perc`:
+
+```bash
+caire -in input/source.jpg -out ./out.jpg -perc true -width 20 -height 20 -debug false
+```
+
+which reduces the image width & height by 20%.
+
+The CLI command can process all the images from a specific directory too.
 
 ```bash
 $ caire -in ./input-directory -out ./output-directory
