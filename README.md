@@ -5,12 +5,12 @@
 ### How does it works
 * An energy map (edge detection) is generated from the provided image.
 * The algorithm tries to find the least important parts of the image taking into account the lowest energy values.
-* Using a dynamic programming approach the algorithm will generate individual seams accrossing the image from top to down, or from left to right (depending on the horizontal or vertical resizing) and will allocate for each seam a custom value, the least important pixels having the lowest cost seam and the most important ones having the highest cost.
+* Using a dynamic programming approach the algorithm will generate individual seams accrossing the image from top to down, or from left to right (depending on the horizontal or vertical resizing) and will allocate for each seam a custom value, the least important pixels having the lowest energy cost and the most important ones having the highest cost.
 * Traverse the image from the second row to the last row and compute the cumulative minimum energy for all possible connected seams for each entry.
-* The minimum energy level is calculated by summing up the current pixel value with the lowest value of the neighboring pixels from the previous row.
+* The minimum energy level is calculated by summing up the current pixel with the lowest value of the neighboring pixels from the previous row.
 * Traverse the image from top to bottom and compute the minimum energy level. For each pixel in a row we compute the energy of the current pixel plus the energy of one of the three possible pixels above it.
 * Find the lowest cost seam from the energy matrix starting from the last row and remove it.
-* Repeat
+* Repeat the process.
 
 #### The process illustrated:
 
@@ -22,7 +22,9 @@
 Key features which differentiates from the other existing open source solutions:
 
 - [x] Customizable command line support
-- [x] Supports for image decrease and increase
+- [x] Support for both shrinking or enlarging the image
+- [x] Resize image both vertically and horizontally
+- [x] Can resize all the images from a directory
 - [x] Does not require any third party library
 - [x] Use of sobel threshold for fine tuning
 - [x] Use of blur filter for increased edge detection
@@ -60,7 +62,13 @@ The following flags are supported:
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 
-## Samples
+In case you wish to resize all the images from a directory the CLI command supports this.
+
+```bash
+$ caire -in ./input-directory -out ./output-directory
+```
+
+## Sample images
 
 #### Shrinked images
 | Original | Shrinked |
@@ -70,7 +78,7 @@ The following flags are supported:
 | ![dubai](https://user-images.githubusercontent.com/883386/35498466-1375b88a-04d7-11e8-8f8e-9d202da6a6b3.jpg) | ![dubai](https://user-images.githubusercontent.com/883386/35498499-3c32fc38-04d7-11e8-9f0d-07f63a8bd420.jpg) |
 | ![boat](https://user-images.githubusercontent.com/883386/35498465-1317a678-04d7-11e8-9185-ec92ea57f7c6.jpg) | ![boat](https://user-images.githubusercontent.com/883386/35498498-3c0f182c-04d7-11e8-9af8-695bc071e0f1.jpg) |
 
-#### Extended images
+#### Enlarged images
 | Original | Extended |
 | --- | --- |
 | ![scotland](https://user-images.githubusercontent.com/883386/35498662-e11853c4-04d7-11e8-98d7-fcdb27207362.jpg) | ![scotland](https://user-images.githubusercontent.com/883386/35498559-87eb6426-04d7-11e8-825c-2dd2abdfc112.jpg) |
