@@ -1,0 +1,23 @@
+language: go
+
+branches:
+  only:
+    - "master"
+
+# In theory, older versions would probably work just fine
+go:
+  - 1.9
+  - 1.8
+
+env:
+  - GOOS=linux
+  - GOOS=darwin
+  - GOOS=windows
+
+script:
+  - go get -u -t ./...
+
+notifications:
+  email:
+    on_success: never
+    on_failure: never
