@@ -21,14 +21,21 @@
 ## Features
 Key features which differentiates from the other existing open source solutions:
 
-- [x] Very customizable
-- [x] Supports for image decrease and increase as well
-- [x] A very customizable command line support
+- [x] Customizable command line support
+- [x] Supports for image decrease and increase
 - [x] Does not require any third party library
 - [x] Use of sobel threshold for fine tuning
+- [x] Use of blur filter for increased edge detection
 
 ### To Do
 - [ ] Face detection
+
+## Install
+
+```bash
+$ go get github.com/esimov/caire/cmd/caire
+$ go install
+```
 
 ## Usage
 
@@ -39,28 +46,41 @@ $ caire -in input.jpg -out output.jpg
 ### Supported commands:
 ```bash 
 $ caire --help
-
-  -in string
-    	Source
-  -out string
-    	Destination  
-  -width int
-    	New width
-  -height int
-    	New height
-  -perc
-    	Reduce image by percentage
-  -blur int
-    	Blur radius (default 1)
-  -debug
-    	Use debugger
-  -sobel int
-    	Sobel filter threshold (default 10)
 ```
+The following flags are supported:
 
+| Flag | Default | Description |
+| --- | --- | --- |
+| `in` | n/a | Input file |
+| `out` | n/a | Output file |
+| `width` | n/a | New width |
+| `height` | n/a | New height |
+| `perc` | n/a | Reduce image by percentage |
+| `blur` | 1 | Blur radius |
+| `sobel` | 10 | Sobel filter threshold |
+| `debug` | false | Use debugger |
+
+## Samples
+
+#### Shrinked images
+| Original | Shrinked |
+| --- | --- |
+| ![broadway_tower_edit](https://user-images.githubusercontent.com/883386/35498083-83d6015e-04d5-11e8-936a-883e17b76f9d.jpg) | ![broadway_tower_edit](https://user-images.githubusercontent.com/883386/35498110-a4a03328-04d5-11e8-9bf1-f526ef033d6a.jpg) |
+| ![waterfall](https://user-images.githubusercontent.com/883386/35498250-2f31e202-04d6-11e8-8840-a78f40fc1a0c.png) | ![waterfall](https://user-images.githubusercontent.com/883386/35498209-0411b16a-04d6-11e8-9ce2-ec4bce34828a.jpg) |
+| ![dubai](https://user-images.githubusercontent.com/883386/35498466-1375b88a-04d7-11e8-8f8e-9d202da6a6b3.jpg) | ![dubai](https://user-images.githubusercontent.com/883386/35498499-3c32fc38-04d7-11e8-9f0d-07f63a8bd420.jpg) |
+| ![boat](https://user-images.githubusercontent.com/883386/35498465-1317a678-04d7-11e8-9185-ec92ea57f7c6.jpg) | ![boat](https://user-images.githubusercontent.com/883386/35498498-3c0f182c-04d7-11e8-9af8-695bc071e0f1.jpg) |
+
+#### Extended images
+| Original | Extended |
+| --- | --- |
+| ![scotland](https://user-images.githubusercontent.com/883386/35498662-e11853c4-04d7-11e8-98d7-fcdb27207362.jpg) | ![scotland](https://user-images.githubusercontent.com/883386/35498559-87eb6426-04d7-11e8-825c-2dd2abdfc112.jpg) |
+| ![dubai](https://user-images.githubusercontent.com/883386/35498466-1375b88a-04d7-11e8-8f8e-9d202da6a6b3.jpg) | ![dubai](https://user-images.githubusercontent.com/883386/35498827-8cee502c-04d8-11e8-8449-05805f196d60.jpg) |
 ### Useful resources
 * https://en.wikipedia.org/wiki/Seam_carving
 * https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf
 * http://pages.cs.wisc.edu/~moayad/cs766/download_files/alnammi_cs_766_final_report.pdf
 * https://stacks.stanford.edu/file/druid:my512gb2187/Zargham_Nassirpour_Content_aware_image_resizing.pdf
 
+
+## License
+This project is under the MIT License. See the LICENSE file for the full license text.
