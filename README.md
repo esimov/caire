@@ -16,8 +16,8 @@
 
 #### The process illustrated:
 
-| Original image | Energy map | Seams applied | Resulted image
-|:--:|:--:|:--:|:--:|
+| Original image | Energy map | Seams applied
+|:--:|:--:|:--:|
 | ![original](https://user-images.githubusercontent.com/883386/35481925-de130752-0435-11e8-9246-3950679b4fd6.jpg) | ![sobel](https://user-images.githubusercontent.com/883386/35481899-5d5096ca-0435-11e8-9f9b-a84fefc06470.jpg) | ![debug](https://user-images.githubusercontent.com/883386/35481949-5c74dcb0-0436-11e8-97db-a6169cb150ca.jpg) | ![out](https://user-images.githubusercontent.com/883386/35564985-88c579d4-05c4-11e8-9068-5141714e6f43.jpg) | 
 
 ## Features
@@ -64,7 +64,7 @@ The following flags are supported:
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 
-In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` flag, which is a boolean flag, which means you only need to specify that you want to deal with percentages instead of concrete values. Here is a sample command using `-perc`:
+In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` boolean flag, which means you need only to specify that you want to deal with percentages instead of concrete values. In this case the values provided for width and height will be expressed as percentage. Here is a sample command using `-perc`:
 
 ```bash
 caire -in input/source.jpg -out ./out.jpg -perc=1 -width 20 -height 20 -debug false
