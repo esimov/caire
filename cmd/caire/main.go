@@ -52,7 +52,7 @@ func main() {
 		switch mode := fs.Mode(); {
 		case mode.IsDir():
 			// Supported image files.
-			extensions := []string{".jpg", ".png", ".jpeg"}
+			extensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
 
 			// Read source directory.
 			files, err := ioutil.ReadDir(*source)

@@ -1,14 +1,17 @@
 package caire
 
 import (
-	"github.com/pkg/errors"
 	"image"
 	"image/color"
+	_ "image/gif"
 	"image/jpeg"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"os"
+
+	"github.com/pkg/errors"
+	_ "golang.org/x/image/bmp"
 )
 
 // SeamCarver is an interface that Carver uses to implement the Resize function.
