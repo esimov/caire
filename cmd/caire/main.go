@@ -108,9 +108,9 @@ func main() {
 			}
 			defer inFile.Close()
 
-			outFile, err := os.Open(out)
+			outFile, err := os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0755)
 			if err != nil {
-				log.Fatalf("Unable to open source file: %v", err)
+				log.Fatalf("Unable to open output file: %v", err)
 			}
 			defer outFile.Close()
 
