@@ -4,7 +4,7 @@
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper. 
 
-### How does it works
+### How does it work
 * An energy map (edge detection) is generated from the provided image.
 * The algorithm tries to find the least important parts of the image taking into account the lowest energy values.
 * Using a dynamic programming approach the algorithm will generate individual seams accrossing the image from top to down, or from left to right (depending on the horizontal or vertical resizing) and will allocate for each seam a custom value, the least important pixels having the lowest energy cost and the most important ones having the highest cost.
@@ -35,6 +35,13 @@ Key features which differentiates from the other existing open source solutions:
 - [ ] Face detection
 
 ## Install
+First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
+
+```bash
+$ export GOPATH="$HOME/go"
+$ export PATH="$PATH:$GOPATH/bin"
+```
+Next download the project and build the binary file.
 
 ```bash
 $ go get github.com/esimov/caire/cmd/caire
