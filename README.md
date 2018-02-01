@@ -1,5 +1,7 @@
 # Caire
 
+[![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
+
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper. 
 
 ### How does it works
@@ -16,7 +18,7 @@
 
 | Original image | Energy map | Seams applied
 |:--:|:--:|:--:|
-| ![original](https://user-images.githubusercontent.com/883386/35481925-de130752-0435-11e8-9246-3950679b4fd6.jpg) | ![sobel](https://user-images.githubusercontent.com/883386/35481899-5d5096ca-0435-11e8-9f9b-a84fefc06470.jpg) | ![out](https://user-images.githubusercontent.com/883386/35481949-5c74dcb0-0436-11e8-97db-a6169cb150ca.jpg) || 
+| ![original](https://user-images.githubusercontent.com/883386/35481925-de130752-0435-11e8-9246-3950679b4fd6.jpg) | ![sobel](https://user-images.githubusercontent.com/883386/35481899-5d5096ca-0435-11e8-9f9b-a84fefc06470.jpg) | ![debug](https://user-images.githubusercontent.com/883386/35481949-5c74dcb0-0436-11e8-97db-a6169cb150ca.jpg) | ![out](https://user-images.githubusercontent.com/883386/35564985-88c579d4-05c4-11e8-9068-5141714e6f43.jpg) | 
 
 ## Features
 Key features which differentiates from the other existing open source solutions:
@@ -57,12 +59,20 @@ The following flags are supported:
 | `out` | n/a | Output file |
 | `width` | n/a | New width |
 | `height` | n/a | New height |
-| `perc` | n/a | Reduce image by percentage |
+| `perc` | false | Reduce image by percentage |
 | `blur` | 1 | Blur radius |
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 
-In case you wish to resize all the images from a directory the CLI command supports this.
+In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` boolean flag, which means you need only to specify that you want to deal with percentages instead of concrete values. In this case the values provided for width and height will be expressed as percentage. Here is a sample command using `-perc`:
+
+```bash
+caire -in input/source.jpg -out ./out.jpg -perc=1 -width 20 -height 20 -debug false
+```
+
+which reduces the image width & height by 20%.
+
+The CLI command can process all the images from a specific directory too.
 
 ```bash
 $ caire -in ./input-directory -out ./output-directory
@@ -81,7 +91,7 @@ $ caire -in ./input-directory -out ./output-directory
 #### Enlarged images
 | Original | Extended |
 | --- | --- |
-| ![scotland](https://user-images.githubusercontent.com/883386/35498662-e11853c4-04d7-11e8-98d7-fcdb27207362.jpg) | ![scotland](https://user-images.githubusercontent.com/883386/35498559-87eb6426-04d7-11e8-825c-2dd2abdfc112.jpg) |
+| ![gasadalur](https://user-images.githubusercontent.com/883386/35498662-e11853c4-04d7-11e8-98d7-fcdb27207362.jpg) | ![gasadalur](https://user-images.githubusercontent.com/883386/35498559-87eb6426-04d7-11e8-825c-2dd2abdfc112.jpg) |
 | ![dubai](https://user-images.githubusercontent.com/883386/35498466-1375b88a-04d7-11e8-8f8e-9d202da6a6b3.jpg) | ![dubai](https://user-images.githubusercontent.com/883386/35498827-8cee502c-04d8-11e8-8449-05805f196d60.jpg) |
 ### Useful resources
 * https://en.wikipedia.org/wiki/Seam_carving

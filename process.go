@@ -1,14 +1,16 @@
 package caire
 
 import (
-	"github.com/pkg/errors"
 	"image"
 	"image/color"
+	_ "image/gif"
 	"image/jpeg"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"os"
+
+	"github.com/pkg/errors"
+	_ "golang.org/x/image/bmp"
 )
 
 // SeamCarver is an interface that Carver uses to implement the Resize function.
@@ -119,27 +121,22 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 }
 
 // Process image.
-func (p *Processor) Process(file io.Reader, output string) (*os.File, error) {
-	src, _, err := image.Decode(file)
+func (p *Processor) Process(r io.Reader, w io.Writer) error {
+	src, _, err := image.Decode(r)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	img := imgToNRGBA(src)
 	res, err := Resize(p, img)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	fq, err := os.Create(output)
-	if err != nil {
-		return nil, err
+	if err = jpeg.Encode(w, res, &jpeg.Options{100}); err != nil {
+		return err
 	}
-	defer fq.Close()
 
-	if err = jpeg.Encode(fq, res, &jpeg.Options{100}); err != nil {
-		return nil, err
-	}
-	return fq, nil
+	return nil
 }
 
 // Converts any image type to *image.NRGBA with min-point at (0, 0).

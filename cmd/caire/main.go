@@ -52,7 +52,7 @@ func main() {
 		switch mode := fs.Mode(); {
 		case mode.IsDir():
 			// Supported image files.
-			extensions := []string{".jpg", ".png", ".jpeg"}
+			extensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
 
 			// Read source directory.
 			files, err := ioutil.ReadDir(*source)
@@ -102,24 +102,30 @@ func main() {
 		}
 
 		for in, out := range toProcess {
-			file, err := os.Open(in)
+			inFile, err := os.Open(in)
 			if err != nil {
 				log.Fatalf("Unable to open source file: %v", err)
 			}
-			defer file.Close()
+			defer inFile.Close()
+
+			outFile, err := os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0755)
+			if err != nil {
+				log.Fatalf("Unable to open output file: %v", err)
+			}
+			defer outFile.Close()
 
 			s := new(spinner)
 			s.start("Processing...")
 
 			start := time.Now()
-			_, err = p.Process(file, out)
+			err = p.Process(inFile, outFile)
 			s.stop()
 
 			if err == nil {
 				fmt.Printf("\nRescaled in: \x1b[92m%.2fs\n", time.Since(start).Seconds())
 				fmt.Printf("\x1b[39mSaved as: \x1b[92m%s \n\n", path.Base(out))
 			} else {
-				fmt.Printf("\nError rescaling image: %s. Reason: %s\n", file.Name(), err.Error())
+				fmt.Printf("\nError rescaling image: %s. Reason: %s\n", inFile.Name(), err.Error())
 			}
 		}
 	} else {
