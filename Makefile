@@ -3,6 +3,6 @@ clean:
 	rm -f caire
 install:
     cd ./caire-${version}/cmd/caire/ && go install
-	cp caire /usr/local/bin
+    cp $GOPATH/bin/caire /usr/local/bin
 uninstall:
 	rm -f /usr/local/bin/caire
