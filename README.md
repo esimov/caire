@@ -74,7 +74,7 @@ The following flags are supported:
 In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` boolean flag, which means you need only to specify that you want to deal with percentages instead of concrete values. In this case the values provided for width and height will be expressed as percentage. Here is a sample command using `-perc`:
 
 ```bash
-caire -in input/source.jpg -out ./out.jpg -perc=1 -width 20 -height 20 -debug false
+caire -in input/source.jpg -out ./out.jpg -perc=1 -width 20 -height 20 -debug=false
 ```
 
 which reduces the image width & height by 20%.
@@ -87,8 +87,8 @@ $ caire -in ./input-directory -out ./output-directory
 
 ## Sample images
 
-#### Shrinked images
-| Original | Shrinked |
+#### Shrunk images
+| Original | Shrunk |
 | --- | --- |
 | ![broadway_tower_edit](https://user-images.githubusercontent.com/883386/35498083-83d6015e-04d5-11e8-936a-883e17b76f9d.jpg) | ![broadway_tower_edit](https://user-images.githubusercontent.com/883386/35498110-a4a03328-04d5-11e8-9bf1-f526ef033d6a.jpg) |
 | ![waterfall](https://user-images.githubusercontent.com/883386/35498250-2f31e202-04d6-11e8-8840-a78f40fc1a0c.png) | ![waterfall](https://user-images.githubusercontent.com/883386/35498209-0411b16a-04d6-11e8-9ce2-ec4bce34828a.jpg) |
