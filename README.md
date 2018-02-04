@@ -71,13 +71,13 @@ The following flags are supported:
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 
-In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` boolean flag, which means you need only to specify that you want to deal with percentages instead of concrete values. In this case the values provided for width and height will be expressed as percentage. Here is a sample command using `-perc`:
+In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` boolean flag, which means the image will be reduced to the width and height expressed as percentage. Here is a sample command using `-perc`:
 
 ```bash
 caire -in input/source.jpg -out ./out.jpg -perc=1 -width 20 -height 20 -debug=false
 ```
 
-which reduces the image width & height by 20%.
+which reduces the image width and height by 20%.
 
 The CLI command can process all the images from a specific directory too.
 
