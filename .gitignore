@@ -1,3 +1,4 @@
 *.jpg
 *.png
 *.jpeg
+/packages
