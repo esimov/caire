@@ -48,6 +48,14 @@ $ go get github.com/esimov/caire/cmd/caire
 $ go install
 ```
 
+## MacOS(Brew) install
+The library now can be installed via Homebrew. The only thing you need is to run the commands below.
+
+```bash
+$ brew tap esimov/caire
+$ brew install caire
+```
+
 ## Usage
 
 ```bash
@@ -74,7 +82,7 @@ The following flags are supported:
 In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` boolean flag, which means the image will be reduced to the width and height expressed as percentage. Here is a sample command using `-perc`:
 
 ```bash
-caire -in input/source.jpg -out ./out.jpg -perc=1 -width 20 -height 20 -debug=false
+caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
 ```
 
 which reduces the image width and height by 20%.
