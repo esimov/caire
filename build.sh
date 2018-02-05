@@ -11,7 +11,7 @@ cd $(dirname "${BASH_SOURCE[0]}")
 OD="$(pwd)"
 WD=$OD
 
-package(){
+package() {
 	echo Packaging $1 Binary
 	bdir=caire-${VERSION}-$2-$3
 	rm -rf packages/$bdir && mkdir -p packages/$bdir
@@ -43,7 +43,7 @@ fi
 
 # temp directory for storing isolated environment.
 TMP="$(mktemp -d -t sdb.XXXX)"
-function rmtemp {
+rmtemp() {
 	rm -rf "$TMP"
 }
 trap rmtemp EXIT
@@ -61,7 +61,6 @@ if [ "$NOCOPY" != "1" ]; then
 	done
 	cd $WD
 fi
-
 
 # build and store objects into original directory.
 go build -ldflags "-X main.version=$VERSION" -o "$OD/caire" cmd/caire/*.go

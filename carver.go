@@ -210,7 +210,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				}
 				// Calculate the current seam pixel color by averaging the neighboring pixels color.
 				if y > 0 {
-					py = y-1
+					py = y - 1
 				} else {
 					py = y
 				}
@@ -222,7 +222,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				}
 
 				if y < bounds.Max.Y-1 {
-					py = y+1
+					py = y + 1
 				} else {
 					py = y
 				}
@@ -242,13 +242,13 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				// We will increase the seams weight by duplicating the pixel value.
 				currentSeam = append(currentSeam,
 					ActiveSeam{Seam{x + 1, y},
-					color.RGBA{
-						R: uint8((alr + alr) >> 8),
-						G: uint8((alg + alg) >> 8),
-						B: uint8((alb + alb) >> 8),
-						A: 255,
-					},
-				})
+						color.RGBA{
+							R: uint8((alr + alr) >> 8),
+							G: uint8((alg + alg) >> 8),
+							B: uint8((alb + alb) >> 8),
+							A: 255,
+						},
+					})
 			} else if seam.X < x {
 				dst.Set(x, y, img.At(x-1, y))
 				dst.Set(x+1, y, img.At(x, y))
