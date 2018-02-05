@@ -78,7 +78,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		pw := c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
 		ph := c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 		if pw > newWidth || ph > newHeight {
-			err := errors.New("the generated image size should be less than original image size.")
+			err := errors.New("The generated image size should be less than original image size.")
 			return nil, err
 		}
 		// Reduce image size horizontally
