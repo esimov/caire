@@ -1,0 +1,11 @@
+[[constraint]]
+  name = "github.com/pkg/errors"
+  version = "0.8.0"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/image"
+
+[prune]
+  go-tests = true
+  unused-packages = true
