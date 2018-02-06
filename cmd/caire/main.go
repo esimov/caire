@@ -106,13 +106,11 @@ func main() {
 			if err != nil {
 				log.Fatalf("Unable to open source file: %v", err)
 			}
-			defer inFile.Close()
 
 			outFile, err := os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0755)
 			if err != nil {
 				log.Fatalf("Unable to open output file: %v", err)
 			}
-			defer outFile.Close()
 
 			s := new(spinner)
 			s.start("Processing...")
@@ -127,6 +125,9 @@ func main() {
 			} else {
 				fmt.Printf("\nError rescaling image: %s. Reason: %s\n", inFile.Name(), err.Error())
 			}
+
+			inFile.Close()
+			outFile.Close()
 		}
 	} else {
 		log.Fatal("\x1b[31mPlease provide a width, height or percentage for image rescaling!\x1b[39m")
