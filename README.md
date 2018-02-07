@@ -1,5 +1,6 @@
 # Caire
 
+[![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat)](./LICENSE)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.0.1-orange.svg)]()
 
