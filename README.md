@@ -45,7 +45,7 @@ $ export PATH="$PATH:$GOPATH/bin"
 Next download the project and build the binary file.
 
 ```bash
-$ go get github.com/esimov/caire/cmd/caire
+$ go get -u -f github.com/esimov/caire/cmd/caire
 $ go install
 ```
 

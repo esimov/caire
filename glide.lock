@@ -1,0 +1,10 @@
+hash: 94d0d395667084844f9b40c9c7a2a0858f54e0c97772f35ebfca44817f93e0a9
+updated: 2018-02-07T09:32:33.534152936+02:00
+imports:
+- name: github.com/pkg/errors
+  version: 30136e27e2ac8d167177e8a583aa4c3fea5be833
+- name: golang.org/x/image
+  version: 12117c17ca67ffa1ce22e9409f3b0b0a93ac08c7
+  subpackages:
+  - bmp
+testImports: []

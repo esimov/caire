@@ -1,6 +1,0 @@
-[submodule "vendor/github.com/pkg/errors"]
-	path = vendor/github.com/pkg/errors
-	url = https://github.com/pkg/errors
-[submodule "vendor/golang.org/x/image"]
-	path = vendor/golang.org/x/image
-	url = https://go.googlesource.com/image
