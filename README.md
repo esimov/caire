@@ -1,5 +1,8 @@
 # Caire
 
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat)](./LICENSE)
+[![homebrew](https://img.shields.io/badge/homebrew-v1.0.1-orange.svg)]()
+
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper. 
 
 ### How does it work
@@ -46,7 +49,7 @@ $ go get github.com/esimov/caire/cmd/caire
 $ go install
 ```
 
-## MacOS(Brew) install
+## MacOS (Brew) install
 The library now can be installed via Homebrew. The only thing you need is to run the commands below.
 
 ```bash
