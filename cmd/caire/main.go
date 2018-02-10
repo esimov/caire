@@ -76,7 +76,7 @@ func main() {
 			}
 
 			// Range over all the image files and save them into a slice.
-			images := []string{}
+			var images []string
 			for _, f := range files {
 				ext := filepath.Ext(f.Name())
 				for _, iex := range extensions {

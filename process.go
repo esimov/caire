@@ -37,7 +37,7 @@ func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 // This is the main entry point which takes the source image
 // and encodes the new, rescaled image into the output file.
 func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
-	var c *Carver = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
+	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	var newWidth, newHeight int
 
 	if p.NewWidth > c.Width {
@@ -78,8 +78,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		pw := c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
 		ph := c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 		if pw > newWidth || ph > newHeight {
-			err := errors.New("The generated image size should be less than original image size.")
-			return nil, err
+			return nil, errors.New("the generated image size should be less than original image size.")
 		}
 		// Reduce image size horizontally
 		for x := 0; x < pw; x++ {
@@ -132,11 +131,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		return err
 	}
 
-	if err = jpeg.Encode(w, res, &jpeg.Options{100}); err != nil {
-		return err
-	}
-
-	return nil
+	return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 }
 
 // Converts any image type to *image.NRGBA with min-point at (0, 0).

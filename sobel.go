@@ -8,13 +8,13 @@ import (
 type kernel [][]int32
 
 var (
-	kernelX kernel = kernel{
+	kernelX = kernel{
 		{-1, 0, 1},
 		{-2, 0, 2},
 		{-1, 0, 1},
 	}
 
-	kernelY kernel = kernel{
+	kernelY = kernel{
 		{-1, -2, -1},
 		{0, 0, 0},
 		{1, 2, 1},

@@ -77,7 +77,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
 
 	if p.BlurRadius > 0 {
-		src = Stackblur(sobel, uint32(iw), uint32(ih), uint32(p.BlurRadius))
+		src = StackBlur(sobel, uint32(iw), uint32(ih), uint32(p.BlurRadius))
 	} else {
 		src = sobel
 	}
@@ -88,7 +88,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		}
 	}
 
-	left, middle, right := math.MaxFloat64, math.MaxFloat64, math.MaxFloat64
+	var left, middle, right float64
 
 	// Traverse the image from top to bottom and compute the minimum energy level.
 	// For each pixel in a row we compute the energy of the current pixel
@@ -114,7 +114,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 // Find the lowest vertical energy seam.
 func (c *Carver) FindLowestEnergySeams() []Seam {
 	// Find the lowest cost seam from the energy matrix starting from the last row.
-	var min float64 = math.MaxFloat64
+	var min = math.MaxFloat64
 	var px int
 	seams := make([]Seam, 0)
 
@@ -134,21 +134,19 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	// check the immediate three top pixel seam level and
 	// add add the one which has the lowest cumulative energy.
 	for y := c.Height - 2; y >= 0; y-- {
-		left, right = math.MaxFloat64, math.MaxFloat64
-		middle = c.get(px, y)
 		// Leftmost seam, no child to the left
 		if px == 0 {
 			right = c.get(px+1, y)
 			middle = c.get(px, y)
 			if right < middle {
-				px += 1
+				px++
 			}
 			// Rightmost seam, no child to the right
 		} else if px == c.Width-1 {
 			left = c.get(px-1, y)
 			middle = c.get(px, y)
 			if left < middle {
-				px -= 1
+				px--
 			}
 		} else {
 			left = c.get(px-1, y)
@@ -157,9 +155,9 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 			min := math.Min(math.Min(left, middle), right)
 
 			if min == left {
-				px -= 1
+				px--
 			} else if min == right {
-				px += 1
+				px++
 			}
 		}
 		seams = append(seams, Seam{X: px, Y: y})
@@ -210,7 +208,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				}
 				// Calculate the current seam pixel color by averaging the neighboring pixels color.
 				if y > 0 {
-					py = y-1
+					py = y - 1
 				} else {
 					py = y
 				}
@@ -222,7 +220,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				}
 
 				if y < bounds.Max.Y-1 {
-					py = y+1
+					py = y + 1
 				} else {
 					py = y
 				}
@@ -242,13 +240,13 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				// We will increase the seams weight by duplicating the pixel value.
 				currentSeam = append(currentSeam,
 					ActiveSeam{Seam{x + 1, y},
-					color.RGBA{
-						R: uint8((alr + alr) >> 8),
-						G: uint8((alg + alg) >> 8),
-						B: uint8((alb + alb) >> 8),
-						A: 255,
-					},
-				})
+						color.RGBA{
+							R: uint8((alr + alr) >> 8),
+							G: uint8((alg + alg) >> 8),
+							B: uint8((alb + alb) >> 8),
+							A: 255,
+						},
+					})
 			} else if seam.X < x {
 				dst.Set(x, y, img.At(x-1, y))
 				dst.Set(x+1, y, img.At(x, y))
