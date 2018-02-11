@@ -23,6 +23,7 @@ var (
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
+	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
 )
 
@@ -33,7 +34,7 @@ func main() {
 		log.Fatal("Usage: caire -in input.jpg -out out.jpg")
 	}
 
-	if *newWidth > 0 || *newHeight > 0 || *percentage {
+	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
 		fs, err := os.Stat(*source)
 		if err != nil {
 			log.Fatalf("Unable to open source: %v", err)
@@ -47,6 +48,7 @@ func main() {
 			NewWidth:       *newWidth,
 			NewHeight:      *newHeight,
 			Percentage:     *percentage,
+			Square:         *square,
 			Debug:          *debug,
 		}
 		switch mode := fs.Mode(); {
@@ -76,7 +78,7 @@ func main() {
 			}
 
 			// Range over all the image files and save them into a slice.
-			images := []string{}
+			var images []string
 			for _, f := range files {
 				ext := filepath.Ext(f.Name())
 				for _, iex := range extensions {

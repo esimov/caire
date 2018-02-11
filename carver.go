@@ -10,18 +10,19 @@ import (
 
 var usedSeams []UsedSeams
 
+// Carver struct having as parameters the new image width and height and and also the seam points.
 type Carver struct {
 	Width  int
 	Height int
 	Points []float64
 }
 
-// Struct containing the generated seams.
+// UsedSeams contains the already generated seams.
 type UsedSeams struct {
 	ActiveSeam []ActiveSeam
 }
 
-// Struct containing the current seam color and position.
+// ActiveSeam contains the current seam color and position.
 type ActiveSeam struct {
 	Seam
 	Pix color.Color
@@ -54,7 +55,7 @@ func (c *Carver) set(x, y int, px float64) {
 	c.Points[idx] = px
 }
 
-// Compute the minimum energy level based on the following logic:
+// ComputeSeams compute the minimum energy level based on the following logic:
 // 	- traverse the image from the second row to the last row
 // 	  and compute the cumulative minimum energy M for all possible
 //	  connected seams for each entry (i, j).
@@ -111,10 +112,10 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	return c.Points
 }
 
-// Find the lowest vertical energy seam.
+// FindLowestEnergySeams find the lowest vertical energy seam.
 func (c *Carver) FindLowestEnergySeams() []Seam {
 	// Find the lowest cost seam from the energy matrix starting from the last row.
-	var min float64 = math.MaxFloat64
+	var min = math.MaxFloat64
 	var px int
 	seams := make([]Seam, 0)
 
@@ -141,14 +142,14 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 			right = c.get(px+1, y)
 			middle = c.get(px, y)
 			if right < middle {
-				px += 1
+				px++
 			}
 			// Rightmost seam, no child to the right
 		} else if px == c.Width-1 {
 			left = c.get(px-1, y)
 			middle = c.get(px, y)
 			if left < middle {
-				px -= 1
+				px--
 			}
 		} else {
 			left = c.get(px-1, y)
@@ -157,9 +158,9 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 			min := math.Min(math.Min(left, middle), right)
 
 			if min == left {
-				px -= 1
+				px--
 			} else if min == right {
-				px += 1
+				px++
 			}
 		}
 		seams = append(seams, Seam{X: px, Y: y})
@@ -167,7 +168,7 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	return seams
 }
 
-// Remove the least important columns based on the stored energy seams level.
+// RemoveSeam remove the least important columns based on the stored energy seams level.
 func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	bounds := img.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
@@ -190,7 +191,7 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 	return dst
 }
 
-// Add new seam.
+// AddSeam add new seam.
 func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	var currentSeam []ActiveSeam
 	var lr, lg, lb uint32
@@ -210,7 +211,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				}
 				// Calculate the current seam pixel color by averaging the neighboring pixels color.
 				if y > 0 {
-					py = y-1
+					py = y - 1
 				} else {
 					py = y
 				}
@@ -222,7 +223,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				}
 
 				if y < bounds.Max.Y-1 {
-					py = y+1
+					py = y + 1
 				} else {
 					py = y
 				}
@@ -242,13 +243,13 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				// We will increase the seams weight by duplicating the pixel value.
 				currentSeam = append(currentSeam,
 					ActiveSeam{Seam{x + 1, y},
-					color.RGBA{
-						R: uint8((alr + alr) >> 8),
-						G: uint8((alg + alg) >> 8),
-						B: uint8((alb + alb) >> 8),
-						A: 255,
-					},
-				})
+						color.RGBA{
+							R: uint8((alr + alr) >> 8),
+							G: uint8((alg + alg) >> 8),
+							B: uint8((alb + alb) >> 8),
+							A: 255,
+						},
+					})
 			} else if seam.X < x {
 				dst.Set(x, y, img.At(x-1, y))
 				dst.Set(x+1, y, img.At(x, y))
@@ -261,7 +262,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 	return dst
 }
 
-// Rotate image by 90 degree counter clockwise
+// RotateImage90 rotate the image by 90 degree counter clockwise.
 func (c *Carver) RotateImage90(src *image.NRGBA) *image.NRGBA {
 	b := src.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
@@ -278,7 +279,7 @@ func (c *Carver) RotateImage90(src *image.NRGBA) *image.NRGBA {
 	return dst
 }
 
-// Rotate image by 270 degree counter clockwise
+// RotateImage270 rotate the image by 270 degree counter clockwise.
 func (c *Carver) RotateImage270(src *image.NRGBA) *image.NRGBA {
 	b := src.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))

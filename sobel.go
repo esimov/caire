@@ -8,20 +8,20 @@ import (
 type kernel [][]int32
 
 var (
-	kernelX kernel = kernel{
+	kernelX = kernel{
 		{-1, 0, 1},
 		{-2, 0, 2},
 		{-1, 0, 1},
 	}
 
-	kernelY kernel = kernel{
+	kernelY = kernel{
 		{-1, -2, -1},
 		{0, 0, 0},
 		{1, 2, 1},
 	}
 )
 
-// Detect image edges.
+// SobelFilter detects image edges.
 // See https://en.wikipedia.org/wiki/Sobel_operator
 func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 	var sumX, sumY int32
