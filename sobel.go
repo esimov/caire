@@ -21,7 +21,7 @@ var (
 	}
 )
 
-// Detect image edges.
+// SobelFilter detects image edges.
 // See https://en.wikipedia.org/wiki/Sobel_operator
 func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 	var sumX, sumY int32

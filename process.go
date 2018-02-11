@@ -26,19 +26,21 @@ type Processor struct {
 	NewWidth       int
 	NewHeight      int
 	Percentage     bool
+	Square         bool
 	Debug          bool
 }
 
-// Implement the Resize method of the Carver interface.
+// Resize implement the Resize method of the Carver interface.
 func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 	return s.Resize(img)
 }
 
-// This is the main entry point which takes the source image
+// Resize is the main entry point which takes the source image
 // and encodes the new, rescaled image into the output file.
 func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	var newWidth, newHeight int
+	var pw, ph int
 
 	if p.NewWidth > c.Width {
 		newWidth = p.NewWidth - (p.NewWidth - (p.NewWidth - c.Width))
@@ -73,12 +75,18 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		img = c.AddSeam(img, seams, p.Debug)
 	}
 
-	if p.Percentage {
-		// Calculate new sizes based on provided percentage.
-		pw := c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
-		ph := c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
-		if pw > newWidth || ph > newHeight {
-			return nil, errors.New("the generated image size should be less than original image size.")
+	if p.Percentage || p.Square {
+		pw = c.Width - c.Height
+		ph = c.Height - c.Width
+
+		if p.Percentage {
+			// Calculate new sizes based on provided percentage.
+			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
+			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
+
+			if pw > newWidth || ph > newHeight {
+				return nil, errors.New("the generated image size should be less than original image size.")
+			}
 		}
 		// Reduce image size horizontally
 		for x := 0; x < pw; x++ {
