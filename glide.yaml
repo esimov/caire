@@ -1,6 +1,0 @@
-package: github.com/esimov/caire
-import:
-- package: github.com/pkg/errors
-- package: golang.org/x/image
-  subpackages:
-  - bmp
