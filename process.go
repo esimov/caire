@@ -76,6 +76,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	}
 
 	if p.Percentage || p.Square {
+		// When square option is used the image will be resized to a rectangular size, based on the shortest edge.
 		pw = c.Width - c.Height
 		ph = c.Height - c.Width
 
@@ -111,9 +112,9 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				}
 			}
 		}
-		if p.NewHeight > 0 {
+		if newHeight > 0 {
 			img = c.RotateImage90(img)
-			if newHeight > c.Height {
+			if p.NewHeight > c.Height {
 				for y := 0; y < newHeight; y++ {
 					enlarge()
 				}
