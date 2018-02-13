@@ -7,12 +7,12 @@ import (
 	"image"
 )
 
-type blurstack struct {
+type blurStack struct {
 	r, g, b, a uint32
-	next       *blurstack
+	next       *blurStack
 }
 
-var mul_table []uint32 = []uint32{
+var mulTables = []uint32{
 	512, 512, 456, 512, 328, 456, 335, 512, 405, 328, 271, 456, 388, 335, 292, 512,
 	454, 405, 364, 328, 298, 271, 496, 456, 420, 388, 360, 335, 312, 292, 273, 512,
 	482, 454, 428, 405, 383, 364, 345, 328, 312, 298, 284, 271, 259, 496, 475, 456,
@@ -31,7 +31,7 @@ var mul_table []uint32 = []uint32{
 	289, 287, 285, 282, 280, 278, 275, 273, 271, 269, 267, 265, 263, 261, 259,
 }
 
-var shg_table []uint32 = []uint32{
+var shgTables = []uint32{
 	9, 11, 12, 13, 13, 14, 14, 15, 15, 15, 15, 16, 16, 16, 16, 17,
 	17, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18, 19,
 	19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20,
@@ -50,18 +50,18 @@ var shg_table []uint32 = []uint32{
 	24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
 }
 
-func (bs *blurstack) NewBlurStack() *blurstack {
-	return &blurstack{bs.r, bs.g, bs.b, bs.a, bs.next}
+func (bs *blurStack) NewBlurStack() *blurStack {
+	return &blurStack{bs.r, bs.g, bs.b, bs.a, bs.next}
 }
 
-func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
-	var stackEnd, stackIn, stackOut *blurstack
+func StackBlur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
+	var stackEnd, stackIn, stackOut *blurStack
 	var (
 		div, widthMinus1, heightMinus1, radiusPlus1, sumFactor uint32
 		x, y, i, p, yp, yi, yw,
-		r_sum, g_sum, b_sum, a_sum,
-		r_out_sum, g_out_sum, b_out_sum, a_out_sum,
-		r_in_sum, g_in_sum, b_in_sum, a_in_sum,
+		rSum, gSum, bSum, aSum,
+		rOutSum, gOutSum, bOutSum, aOutSum,
+		rInSum, gInSum, bInSum, aInSum,
 		pr, pg, pb, pa uint32
 	)
 
@@ -71,7 +71,7 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 	radiusPlus1 = radius + 1
 	sumFactor = radiusPlus1 * (radiusPlus1 + 1) / 2
 
-	bs := blurstack{}
+	bs := blurStack{}
 	stackStart := bs.NewBlurStack()
 	stack := stackStart
 
@@ -84,26 +84,26 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 	}
 	stack.next = stackStart
 
-	mul_sum := mul_table[radius]
-	shg_sum := shg_table[radius]
+	mulSum := mulTables[radius]
+	shgSum := shgTables[radius]
 
 	for y = 0; y < height; y++ {
-		r_in_sum, g_in_sum, b_in_sum, a_in_sum, r_sum, g_sum, b_sum, a_sum = 0, 0, 0, 0, 0, 0, 0, 0
+		rInSum, gInSum, bInSum, aInSum, rSum, gSum, bSum, aSum = 0, 0, 0, 0, 0, 0, 0, 0
 
 		pr = uint32(img.Pix[yi])
 		pg = uint32(img.Pix[yi+1])
 		pb = uint32(img.Pix[yi+2])
 		pa = uint32(img.Pix[yi+3])
 
-		r_out_sum = radiusPlus1 * pr
-		g_out_sum = radiusPlus1 * pg
-		b_out_sum = radiusPlus1 * pb
-		a_out_sum = radiusPlus1 * pa
+		rOutSum = radiusPlus1 * pr
+		gOutSum = radiusPlus1 * pg
+		bOutSum = radiusPlus1 * pb
+		aOutSum = radiusPlus1 * pa
 
-		r_sum += sumFactor * pr
-		g_sum += sumFactor * pg
-		b_sum += sumFactor * pb
-		a_sum += sumFactor * pa
+		rSum += sumFactor * pr
+		gSum += sumFactor * pg
+		bSum += sumFactor * pb
+		aSum += sumFactor * pa
 
 		stack = stackStart
 
@@ -133,15 +133,15 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 			stack.b = pb
 			stack.a = pa
 
-			r_sum += stack.r * (radiusPlus1 - i)
-			g_sum += stack.g * (radiusPlus1 - i)
-			b_sum += stack.b * (radiusPlus1 - i)
-			a_sum += stack.a * (radiusPlus1 - i)
+			rSum += stack.r * (radiusPlus1 - i)
+			gSum += stack.g * (radiusPlus1 - i)
+			bSum += stack.b * (radiusPlus1 - i)
+			aSum += stack.a * (radiusPlus1 - i)
 
-			r_in_sum += pr
-			g_in_sum += pg
-			b_in_sum += pb
-			a_in_sum += pa
+			rInSum += pr
+			gInSum += pg
+			bInSum += pb
+			aInSum += pa
 
 			stack = stack.next
 		}
@@ -149,29 +149,28 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 		stackOut = stackEnd
 
 		for x = 0; x < width; x++ {
-			pa = (a_sum * mul_sum) >> shg_sum
+			pa = (aSum * mulSum) >> shgSum
 			img.Pix[yi+3] = uint8(pa)
 
 			if pa != 0 {
-				pa = 255 / pa
-				img.Pix[yi] = uint8((r_sum * mul_sum) >> shg_sum)
-				img.Pix[yi+1] = uint8((g_sum * mul_sum) >> shg_sum)
-				img.Pix[yi+2] = uint8((b_sum * mul_sum) >> shg_sum)
+				img.Pix[yi] = uint8((rSum * mulSum) >> shgSum)
+				img.Pix[yi+1] = uint8((gSum * mulSum) >> shgSum)
+				img.Pix[yi+2] = uint8((bSum * mulSum) >> shgSum)
 			} else {
 				img.Pix[yi] = 0
 				img.Pix[yi+1] = 0
 				img.Pix[yi+2] = 0
 			}
 
-			r_sum -= r_out_sum
-			g_sum -= g_out_sum
-			b_sum -= b_out_sum
-			a_sum -= a_out_sum
+			rSum -= rOutSum
+			gSum -= gOutSum
+			bSum -= bOutSum
+			aSum -= aOutSum
 
-			r_out_sum -= stackIn.r
-			g_out_sum -= stackIn.g
-			b_out_sum -= stackIn.b
-			a_out_sum -= stackIn.a
+			rOutSum -= stackIn.r
+			gOutSum -= stackIn.g
+			bOutSum -= stackIn.b
+			aOutSum -= stackIn.a
 
 			p = x + radius + 1
 
@@ -185,15 +184,15 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 			stackIn.b = uint32(img.Pix[p+2])
 			stackIn.a = uint32(img.Pix[p+3])
 
-			r_in_sum += stackIn.r
-			g_in_sum += stackIn.g
-			b_in_sum += stackIn.b
-			a_in_sum += stackIn.a
+			rInSum += stackIn.r
+			gInSum += stackIn.g
+			bInSum += stackIn.b
+			aInSum += stackIn.a
 
-			r_sum += r_in_sum
-			g_sum += g_in_sum
-			b_sum += b_in_sum
-			a_sum += a_in_sum
+			rSum += rInSum
+			gSum += gInSum
+			bSum += bInSum
+			aSum += aInSum
 
 			stackIn = stackIn.next
 
@@ -202,15 +201,15 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 			pb = stackOut.b
 			pa = stackOut.a
 
-			r_out_sum += pr
-			g_out_sum += pg
-			b_out_sum += pb
-			a_out_sum += pa
+			rOutSum += pr
+			gOutSum += pg
+			bOutSum += pb
+			aOutSum += pa
 
-			r_in_sum -= pr
-			g_in_sum -= pg
-			b_in_sum -= pb
-			a_in_sum -= pa
+			rInSum -= pr
+			gInSum -= pg
+			bInSum -= pb
+			aInSum -= pa
 
 			stackOut = stackOut.next
 
@@ -220,7 +219,7 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 	}
 
 	for x = 0; x < width; x++ {
-		r_in_sum, g_in_sum, b_in_sum, a_in_sum, r_sum, g_sum, b_sum, a_sum = 0, 0, 0, 0, 0, 0, 0, 0
+		rInSum, gInSum, bInSum, aInSum, rSum, gSum, bSum, aSum = 0, 0, 0, 0, 0, 0, 0, 0
 
 		yi = x << 2
 		pr = uint32(img.Pix[yi])
@@ -228,15 +227,15 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 		pb = uint32(img.Pix[yi+2])
 		pa = uint32(img.Pix[yi+3])
 
-		r_out_sum = radiusPlus1 * pr
-		g_out_sum = radiusPlus1 * pg
-		b_out_sum = radiusPlus1 * pb
-		a_out_sum = radiusPlus1 * pa
+		rOutSum = radiusPlus1 * pr
+		gOutSum = radiusPlus1 * pg
+		bOutSum = radiusPlus1 * pb
+		aOutSum = radiusPlus1 * pa
 
-		r_sum += sumFactor * pr
-		g_sum += sumFactor * pg
-		b_sum += sumFactor * pb
-		a_sum += sumFactor * pa
+		rSum += sumFactor * pr
+		gSum += sumFactor * pg
+		bSum += sumFactor * pb
+		aSum += sumFactor * pa
 
 		stack = stackStart
 
@@ -262,15 +261,15 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 			stack.b = pb
 			stack.a = pa
 
-			r_sum += stack.r * (radiusPlus1 - i)
-			g_sum += stack.g * (radiusPlus1 - i)
-			b_sum += stack.b * (radiusPlus1 - i)
-			a_sum += stack.a * (radiusPlus1 - i)
+			rSum += stack.r * (radiusPlus1 - i)
+			gSum += stack.g * (radiusPlus1 - i)
+			bSum += stack.b * (radiusPlus1 - i)
+			aSum += stack.a * (radiusPlus1 - i)
 
-			r_in_sum += pr
-			g_in_sum += pg
-			b_in_sum += pb
-			a_in_sum += pa
+			rInSum += pr
+			gInSum += pg
+			bInSum += pb
+			aInSum += pa
 
 			stack = stack.next
 
@@ -285,29 +284,28 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 
 		for y = 0; y < height; y++ {
 			p = yi << 2
-			pa = (a_sum * mul_sum) >> shg_sum
+			pa = (aSum * mulSum) >> shgSum
 			img.Pix[p+3] = uint8(pa)
 
 			if pa > 0 {
-				pa = 255 / pa
-				img.Pix[p] = uint8((r_sum * mul_sum) >> shg_sum)
-				img.Pix[p+1] = uint8((g_sum * mul_sum) >> shg_sum)
-				img.Pix[p+2] = uint8((b_sum * mul_sum) >> shg_sum)
+				img.Pix[p] = uint8((rSum * mulSum) >> shgSum)
+				img.Pix[p+1] = uint8((gSum * mulSum) >> shgSum)
+				img.Pix[p+2] = uint8((bSum * mulSum) >> shgSum)
 			} else {
 				img.Pix[p] = 0
 				img.Pix[p+1] = 0
 				img.Pix[p+2] = 0
 			}
 
-			r_sum -= r_out_sum
-			g_sum -= g_out_sum
-			b_sum -= b_out_sum
-			a_sum -= a_out_sum
+			rSum -= rOutSum
+			gSum -= gOutSum
+			bSum -= bOutSum
+			aSum -= aOutSum
 
-			r_out_sum -= stackIn.r
-			g_out_sum -= stackIn.g
-			b_out_sum -= stackIn.b
-			a_out_sum -= stackIn.a
+			rOutSum -= stackIn.r
+			gOutSum -= stackIn.g
+			bOutSum -= stackIn.b
+			aOutSum -= stackIn.a
 
 			p = y + radiusPlus1
 
@@ -321,15 +319,15 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 			stackIn.b = uint32(img.Pix[p+2])
 			stackIn.a = uint32(img.Pix[p+3])
 
-			r_in_sum += stackIn.r
-			g_in_sum += stackIn.g
-			b_in_sum += stackIn.b
-			a_in_sum += stackIn.a
+			rInSum += stackIn.r
+			gInSum += stackIn.g
+			bInSum += stackIn.b
+			aInSum += stackIn.a
 
-			r_sum += r_in_sum
-			g_sum += g_in_sum
-			b_sum += b_in_sum
-			a_sum += a_in_sum
+			rSum += rInSum
+			gSum += gInSum
+			bSum += bInSum
+			aSum += aInSum
 
 			stackIn = stackIn.next
 
@@ -338,15 +336,15 @@ func Stackblur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 			pb = stackOut.b
 			pa = stackOut.a
 
-			r_out_sum += pr
-			g_out_sum += pg
-			b_out_sum += pb
-			a_out_sum += pa
+			rOutSum += pr
+			gOutSum += pg
+			bOutSum += pb
+			aOutSum += pa
 
-			r_in_sum -= pr
-			g_in_sum -= pg
-			b_in_sum -= pb
-			a_in_sum -= pa
+			rInSum -= pr
+			gInSum -= pg
+			bInSum -= pb
+			aInSum -= pa
 
 			stackOut = stackOut.next
 

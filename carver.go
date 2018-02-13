@@ -78,7 +78,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
 
 	if p.BlurRadius > 0 {
-		src = Stackblur(sobel, uint32(iw), uint32(ih), uint32(p.BlurRadius))
+		src = StackBlur(sobel, uint32(iw), uint32(ih), uint32(p.BlurRadius))
 	} else {
 		src = sobel
 	}
@@ -89,7 +89,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		}
 	}
 
-	left, middle, right := math.MaxFloat64, math.MaxFloat64, math.MaxFloat64
+	var left, middle, right float64
 
 	// Traverse the image from top to bottom and compute the minimum energy level.
 	// For each pixel in a row we compute the energy of the current pixel
@@ -135,25 +135,21 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	// check the immediate three top pixel seam level and
 	// add add the one which has the lowest cumulative energy.
 	for y := c.Height - 2; y >= 0; y-- {
-		left, right = math.MaxFloat64, math.MaxFloat64
 		middle = c.get(px, y)
 		// Leftmost seam, no child to the left
 		if px == 0 {
 			right = c.get(px+1, y)
-			middle = c.get(px, y)
 			if right < middle {
 				px++
 			}
 			// Rightmost seam, no child to the right
 		} else if px == c.Width-1 {
 			left = c.get(px-1, y)
-			middle = c.get(px, y)
 			if left < middle {
 				px--
 			}
 		} else {
 			left = c.get(px-1, y)
-			middle = c.get(px, y)
 			right = c.get(px+1, y)
 			min := math.Min(math.Min(left, middle), right)
 
