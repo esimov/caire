@@ -135,23 +135,21 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	// check the immediate three top pixel seam level and
 	// add add the one which has the lowest cumulative energy.
 	for y := c.Height - 2; y >= 0; y-- {
+		middle = c.get(px, y)
 		// Leftmost seam, no child to the left
 		if px == 0 {
 			right = c.get(px+1, y)
-			middle = c.get(px, y)
 			if right < middle {
 				px++
 			}
 			// Rightmost seam, no child to the right
 		} else if px == c.Width-1 {
 			left = c.get(px-1, y)
-			middle = c.get(px, y)
 			if left < middle {
 				px--
 			}
 		} else {
 			left = c.get(px-1, y)
-			middle = c.get(px, y)
 			right = c.get(px+1, y)
 			min := math.Min(math.Min(left, middle), right)
 
