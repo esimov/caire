@@ -91,7 +91,7 @@ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=fa
 
 which reduces the image width and height by 20%.
 
-Also the library supports the `-square` option. When this option is used the image will be resized to a rectangular size, based on the shortest edge.
+Also the library supports the `-square` option. When this option is used the image will be resized to a squre, based on the shortest edge.
 
 The CLI command can process all the images from a specific directory too.
 
