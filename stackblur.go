@@ -7,12 +7,13 @@ import (
 	"image"
 )
 
+// blurStack is a linked list containing the color value and a pointer to the next struct.
 type blurStack struct {
 	r, g, b, a uint32
 	next       *blurStack
 }
 
-var mulTables = []uint32{
+var mulTable = []uint32{
 	512, 512, 456, 512, 328, 456, 335, 512, 405, 328, 271, 456, 388, 335, 292, 512,
 	454, 405, 364, 328, 298, 271, 496, 456, 420, 388, 360, 335, 312, 292, 273, 512,
 	482, 454, 428, 405, 383, 364, 345, 328, 312, 298, 284, 271, 259, 496, 475, 456,
@@ -31,7 +32,7 @@ var mulTables = []uint32{
 	289, 287, 285, 282, 280, 278, 275, 273, 271, 269, 267, 265, 263, 261, 259,
 }
 
-var shgTables = []uint32{
+var shgTable = []uint32{
 	9, 11, 12, 13, 13, 14, 14, 15, 15, 15, 15, 16, 16, 16, 16, 17,
 	17, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18, 19,
 	19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20,
@@ -50,12 +51,16 @@ var shgTables = []uint32{
 	24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
 }
 
+// NewBlurStack is a constructor function returning a new struct of type blurStack.
 func (bs *blurStack) NewBlurStack() *blurStack {
 	return &blurStack{bs.r, bs.g, bs.b, bs.a, bs.next}
 }
 
-func StackBlur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
+// StackBlur is the main function which takes an image as parameter
+// and returns it's blurred version by applying the blur radius.
+func StackBlur(img *image.NRGBA, radius uint32) *image.NRGBA {
 	var stackEnd, stackIn, stackOut *blurStack
+	var width, height = uint32(img.Bounds().Dx()), uint32(img.Bounds().Dy())
 	var (
 		div, widthMinus1, heightMinus1, radiusPlus1, sumFactor uint32
 		x, y, i, p, yp, yi, yw,
@@ -84,8 +89,8 @@ func StackBlur(img *image.NRGBA, width, height, radius uint32) *image.NRGBA {
 	}
 	stack.next = stackStart
 
-	mulSum := mulTables[radius]
-	shgSum := shgTables[radius]
+	mulSum := mulTable[radius]
+	shgSum := shgTable[radius]
 
 	for y = 0; y < height; y++ {
 		rInSum, gInSum, bInSum, aInSum, rSum, gSum, bSum, aSum = 0, 0, 0, 0, 0, 0, 0, 0

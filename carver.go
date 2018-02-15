@@ -10,7 +10,7 @@ import (
 
 var usedSeams []UsedSeams
 
-// Carver struct having as parameters the new image width and height and and also the seam points.
+// Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
 	Width  int
 	Height int
@@ -22,7 +22,7 @@ type UsedSeams struct {
 	ActiveSeam []ActiveSeam
 }
 
-// ActiveSeam contains the current seam color and position.
+// ActiveSeam contains the current seam position and color.
 type ActiveSeam struct {
 	Seam
 	Pix color.Color
@@ -64,9 +64,7 @@ func (c *Carver) set(x, y int, px float64) {
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	var src *image.NRGBA
-	bounds := img.Bounds()
-	iw, ih := bounds.Dx(), bounds.Dy()
-	newImg := image.NewNRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+	newImg := image.NewNRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
 	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
 
 	// Replace the energy map seam values with the stored pixel values each time we add a new seam.
@@ -78,7 +76,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
 
 	if p.BlurRadius > 0 {
-		src = StackBlur(sobel, uint32(iw), uint32(ih), uint32(p.BlurRadius))
+		src = StackBlur(sobel, uint32(p.BlurRadius))
 	} else {
 		src = sobel
 	}
