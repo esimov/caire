@@ -83,13 +83,11 @@ The following flags are supported:
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 
-In case you wish to reduce the image size by a specific percentage, it can be used the `-perc` boolean flag, which means the image will be reduced by the percentage defined in `width` and `height` parameter. Here is a sample command using `-perc`:
+In case you wish to scale down the image by a specific percentage, it can be used the `-perc` boolean flag. For example to reduce the image by 20% both horizontally and vertically you can use the following command:
 
 ```bash
 caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
 ```
-
-which reduces the image width and height by 20%.
 
 Also the library supports the `-square` option. When this option is used the image will be resized to a squre, based on the shortest edge.
 
