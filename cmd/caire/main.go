@@ -25,6 +25,7 @@ var (
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
+	scale          = flag.Bool("scale", false, "Proportional scaling")
 )
 
 func main() {
@@ -50,6 +51,7 @@ func main() {
 			Percentage:     *percentage,
 			Square:         *square,
 			Debug:          *debug,
+			Scale:          *scale,
 		}
 		switch mode := fs.Mode(); {
 		case mode.IsDir():

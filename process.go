@@ -3,12 +3,14 @@ package caire
 import (
 	"image"
 	"image/color"
+	"image/draw"
 	_ "image/gif"
 	"image/jpeg"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 
+	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	_ "golang.org/x/image/bmp"
 )
@@ -28,6 +30,7 @@ type Processor struct {
 	Percentage     bool
 	Square         bool
 	Debug          bool
+	Scale          bool
 }
 
 // Resize implement the Resize method of the Carver interface.
@@ -39,6 +42,7 @@ func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 // and encodes the new, rescaled image into the output file.
 func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
+	var newImg image.Image
 	var newWidth, newHeight int
 	var pw, ph int
 
@@ -76,7 +80,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	}
 
 	if p.Percentage || p.Square {
-		// When square option is used the image will be resized to a rectangular size, based on the shortest edge.
+		// When square option is used the image will be resized to a square based on the shortest edge.
 		pw = c.Width - c.Height
 		ph = c.Height - c.Width
 
@@ -86,7 +90,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
 			if pw > newWidth || ph > newHeight {
-				return nil, errors.New("the generated image size should be less than original image size.")
+				return nil, errors.New("the generated image size should be less than original image size")
 			}
 		}
 		// Reduce image size horizontally
@@ -100,6 +104,35 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		img = c.RotateImage270(img)
 	} else if newWidth > 0 || newHeight > 0 {
+		// PropScale will the scale the image proportionally.
+		// First the image is scaled down preserving the image aspect ratio,
+		// then the seam carving algorithm is applied only to remaining points.
+		// Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500,
+		// the tool first rescale the image to 1024x768, then it will remove the remaining 268px.
+		if p.Scale {
+			// Preserve the aspect ratio on horizontal or vertical axes.
+			if p.NewWidth > p.NewHeight {
+				newWidth = 0
+				newImg = resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3)
+				if p.NewHeight < newImg.Bounds().Dy() {
+					newHeight = newImg.Bounds().Dy() - p.NewHeight
+				} else {
+					return nil, errors.New("cannot rescale to this size preserving the image aspect ratio")
+				}
+			} else {
+				newHeight = 0
+				newImg = resize.Resize(0, uint(p.NewHeight), img, resize.Lanczos3)
+				if p.NewWidth < newImg.Bounds().Dx() {
+					newWidth = newImg.Bounds().Dx() - p.NewWidth
+				} else {
+					return nil, errors.New("cannot rescale to this size preserving the image aspect ratio")
+				}
+			}
+			dst := image.NewNRGBA(image.Rect(0, 0, newImg.Bounds().Max.X, newImg.Bounds().Max.Y))
+			draw.Draw(dst, image.Rect(0, 0, newImg.Bounds().Dx(), newImg.Bounds().Dy()), newImg, image.ZP, draw.Src)
+			img = dst
+		}
+
 		if newWidth > 0 {
 			if p.NewWidth > c.Width {
 				for x := 0; x < newWidth; x++ {
