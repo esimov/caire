@@ -33,6 +33,8 @@ Key features which differentiates from the other existing open source solutions:
 - [x] Does not require any third party library
 - [x] Use of sobel threshold for fine tuning
 - [x] Use of blur filter for increased edge detection
+- [x] Make the image square with a single command
+- [x] Support for proportional scaling
 
 ### To Do
 - [ ] Face detection
@@ -79,6 +81,7 @@ The following flags are supported:
 | `height` | n/a | New height |
 | `perc` | false | Reduce image by percentage |
 | `square` | false | Reduce image to square dimensions |
+| `scale` | false | Proportional scaling |
 | `blur` | 1 | Blur radius |
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
@@ -90,6 +93,8 @@ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=fa
 ```
 
 Also the library supports the `-square` option. When this option is used the image will be resized to a squre, based on the shortest edge.
+
+Using the `-scale` option this will scale the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768, then will remove only the remaining 268px.
 
 The CLI command can process all the images from a specific directory too.
 
