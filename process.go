@@ -104,7 +104,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		img = c.RotateImage270(img)
 	} else if newWidth > 0 || newHeight > 0 {
-		// PropScale will the scale the image proportionally.
+		// p.Scale will the scale the image proportionally.
 		// First the image is scaled down preserving the image aspect ratio,
 		// then the seam carving algorithm is applied only to remaining points.
 		// Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500,
