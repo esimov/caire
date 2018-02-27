@@ -94,7 +94,7 @@ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=fa
 
 Also the library supports the `-square` option. When this option is used the image will be resized to a squre, based on the shortest edge.
 
-Using the `-scale` option this will scale the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768, then will remove only the remaining 268px.
+Using the `-scale` option this will scale the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768, then will remove only the remaining 268px. **Using this option will drastically reduce the processing time.**
 
 The CLI command can process all the images from a specific directory too.
 
