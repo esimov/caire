@@ -1,4 +1,4 @@
-## Caire
+<img alt="Caire Logo" src="https://user-images.githubusercontent.com/883386/36772360-a0db5430-1c5d-11e8-8f44-08647fbdbb67.png" width="200">
 
 [![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat)](./LICENSE)
