@@ -1,4 +1,4 @@
-<h1 align="center"><img alt="Caire Logo" src="https://user-images.githubusercontent.com/883386/36807188-f18e1a12-1cca-11e8-9617-87e3698f85ad.png" width="320"></h1>
+<h1 align="center"><img alt="Caire Logo" src="https://user-images.githubusercontent.com/883386/36808286-51f95cfc-1ccd-11e8-8c24-20b2bdb1ad9e.png" width="320"></h1>
 
 [![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat)](./LICENSE)
