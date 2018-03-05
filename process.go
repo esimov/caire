@@ -164,8 +164,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 }
 
 // Process is the main function having as parameters an input reader and an output writer.
-// We are using the `io` package, because this way we can provide different types of input and output source,
-// as long as they implement the `io.Reader` and `io.Writer` interface.
+// We are using the io package, because this way we can provide different types of input and output source,
+// as long as they implement the io.Reader and io.Writer interface.
 func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	src, _, err := image.Decode(r)
 	if err != nil {
