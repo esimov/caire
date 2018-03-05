@@ -56,8 +56,8 @@ func (bs *blurStack) NewBlurStack() *blurStack {
 	return &blurStack{bs.r, bs.g, bs.b, bs.a, bs.next}
 }
 
-// StackBlur is the main function which takes an image as parameter
-// and returns it's blurred version by applying the blur radius.
+// StackBlur applies a blur filter to the provided image.
+// The radius defines the bluring average.
 func StackBlur(img *image.NRGBA, radius uint32) *image.NRGBA {
 	var stackEnd, stackIn, stackOut *blurStack
 	var width, height = uint32(img.Bounds().Dx()), uint32(img.Bounds().Dy())

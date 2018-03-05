@@ -15,8 +15,8 @@ import (
 	_ "golang.org/x/image/bmp"
 )
 
-// SeamCarver is an interface that Carver uses to implement the Resize function.
-// It takes an image and the output as parameters and returns the resized image.
+// SeamCarver interface defines the Resize method.
+// This has to be implemented by every struct which declares a Resize method.
 type SeamCarver interface {
 	Resize(*image.NRGBA) (image.Image, error)
 }
@@ -33,13 +33,15 @@ type Processor struct {
 	Scale          bool
 }
 
-// Resize implement the Resize method of the Carver interface.
+// Resize implements the Resize method of the Carver interface.
+// It returns the concrete resize operation method.
 func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 	return s.Resize(img)
 }
 
-// Resize is the main entry point which takes the source image
-// and encodes the new, rescaled image into the output file.
+// Resize method takes the source image and rescales it using the parameters provided.
+// The new image can be rescaled either horizontally or vertically (or both).
+// Depending on the provided parameters the image can be either reduced or enlarged.
 func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	var newImg image.Image
@@ -161,7 +163,9 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	return img, nil
 }
 
-// Process image.
+// Process is the main function having as parameters an input reader and an output writer.
+// We are using the `io` package, because this way we can provide different types of input and output source,
+// as long as they implement the `io.Reader` and `io.Writer` interface.
 func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	src, _, err := image.Decode(r)
 	if err != nil {

@@ -28,7 +28,7 @@ type ActiveSeam struct {
 	Pix color.Color
 }
 
-// Seam struct containing the pixel coordinate values.
+// Seam struct contains the seam pixel coordinates.
 type Seam struct {
 	X int
 	Y int
@@ -162,7 +162,7 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	return seams
 }
 
-// RemoveSeam remove the least important columns based on the stored energy seams level.
+// RemoveSeam remove the least important columns based on the stored energy (seams) level.
 func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	bounds := img.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
