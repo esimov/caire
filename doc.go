@@ -5,26 +5,25 @@ both vertically and horizontally by eliminating the less important parts of the 
 The package provides a command line interface, supporting various flags for different types of rescaling operations.
 To check the supported commands type:
 
-$ caire --help
+	$ caire --help
 
 In case you wish to integrate the API in a self constructed environment here is a simple example:
 
-package main
+	package main
 
-import (
-	"fmt"
-	"github.com/esimov/caire"
-)
+	import (
+		"fmt"
+		"github.com/esimov/caire"
+	)
 
-func main() {
-	p := &caire.Processor{
-		// Initialize struct variables
+	func main() {
+		p := &caire.Processor{
+			// Initialize struct variables
+		}
+
+		if err := p.Process(in, out); err != nil {
+			fmt.Printf("Error rescaling image: %s", err.Error())
+		}
 	}
-
-	if err := p.Process(in, out); err != nil {
-		fmt.Printf("Error rescaling image: %s", err.Error())
-	}
-}
  */
-
 package caire
