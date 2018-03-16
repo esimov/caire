@@ -6,5 +6,3 @@ import:
 - package: golang.org/x/image
   subpackages:
   - bmp
-- package: gocv.io/x/gocv
-  version: ^0.10.0

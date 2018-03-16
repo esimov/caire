@@ -49,7 +49,7 @@ rmtemp() {
 trap rmtemp EXIT
 
 if [ "$NOCOPY" != "1" ]; then
-	# copy all files to an isloated directory.
+	# copy all files to an isolated directory.
 	WD="$TMP/src/github.com/esimov/caire"
 	export GOPATH="$TMP"
 	for file in `find . -type f`; do
