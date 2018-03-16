@@ -1,14 +1,24 @@
 package caire
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"image/jpeg"
 	_ "image/png"
+	"log"
 	"math"
+	"os"
+	"time"
+
+	"gocv.io/x/gocv"
 )
 
 var usedSeams []UsedSeams
+
+// TempImage temporary image file.
+var TempImage = fmt.Sprintf("%d.jpg", time.Now().Unix())
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
@@ -74,6 +84,37 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		}
 	}
 	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
+
+	if p.FaceDetect {
+		if len(p.XMLClassifier) == 0 {
+			log.Fatal("Please provide an xml face classifier!")
+		}
+		tmpImg, err := os.OpenFile(TempImage, os.O_CREATE|os.O_WRONLY, 0755)
+		if err != nil {
+			log.Fatalf("Cannot access temporary image file: %v", err)
+		}
+		if err := jpeg.Encode(tmpImg, img, &jpeg.Options{Quality: 100}); err != nil {
+			log.Fatalf("Cannot encode temporary image file: %v", err)
+		}
+		img := gocv.IMRead(TempImage, gocv.IMReadColor)
+
+		// Load classifier to recognize faces.
+		classifier := gocv.NewCascadeClassifier()
+		defer classifier.Close()
+
+		if !classifier.Load(p.XMLClassifier) {
+			log.Fatalf("Error reading cascade file: %v\n", p.XMLClassifier)
+		}
+
+		// Detect faces.
+		faces := classifier.DetectMultiScaleWithParams(img, 1.25, 4, 0, image.Pt(50, 50), image.Pt(newImg.Bounds().Max.X, newImg.Bounds().Max.Y))
+
+		// Range over all the detected faces and draw a white rectangle mask over each of them.
+		// We need to trick the sobel detector to consider them as important image parts.
+		for _, face := range faces {
+			draw.Draw(sobel, face.Bounds(), &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
+		}
+	}
 
 	if p.BlurRadius > 0 {
 		src = StackBlur(sobel, uint32(p.BlurRadius))

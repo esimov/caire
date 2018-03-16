@@ -26,6 +26,8 @@ var (
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
 	scale          = flag.Bool("scale", false, "Proportional scaling")
+	faceDetect     = flag.Bool("face", false, "Use face detection")
+	xmlClassifier  = flag.String("xml", "", "XML Classifier")
 )
 
 func main() {
@@ -52,6 +54,8 @@ func main() {
 			Square:         *square,
 			Debug:          *debug,
 			Scale:          *scale,
+			FaceDetect:     *faceDetect,
+			XMLClassifier:  *xmlClassifier,
 		}
 		switch mode := fs.Mode(); {
 		case mode.IsDir():
@@ -72,7 +76,6 @@ func main() {
 			// Check if the image destination is a directory or a file.
 			if dst.Mode().IsRegular() {
 				log.Fatal("Please specify a directory as destination!")
-				os.Exit(2)
 			}
 			output, err := filepath.Abs(*destination)
 			if err != nil {
@@ -135,6 +138,11 @@ func main() {
 		}
 	} else {
 		log.Fatal("\x1b[31mPlease provide a width, height or percentage for image rescaling!\x1b[39m")
+	}
+
+	// Remove temporary image file if exists.
+	if _, err := os.Stat(caire.TempImage); err == nil {
+		os.Remove(caire.TempImage)
 	}
 }
 
