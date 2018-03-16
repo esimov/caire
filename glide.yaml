@@ -1,6 +1,10 @@
 package: github.com/esimov/caire
+homepage: https://github.com/esimov/caire
+license: MIT
 import:
 - package: github.com/pkg/errors
 - package: golang.org/x/image
   subpackages:
   - bmp
+- package: gocv.io/x/gocv
+  version: ^0.10.0

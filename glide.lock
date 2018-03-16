@@ -1,12 +1,14 @@
-hash: 94d0d395667084844f9b40c9c7a2a0858f54e0c97772f35ebfca44817f93e0a9
-updated: 2018-02-27T11:33:31.97192851+02:00
+hash: c337bae423ee759b7f28848606c4a514e7bc172627057f60fb6d66f6aa988f89
+updated: 2018-03-16T16:36:09.113251122+02:00
 imports:
 - name: github.com/nfnt/resize
   version: 83c6a9932646f83e3267f353373d47347b6036b2
 - name: github.com/pkg/errors
-  version: 30136e27e2ac8d167177e8a583aa4c3fea5be833
+  version: 816c9085562cd7ee03e7f8188a1cfd942858cded
+- name: gocv.io/x/gocv
+  version: e287c967cda307b2d9e042bfeacac51f854a7020
 - name: golang.org/x/image
-  version: 12117c17ca67ffa1ce22e9409f3b0b0a93ac08c7
+  version: f3a9b89b59def9194717c1d0bd4c0d08fa1afa7b
   subpackages:
   - bmp
 testImports: []
