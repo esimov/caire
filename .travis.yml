@@ -6,8 +6,14 @@ branches:
 
 # In theory, older versions would probably work just fine
 go:
-  - 1.9
   - 1.8
+  - 1.9
+
+matrix:
+  allow_failures:
+    - go: 1.8
+    - go: 1.9
+  fast_finish: true
 
 env:
   - GOOS=linux
