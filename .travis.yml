@@ -14,7 +14,6 @@ go:
 -    - go: 1.8	
 -    - go: 1.9	
 -  fast_finish: true	
--
 
 env:
   - GOOS=linux
