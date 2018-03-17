@@ -46,10 +46,6 @@ In a future release i'm planning to implement my own face detection library to m
 
 **Notice:** gocv should be installed separately, otherwise you will get some OpenCV related errors! This is the reason why it was not included as dependency.
 
-| Original image | With face detection | Without face detection
-|:--:|:--:|:--:|
-| ![Original](https://user-images.githubusercontent.com/883386/37528980-a1d1a798-293e-11e8-82d7-2499f21e65fc.jpg) | ![With Face Detection](https://user-images.githubusercontent.com/883386/37528959-956820b8-293e-11e8-99de-6ff1505e7bd3.jpg) | !![Without Face Detection](https://user-images.githubusercontent.com/883386/37528960-959fcffe-293e-11e8-9036-d0583992dd56.jpg) |
-
 ## Install
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
 
