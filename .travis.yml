@@ -9,11 +9,11 @@ go:
   - 1.8
   - 1.9
 
--matrix:	
--  allow_failures:	
--    - go: 1.8	
--    - go: 1.9	
--  fast_finish: true	
+matrix:
+  allow_failures:
+    - go: 1.8
+    - go: 1.9
+  fast_finish: true
 
 env:
   - GOOS=linux
