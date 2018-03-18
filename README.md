@@ -46,6 +46,14 @@ In a future release i'm planning to implement my own face detection library to m
 
 **Notice:** gocv should be installed separately, otherwise you will get some OpenCV related errors! This is the reason why it was not included as dependency.
 
+Just to illustrate the differences between face detection applied and without face detection, it's clearly visible that without face detection activated the algorithm can crop even the sensitive data.
+
+| Original image | With face detection | Without face detection
+|:--:|:--:|:--:|
+| ![Original](https://user-images.githubusercontent.com/883386/37569642-0c5f49e8-2aee-11e8-8ac1-d096c0387ca0.jpg) | ![With Face Detection](https://user-images.githubusercontent.com/883386/37569645-1a6a3822-2aee-11e8-9f20-460ef0afe88d.png) | ![Without Face Detection](https://user-images.githubusercontent.com/883386/37569646-1a8b7410-2aee-11e8-84ff-3efad2c96da7.png) |
+
+[Sample image orignal source](http://www.lens-rumors.com/wp-content/uploads/2014/12/EF-M-55-200mm-f4.5-6.3-IS-STM-sample.jpg)
+
 ## Install
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
 
