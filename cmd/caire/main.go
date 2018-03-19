@@ -140,10 +140,7 @@ func main() {
 		log.Fatal("\x1b[31mPlease provide a width, height or percentage for image rescaling!\x1b[39m")
 	}
 
-	// Remove temporary image file if exists.
-	if _, err := os.Stat(caire.TempImage); err == nil {
-		os.Remove(caire.TempImage)
-	}
+	caire.RemoveTempImage(caire.TempImage)
 }
 
 type spinner struct {

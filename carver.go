@@ -10,6 +10,8 @@ import (
 	"log"
 	"math"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"gocv.io/x/gocv"
@@ -114,6 +116,16 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		for _, face := range faces {
 			draw.Draw(sobel, face.Bounds(), &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
 		}
+
+		// Capture CTRL-C signal and remove the generated temporary image.
+		c := make(chan os.Signal, 2)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			for range c {
+				RemoveTempImage(TempImage)
+				os.Exit(1)
+			}
+		}()
 	}
 
 	if p.BlurRadius > 0 {
@@ -329,4 +341,12 @@ func (c *Carver) RotateImage270(src *image.NRGBA) *image.NRGBA {
 		}
 	}
 	return dst
+}
+
+// RemoveTempImage removes the temporary image generated during face detection process.
+func RemoveTempImage(tmpImage string) {
+	// Remove temporary image file.
+	if _, err := os.Stat(tmpImage); err == nil {
+		os.Remove(tmpImage)
+	}
 }
