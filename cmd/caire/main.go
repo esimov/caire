@@ -14,6 +14,21 @@ import (
 	"github.com/esimov/caire"
 )
 
+const HelpBanner = `
+   ______      _
+  / ____/___ _(_)_______
+ / /   / __  / / ___/ _ \
+/ /___/ /_/ / / /  /  __/
+\____/\____/_/_/   \___/
+
+Content aware image resize library.
+    Version: %s
+
+`
+
+// Version indicates the current build version.
+var Version string
+
 var (
 	// Flags
 	source         = flag.String("in", "", "Source")
@@ -31,6 +46,10 @@ var (
 )
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, fmt.Sprintf(HelpBanner, Version))
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if len(*source) == 0 || len(*destination) == 0 {

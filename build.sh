@@ -62,4 +62,4 @@ if [ "$NOCOPY" != "1" ]; then
 fi
 
 # build and store objects into original directory.
-go build -ldflags "-X main.version=$VERSION" -o "$OD/caire" cmd/caire/*.go
+go build -ldflags "-X main.Version=$VERSION" -o "$OD/caire" cmd/caire/*.go
