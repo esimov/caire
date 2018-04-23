@@ -52,7 +52,7 @@ Just to illustrate the differences between face detection applied and without fa
 |:--:|:--:|:--:|
 | ![Original](https://user-images.githubusercontent.com/883386/37569642-0c5f49e8-2aee-11e8-8ac1-d096c0387ca0.jpg) | ![With Face Detection](https://user-images.githubusercontent.com/883386/37569645-1a6a3822-2aee-11e8-9f20-460ef0afe88d.png) | ![Without Face Detection](https://user-images.githubusercontent.com/883386/37569646-1a8b7410-2aee-11e8-84ff-3efad2c96da7.png) |
 
-[The sample image source](http://www.lens-rumors.com/wp-content/uploads/2014/12/EF-M-55-200mm-f4.5-6.3-IS-STM-sample.jpg)
+[Sample image source](http://www.lens-rumors.com/wp-content/uploads/2014/12/EF-M-55-200mm-f4.5-6.3-IS-STM-sample.jpg)
 
 ## Install
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
@@ -142,4 +142,7 @@ $ caire -in ./input-directory -out ./output-directory
 
 
 ## License
+
+Copyright © 2018 Endre Simo
+
 This project is under the MIT License. See the LICENSE file for the full license text.
