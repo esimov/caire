@@ -140,6 +140,9 @@ $ caire -in ./input-directory -out ./output-directory
 * http://pages.cs.wisc.edu/~moayad/cs766/download_files/alnammi_cs_766_final_report.pdf
 * https://stacks.stanford.edu/file/druid:my512gb2187/Zargham_Nassirpour_Content_aware_image_resizing.pdf
 
+## Author
+
+Simo Endre [@simo_endre](https://twitter.com/simo_endre)
 
 ## License
 
