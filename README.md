@@ -46,7 +46,7 @@ Just to illustrate the differences between face detection applied and without fa
 
 | Original image | With face detection | Without face detection
 |:--:|:--:|:--:|
-| ![Original](https://user-images.githubusercontent.com/883386/37569642-0c5f49e8-2aee-11e8-8ac1-d096c0387ca0.jpg) | ![With Face Detection](https://user-images.githubusercontent.com/883386/37569645-1a6a3822-2aee-11e8-9f20-460ef0afe88d.png) | ![Without Face Detection](https://user-images.githubusercontent.com/883386/37569646-1a8b7410-2aee-11e8-84ff-3efad2c96da7.png) |
+| ![Original](https://user-images.githubusercontent.com/883386/37569642-0c5f49e8-2aee-11e8-8ac1-d096c0387ca0.jpg) | ![With Face Detection](https://user-images.githubusercontent.com/883386/41292871-6ca43280-6e5c-11e8-9d72-5b9a138228b6.jpg) | ![Without Face Detection](https://user-images.githubusercontent.com/883386/41292872-6cc90e8e-6e5c-11e8-8b41-5b4eb5042381.jpg) |
 
 [Sample image source](http://www.lens-rumors.com/wp-content/uploads/2014/12/EF-M-55-200mm-f4.5-6.3-IS-STM-sample.jpg)
 
