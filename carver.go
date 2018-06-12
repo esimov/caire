@@ -149,15 +149,15 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		for _, face := range faces {
 			if face.Q > 5.0 {
 				rect := image.Rect(
-					face.Col - face.Scale / 2,
-					face.Row - face.Scale / 2,
-					face.Col + face.Scale / 2,
-					face.Row + face.Scale / 2,
+					face.Col-face.Scale/2,
+					face.Row-face.Scale/2,
+					face.Col+face.Scale/2,
+					face.Row+face.Scale/2,
 				)
 				draw.Draw(sobel, rect, &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
 			}
 		}
-		
+
 		// Capture CTRL-C signal and remove the generated temporary image.
 		c := make(chan os.Signal, 2)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
