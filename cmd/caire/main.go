@@ -40,7 +40,7 @@ var (
 	debug          = flag.Bool("debug", false, "Use debugger")
 	scale          = flag.Bool("scale", false, "Proportional scaling")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
-	classifier     = flag.String("class", "", "Image Classifier")
+	cascade        = flag.String("casc", "", "Cascade Classifier")
 )
 
 func main() {
@@ -72,7 +72,7 @@ func main() {
 			Debug:          *debug,
 			Scale:          *scale,
 			FaceDetect:     *faceDetect,
-			Classifier:     *classifier,
+			Classifier:     *cascade,
 		}
 		switch mode := fs.Mode(); {
 		case mode.IsDir():
