@@ -223,7 +223,7 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	seams = append(seams, Seam{X: px, Y: c.Height - 1})
 	var left, middle, right float64
 
-	// Walk up in the matrix table check the immediate three top pixel seam level
+	// Walk up in the matrix table, check the immediate three top pixel seam level
 	// and add the one which has the lowest cumulative energy.
 	for y := c.Height - 2; y >= 0; y-- {
 		middle = c.get(px, y)
