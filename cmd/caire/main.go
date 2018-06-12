@@ -40,7 +40,7 @@ var (
 	debug          = flag.Bool("debug", false, "Use debugger")
 	scale          = flag.Bool("scale", false, "Proportional scaling")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
-	cascade        = flag.String("casc", "", "Cascade Classifier")
+	cascade        = flag.String("cc", "", "Cascade classifier")
 )
 
 func main() {
