@@ -1,8 +1,0 @@
-package: github.com/esimov/caire
-homepage: https://github.com/esimov/caire
-license: MIT
-import:
-- package: github.com/pkg/errors
-- package: golang.org/x/image
-  subpackages:
-  - bmp
