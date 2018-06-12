@@ -32,7 +32,7 @@ type Processor struct {
 	Debug          bool
 	Scale          bool
 	FaceDetect     bool
-	XMLClassifier  string
+	Classifier     string
 }
 
 // Resize implements the Resize method of the Carver interface.

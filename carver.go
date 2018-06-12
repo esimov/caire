@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"image/jpeg"
 	_ "image/png"
+	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"gocv.io/x/gocv"
+	pigo "github.com/esimov/pigo/core"
 )
 
 var usedSeams []UsedSeams
@@ -75,7 +76,7 @@ func (c *Carver) set(x, y int, px float64) {
 //	- the minimum energy level is calculated by summing up the current pixel value
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
-	var src *image.NRGBA
+	var srcImg *image.NRGBA
 	newImg := image.NewNRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
 	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
 
@@ -88,35 +89,75 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
 
 	if p.FaceDetect {
-		if len(p.XMLClassifier) == 0 {
+		if len(p.Classifier) == 0 {
 			log.Fatal("Please provide an xml face classifier!")
 		}
+
+		cascadeFile, err := ioutil.ReadFile(p.Classifier)
+		if err != nil {
+			log.Fatalf("Error reading the cascade file: %v", err)
+		}
+
 		tmpImg, err := os.OpenFile(TempImage, os.O_CREATE|os.O_WRONLY, 0755)
 		if err != nil {
 			log.Fatalf("Cannot access temporary image file: %v", err)
 		}
+
 		if err := jpeg.Encode(tmpImg, img, &jpeg.Options{Quality: 100}); err != nil {
 			log.Fatalf("Cannot encode temporary image file: %v", err)
 		}
-		img := gocv.IMRead(TempImage, gocv.IMReadColor)
 
-		// Load classifier to recognize faces.
-		classifier := gocv.NewCascadeClassifier()
-		defer classifier.Close()
-
-		if !classifier.Load(p.XMLClassifier) {
-			log.Fatalf("Error reading cascade file: %v\n", p.XMLClassifier)
+		src, err := pigo.GetImage(TempImage)
+		if err != nil {
+			log.Fatalf("Cannot open the image file: %v", err)
 		}
 
-		// Detect faces.
-		faces := classifier.DetectMultiScaleWithParams(img, 1.25, 4, 0, image.Pt(50, 50), image.Pt(newImg.Bounds().Max.X, newImg.Bounds().Max.Y))
+		pixels := pigo.RgbToGrayscale(src)
+		cols, rows := src.Bounds().Max.X, src.Bounds().Max.Y
+
+		cParams := pigo.CascadeParams{
+			MinSize:     100,
+			MaxSize:     int(math.Max(float64(cols), float64(rows))),
+			ShiftFactor: 0.1,
+			ScaleFactor: 1.1,
+		}
+
+		imgParams := pigo.ImageParams{
+			Pixels: pixels,
+			Rows:   rows,
+			Cols:   cols,
+			Dim:    cols,
+		}
+
+		pigo := pigo.NewPigo()
+		// Unpack the binary file. This will return the number of cascade trees,
+		// the tree depth, the threshold and the prediction from tree's leaf nodes.
+		classifier, err := pigo.Unpack(cascadeFile)
+		if err != nil {
+			log.Fatalf("Error reading the cascade file: %v\n", err)
+		}
+
+		// Run the classifier over the obtained leaf nodes and return the detection results.
+		// The result contains quadruplets representing the row, column, scale and detection score.
+		faces := classifier.RunCascade(imgParams, cParams)
+
+		// Calculate the intersection over union (IoU) of two clusters.
+		faces = classifier.ClusterDetections(faces, 0.2)
 
 		// Range over all the detected faces and draw a white rectangle mask over each of them.
 		// We need to trick the sobel detector to consider them as important image parts.
 		for _, face := range faces {
-			draw.Draw(sobel, face.Bounds(), &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
+			if face.Q > 5.0 {
+				rect := image.Rect(
+					face.Col - face.Scale / 2,
+					face.Row - face.Scale / 2,
+					face.Col + face.Scale / 2,
+					face.Row + face.Scale / 2,
+				)
+				draw.Draw(sobel, rect, &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
+			}
 		}
-
+		
 		// Capture CTRL-C signal and remove the generated temporary image.
 		c := make(chan os.Signal, 2)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -129,13 +170,13 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 	}
 
 	if p.BlurRadius > 0 {
-		src = StackBlur(sobel, uint32(p.BlurRadius))
+		srcImg = StackBlur(sobel, uint32(p.BlurRadius))
 	} else {
-		src = sobel
+		srcImg = sobel
 	}
 	for x := 0; x < c.Width; x++ {
 		for y := 0; y < c.Height; y++ {
-			r, _, _, a := src.At(x, y).RGBA()
+			r, _, _, a := srcImg.At(x, y).RGBA()
 			c.set(x, y, float64(r)/float64(a))
 		}
 	}
@@ -217,6 +258,7 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 // RemoveSeam remove the least important columns based on the stored energy (seams) level.
 func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	bounds := img.Bounds()
+	// Reduce the image width with one pixel on each iteration.
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
 
 	for _, seam := range seams {

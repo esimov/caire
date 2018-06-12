@@ -15,11 +15,9 @@ import (
 )
 
 const HelpBanner = `
-   ______      _
-  / ____/___ _(_)_______
- / /   / __  / / ___/ _ \
-/ /___/ /_/ / / /  /  __/
-\____/\____/_/_/   \___/
+┌─┐┌─┐┬┬─┐┌─┐
+│  ├─┤│├┬┘├┤
+└─┘┴ ┴┴┴└─└─┘
 
 Content aware image resize library.
     Version: %s
@@ -42,7 +40,7 @@ var (
 	debug          = flag.Bool("debug", false, "Use debugger")
 	scale          = flag.Bool("scale", false, "Proportional scaling")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
-	xmlClassifier  = flag.String("xml", "", "XML Classifier")
+	classifier     = flag.String("class", "", "Image Classifier")
 )
 
 func main() {
@@ -74,7 +72,7 @@ func main() {
 			Debug:          *debug,
 			Scale:          *scale,
 			FaceDetect:     *faceDetect,
-			XMLClassifier:  *xmlClassifier,
+			Classifier:     *classifier,
 		}
 		switch mode := fs.Mode(); {
 		case mode.IsDir():
