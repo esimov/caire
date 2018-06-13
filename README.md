@@ -102,7 +102,7 @@ The following flags are supported:
 In case you wish to scale down the image by a specific percentage, it can be used the `-perc` boolean flag. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
 
 ```bash
-caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
+$ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
 ```
 
 Also the library supports the `-square` option. When this option is used the image will be resized to a squre, based on the shortest edge.
