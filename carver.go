@@ -90,7 +90,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 
 	if p.FaceDetect {
 		if len(p.Classifier) == 0 {
-			log.Fatal("Please provide an xml face classifier!")
+			log.Fatal("Please provide a face classifier file!")
 		}
 
 		cascadeFile, err := ioutil.ReadFile(p.Classifier)
