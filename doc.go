@@ -25,5 +25,5 @@ In case you wish to integrate the API in a self constructed environment here is 
 			fmt.Printf("Error rescaling image: %s", err.Error())
 		}
 	}
- */
+*/
 package caire
