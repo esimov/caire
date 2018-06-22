@@ -78,6 +78,13 @@ $ brew install caire
 $ caire -in input.jpg -out output.jpg
 ```
 
+To detect faces prior rescaling use the `-face` flag and provide the face clasification binary file included in the `data` folder. The sample code below will rescale the provided image with 20% but will check for human faces prior rescaling.
+
+```bash
+$ caire -in input.jpg -out output.jpg -face=1 -cc="data/facefinder" -perc=1 -width=20
+```
+
+
 ### Supported commands:
 ```bash 
 $ caire --help
