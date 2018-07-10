@@ -42,7 +42,7 @@ Key features which differentiates from the other existing open source solutions:
 
 The library is capable detecting human faces prior resizing the images via https://github.com/esimov/pigo, which does not require to have OpenCV installed. 
 
-Just to illustrate the differences between face detection and without face detection applied, it's clearly visible that with face detection activated the algorithm will avoid to crop pixels inside faces.
+The image below illustrates the application capabilities to detect human faces prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside faces, retaining the face zone unaltered.
 
 | Original image | With face detection | Without face detection
 |:--:|:--:|:--:|
