@@ -108,12 +108,15 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		img = c.RotateImage270(img)
 	} else if newWidth > 0 || newHeight > 0 {
-		// p.Scale will the scale the image proportionally.
+		// Use this option to rescale the image proportionally prior resizing.
 		// First the image is scaled down preserving the image aspect ratio,
-		// then the seam carving algorithm is applied only to remaining points.
+		// then the seam carving algorithm is applied only to the remaining pixels.
 		// Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500,
 		// the tool first rescale the image to 1024x768, then it will remove the remaining 268px.
 		if p.Scale {
+			if p.NewWidth > img.Bounds().Max.X || p.NewHeight > img.Bounds().Max.Y {
+				return nil, errors.New("p.Scale option can not be used on image enlargement")
+			}
 			// Preserve the aspect ratio on horizontal or vertical axes.
 			if p.NewWidth > p.NewHeight {
 				newWidth = 0
@@ -133,6 +136,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				}
 			}
 			dst := image.NewNRGBA(image.Rect(0, 0, newImg.Bounds().Max.X, newImg.Bounds().Max.Y))
+
 			draw.Draw(dst, image.Rect(0, 0, newImg.Bounds().Dx(), newImg.Bounds().Dy()), newImg, image.ZP, draw.Src)
 			img = dst
 		}
