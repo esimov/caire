@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 PROTECTED_MODE="no"
 
 export GO15VENDOREXPERIMENT=1
