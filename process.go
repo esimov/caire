@@ -115,7 +115,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// the tool first rescale the image to 1024x768, then it will remove the remaining 268px.
 		if p.Scale {
 			if p.NewWidth > img.Bounds().Max.X || p.NewHeight > img.Bounds().Max.Y {
-				return nil, errors.New("p.Scale option can not be used on image enlargement")
+				return nil, errors.New("scale option can not be used on image enlargement")
 			}
 			// Preserve the aspect ratio on horizontal or vertical axes.
 			if p.NewWidth > p.NewHeight {
