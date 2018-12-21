@@ -122,6 +122,11 @@ The CLI command can process all the images from a specific directory too.
 $ caire -in ./input-directory -out ./output-directory
 ```
 
+### Caire integrations
+- [x] Caire can be used as a servesless function via OpenFaaS: https://github.com/esimov/caire-openfaas
+- [ ] Integrate Caire into snap (https://snapcraft.io/)
+
+
 ## Sample images
 
 #### Shrunk images
