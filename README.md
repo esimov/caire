@@ -80,6 +80,8 @@ $ caire -in input.jpg -out output.jpg
 
 To detect faces prior rescaling use the `-face` flag and provide the face clasification binary file included in the `data` folder. The sample code below will rescale the provided image with 20% but will check for human faces prior rescaling.
 
+For the face detection related arguments check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
+
 ```bash
 $ caire -in input.jpg -out output.jpg -face=1 -cc="data/facefinder" -perc=1 -width=20
 ```
@@ -104,6 +106,7 @@ The following flags are supported:
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 | `face` | false | Use face detection |
+| `angle` | float | Plane rotated faces angle |
 | `cc` | string | Cascade classifier |
 
 In case you wish to scale down the image by a specific percentage, it can be used the `-perc` boolean flag. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
