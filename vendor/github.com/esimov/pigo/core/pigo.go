@@ -18,6 +18,7 @@ type CascadeParams struct {
 	MaxSize     int
 	ShiftFactor float64
 	ScaleFactor float64
+	ImageParams
 }
 
 // ImageParams is a struct for image related settings.
@@ -140,11 +141,64 @@ func (pg *Pigo) classifyRegion(r, c, s int, pixels []uint8, dim int) float32 {
 
 		for j := 0; j < int(pg.treeDepth); j++ {
 			var pix = 0
-			var x1 = ((r+int(pg.treeCodes[root+4*idx+0])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+1])*s) >> 8)
-			var x2 = ((r+int(pg.treeCodes[root+4*idx+2])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+3])*s) >> 8)
+			x1 := ((r+int(pg.treeCodes[root+4*idx+0])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+1])*s) >> 8)
+			x2 := ((r+int(pg.treeCodes[root+4*idx+2])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+3])*s) >> 8)
 
-			var px1 = pixels[x1]
-			var px2 = pixels[x2]
+			px1 := pixels[x1]
+			px2 := pixels[x2]
+
+			if px1 <= px2 {
+				pix = 1
+			} else {
+				pix = 0
+			}
+			idx = 2*idx + pix
+		}
+		out += pg.treePred[pTree*i+idx-pTree]
+
+		if out <= pg.treeThreshold[i] {
+			return -1.0
+		} else {
+			root += 4 * pTree
+		}
+	}
+	return out - pg.treeThreshold[pg.treeNum-1]
+}
+
+// classifyRotatedRegion applies the face classification function over a rotated image based on the parsed binary data.
+func (pg *Pigo) classifyRotatedRegion(r, c, s int, a float64, nrows, ncols int, pixels []uint8, dim int) float32 {
+	var (
+		root  int = 0
+		out   float32
+		pTree = int(math.Pow(2, float64(pg.treeDepth)))
+	)
+
+	r = r * 65536
+	c = c * 65536
+
+	qCosTable := []int{256, 251, 236, 212, 181, 142, 97, 49, 0, -49, -97, -142, -181, -212, -236, -251, -256, -251, -236, -212, -181, -142, -97, -49, 0, 49, 97, 142, 181, 212, 236, 251, 256}
+	qSinTable := []int{0, 49, 97, 142, 181, 212, 236, 251, 256, 251, 236, 212, 181, 142, 97, 49, 0, -49, -97, -142, -181, -212, -236, -251, -256, -251, -236, -212, -181, -142, -97, -49, 0}
+
+	qsin := s * qSinTable[int(32.0*a)] //s*(256.0*math.Sin(2*math.Pi*a))
+	qcos := s * qCosTable[int(32.0*a)] //s*(256.0*math.Cos(2*math.Pi*a))
+
+	if (r+46341*s)/65536 >= nrows || (r-46341*s)/65536 < 0 || (c+46341*s)/65536 >= ncols || (c-46341*s)/65536 < 0 {
+		return -1
+	}
+
+	for i := 0; i < int(pg.treeNum); i++ {
+		var idx = 1
+
+		for j := 0; j < int(pg.treeDepth); j++ {
+			var pix = 0
+			r1 := abs(r+qcos*int(pg.treeCodes[root+4*idx+0])-qsin*int(pg.treeCodes[root+4*idx+1])) >> 16
+			c1 := abs(c+qsin*int(pg.treeCodes[root+4*idx+0])+qcos*int(pg.treeCodes[root+4*idx+1])) >> 16
+
+			r2 := abs(r+qcos*int(pg.treeCodes[root+4*idx+2])-qsin*int(pg.treeCodes[root+4*idx+3])) >> 16
+			c2 := abs(c+qsin*int(pg.treeCodes[root+4*idx+2])+qcos*int(pg.treeCodes[root+4*idx+3])) >> 16
+
+			px1 := pixels[r1*dim+c1]
+			px2 := pixels[r2*dim+c2]
 
 			if px1 <= px2 {
 				pix = 1
@@ -174,28 +228,37 @@ type Detection struct {
 }
 
 // RunCascade analyze the grayscale converted image pixel data and run the classification function over the detection window.
-// It will return a slice containing the detection row, column, it's center and the detection score (in case this is > than 0.0).
-func (pg *Pigo) RunCascade(img ImageParams, opts CascadeParams) []Detection {
+// It will return a slice containing the detection row, column, it's center and the detection score (in case this is greater than 0.0).
+func (pg *Pigo) RunCascade(cp CascadeParams, angle float64) []Detection {
 	var detections []Detection
-	var pixels = img.Pixels
+	var pixels = cp.Pixels
+	var q float32
 
-	scale := opts.MinSize
+	scale := cp.MinSize
 
 	// Run the classification function over the detection window
 	// and check if the false positive rate is above a certain value.
-	for scale <= opts.MaxSize {
-		step := int(math.Max(opts.ShiftFactor*float64(scale), 1))
+	for scale <= cp.MaxSize {
+		step := int(math.Max(cp.ShiftFactor*float64(scale), 1))
 		offset := (scale/2 + 1)
 
-		for row := offset; row <= img.Rows-offset; row += step {
-			for col := offset; col <= img.Cols-offset; col += step {
-				q := pg.classifyRegion(row, col, scale, pixels, img.Dim)
+		for row := offset; row <= cp.Rows-offset; row += step {
+			for col := offset; col <= cp.Cols-offset; col += step {
+				if angle > 0.0 {
+					if angle > 1.0 {
+						angle = 1.0
+					}
+					q = pg.classifyRotatedRegion(row, col, scale, angle, cp.Rows, cp.Cols, pixels, cp.Dim)
+				} else {
+					q = pg.classifyRegion(row, col, scale, pixels, cp.Dim)
+				}
+
 				if q > 0.0 {
 					detections = append(detections, Detection{row, col, scale, q})
 				}
 			}
 		}
-		scale = int(float64(scale) * opts.ScaleFactor)
+		scale = int(float64(scale) * cp.ScaleFactor)
 	}
 	return detections
 }
@@ -260,4 +323,11 @@ func (q det) Less(i, j int) bool {
 		return false
 	}
 	return q[i].Q < q[j].Q
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
