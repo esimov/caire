@@ -40,6 +40,7 @@ var (
 	debug          = flag.Bool("debug", false, "Use debugger")
 	scale          = flag.Bool("scale", false, "Proportional scaling")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
+	faceAngle      = flag.Float64("angle", 0.0, "Plane rotated faces angle")
 	cascade        = flag.String("cc", "", "Cascade classifier")
 )
 
@@ -72,6 +73,7 @@ func main() {
 			Debug:          *debug,
 			Scale:          *scale,
 			FaceDetect:     *faceDetect,
+			FaceAngle:      *faceAngle,
 			Classifier:     *cascade,
 		}
 		switch mode := fs.Mode(); {

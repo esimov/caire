@@ -139,7 +139,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 
 		// Run the classifier over the obtained leaf nodes and return the detection results.
 		// The result contains quadruplets representing the row, column, scale and detection score.
-		faces := classifier.RunCascade(cParams, 0.0)
+		faces := classifier.RunCascade(cParams, p.FaceAngle)
 
 		// Calculate the intersection over union (IoU) of two clusters.
 		faces = classifier.ClusterDetections(faces, 0.2)

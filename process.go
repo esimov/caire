@@ -32,6 +32,7 @@ type Processor struct {
 	Debug          bool
 	Scale          bool
 	FaceDetect     bool
+	FaceAngle      float64
 	Classifier     string
 }
 
