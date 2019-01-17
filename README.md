@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.1.1-blue.svg)]()
+[![release](https://img.shields.io/badge/release-v1.2.0-blue.svg)]()
 [![homebrew](https://img.shields.io/badge/homebrew-v1.1.1-orange.svg)]()
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper. 
