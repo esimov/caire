@@ -153,7 +153,7 @@ $ caire -in ./input-directory -out ./output-directory
 
 ## Author
 
-Simo Endre [@simo_endre](https://twitter.com/simo_endre)
+Endre Simo [@simo_endre](https://twitter.com/simo_endre)
 
 ## License
 
