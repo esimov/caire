@@ -34,7 +34,7 @@ Key features which differentiates from the other existing open source solutions:
 - [x] Does not require any third party library
 - [x] Use of sobel threshold for fine tuning
 - [x] Use of blur filter for increased edge detection
-- [x] Make the image square with a single command
+- [x] Square the image with a single command
 - [x] Support for proportional scaling
 - [x] Face detection to avoid face deformation
 
