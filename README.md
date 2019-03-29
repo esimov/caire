@@ -127,7 +127,7 @@ $ caire -in ./input-directory -out ./output-directory
 
 ### Caire integrations
 - [x] Caire can be used as a servesless function via OpenFaaS: https://github.com/esimov/caire-openfaas
-- [ ] Integrate Caire into snap (https://snapcraft.io/)
+- [x] Caire can also be used as a `snap` function (https://snapcraft.io/caire): `$ snap run caire --h`
 
 
 ## Sample images
