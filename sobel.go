@@ -28,7 +28,7 @@ func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 	dst := image.NewNRGBA(img.Bounds())
 
-	// Get 3x3 window of pixels because image data given is just a 1D array of pixels
+	// Get a 3x3 window of pixels because the image data given is just a 1D array of pixels
 	maxPixelOffset := dx*dy + len(kernelX) - 1
 
 	data := getImageData(img)
@@ -43,7 +43,7 @@ func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 				px := data[i+(dx*y)+x]
 				if len(px) > 0 {
 					r := px[0]
-					// We are using px[0] (i.e. R value) because the image is grayscale anyway
+					// We need only the px[0] (i.e. R) value, since the image is grayscale anyway
 					sumX += int32(r) * kernelX[y][x]
 					sumY += int32(r) * kernelY[y][x]
 				}
@@ -68,7 +68,7 @@ func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 	dataLength := dx * dy * 4
 	edges := make([]int32, dataLength)
 
-	// Apply the kernel values.
+	// Apply the kernel values
 	for i := 0; i < dataLength; i++ {
 		if i%4 != 0 {
 			m := magnitudes[i/4]
