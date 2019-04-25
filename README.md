@@ -102,7 +102,7 @@ The following flags are supported:
 | `height` | n/a | New height |
 | `perc` | false | Reduce image by percentage |
 | `square` | false | Reduce image to square dimensions |
-| `scale` | false | Proportional scaling |
+| `scale` | true | Proportional scaling |
 | `blur` | 1 | Blur radius |
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
