@@ -5,10 +5,14 @@ import (
 	"image/color"
 	"image/draw"
 	"image/jpeg"
+	"image/png"
 	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"golang.org/x/image/bmp"
 )
 
 // SeamCarver interface defines the Resize method.
@@ -183,7 +187,23 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		return err
 	}
 
-	return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
+	switch w.(type) {
+	case *os.File:
+		ext := filepath.Ext(w.(*os.File).Name())
+		switch ext {
+		case ".jpg", ".jpeg":
+			err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
+		case ".png":
+			err = png.Encode(w, res)
+		case ".bmp":
+			err = bmp.Encode(w, res)
+		default:
+			err = errors.New("unsupported image format")
+		}
+	default:
+		err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
+	}
+	return err
 }
 
 // Converts any image type to *image.NRGBA with min-point at (0, 0).
