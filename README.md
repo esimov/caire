@@ -26,7 +26,7 @@
 | ![original](https://user-images.githubusercontent.com/883386/35481925-de130752-0435-11e8-9246-3950679b4fd6.jpg) | ![sobel](https://user-images.githubusercontent.com/883386/35481899-5d5096ca-0435-11e8-9f9b-a84fefc06470.jpg) | ![debug](https://user-images.githubusercontent.com/883386/35481949-5c74dcb0-0436-11e8-97db-a6169cb150ca.jpg) | ![out](https://user-images.githubusercontent.com/883386/35564985-88c579d4-05c4-11e8-9068-5141714e6f43.jpg) | 
 
 ## Features
-Key features which differentiates from the other existing open source solutions:
+Key features which differentiates this library from the other existing open source solutions:
 
 - [x] Customizable command line support
 - [x] Support for both shrinking or enlarging the image
