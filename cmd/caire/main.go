@@ -38,7 +38,7 @@ var (
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
-	scale          = flag.Bool("scale", false, "Proportional scaling")
+	scale          = flag.Bool("scale", true, "Proportional scaling")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Plane rotated faces angle")
 	cascade        = flag.String("cc", "", "Cascade classifier")

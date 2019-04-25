@@ -4,15 +4,11 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	_ "image/gif"
 	"image/jpeg"
-	_ "image/jpeg"
-	_ "image/png"
 	"io"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
-	_ "golang.org/x/image/bmp"
 )
 
 // SeamCarver interface defines the Resize method.
@@ -136,13 +132,14 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 					return nil, errors.New("cannot rescale to this size preserving the image aspect ratio")
 				}
 			}
-			dst := image.NewNRGBA(image.Rect(0, 0, newImg.Bounds().Max.X, newImg.Bounds().Max.Y))
-
-			draw.Draw(dst, image.Rect(0, 0, newImg.Bounds().Dx(), newImg.Bounds().Dy()), newImg, image.ZP, draw.Src)
+			dst := image.NewNRGBA(newImg.Bounds())
+			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
 			img = dst
 		}
 
-		if newWidth > 0 {
+		// Check if the new width does not match with the rescaled image width.
+		// We only need to run the carver function if the desired image width is less than the rescaled image width.
+		if newWidth > 0 && newWidth != img.Bounds().Max.X {
 			if p.NewWidth > c.Width {
 				for x := 0; x < newWidth; x++ {
 					enlarge()
@@ -153,7 +150,9 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				}
 			}
 		}
-		if newHeight > 0 {
+		// Check if the new height does not match with the rescaled image height.
+		// We only need to run the carver function if the desired image height is less than the rescaled image height.
+		if newHeight > 0 && newHeight != img.Bounds().Max.Y {
 			img = c.RotateImage90(img)
 			if p.NewHeight > c.Height {
 				for y := 0; y < newHeight; y++ {
