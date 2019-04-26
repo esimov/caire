@@ -15,6 +15,8 @@ import (
 	"golang.org/x/image/bmp"
 )
 
+const MaxResizeWithoutScaling = 2000
+
 // SeamCarver interface defines the Resize method.
 // This has to be implemented by every struct which declares a Resize method.
 type SeamCarver interface {
@@ -114,6 +116,13 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// then the seam carving algorithm is applied only to the remaining pixels.
 		// Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500,
 		// the tool first rescale the image to 1024x768, then it will remove the remaining 268px.
+
+		// Prevent memory overflow issue in case of huge images by switching to scaling first option
+		if img.Bounds().Dx() > MaxResizeWithoutScaling ||
+			img.Bounds().Dy() > MaxResizeWithoutScaling {
+			p.Scale = true
+		}
+
 		if p.Scale {
 			if p.NewWidth > img.Bounds().Max.X || p.NewHeight > img.Bounds().Max.Y {
 				return nil, errors.New("scale option can not be used on image enlargement")
