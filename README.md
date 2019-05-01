@@ -39,6 +39,7 @@ Key features which differentiates this library from the other existing open sour
 - [x] Square the image with a single command
 - [x] Support for proportional scaling
 - [x] Face detection to avoid face deformation
+- [x] Support for multiple output image type
 
 ## Face detection
 
@@ -103,7 +104,7 @@ The following flags are supported:
 | `height` | n/a | New height |
 | `perc` | false | Reduce image by percentage |
 | `square` | false | Reduce image to square dimensions |
-| `scale` | true | Proportional scaling |
+| `scale` | false | Proportional scaling |
 | `blur` | 1 | Blur radius |
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
