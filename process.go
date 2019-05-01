@@ -3,7 +3,9 @@ package caire
 import (
 	"image"
 	"image/color"
+	"image/color/palette"
 	"image/draw"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -16,6 +18,8 @@ import (
 )
 
 const MaxResizeWithoutScaling = 2000
+
+var imgs []image.Image
 
 // SeamCarver interface defines the Resize method.
 // This has to be implemented by every struct which declares a Resize method.
@@ -49,9 +53,13 @@ func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 // Depending on the provided parameters the image can be either reduced or enlarged.
 func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
-	var newImg image.Image
-	var newWidth, newHeight int
-	var pw, ph int
+	var (
+		newImg    image.Image
+		newWidth  int
+		newHeight int
+		pw, ph    int
+	)
+	imgs = []image.Image{}
 
 	if p.NewWidth > c.Width {
 		newWidth = p.NewWidth - (p.NewWidth - (p.NewWidth - c.Width))
@@ -77,6 +85,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		c.ComputeSeams(img, p)
 		seams := c.FindLowestEnergySeams()
 		img = c.RemoveSeam(img, seams, p.Debug)
+		imgs = append(imgs, img)
 	}
 	enlarge := func() {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
@@ -206,6 +215,8 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			err = png.Encode(w, res)
 		case ".bmp":
 			err = bmp.Encode(w, res)
+		case ".gif":
+			err = encodeGIF(imgs, w.(*os.File).Name())
 		default:
 			err = errors.New("unsupported image format")
 		}
@@ -271,4 +282,22 @@ func imgToNRGBA(img image.Image) *image.NRGBA {
 		}
 	}
 	return dst
+}
+
+// encodeGIF encodes the generated output into a gif file
+func encodeGIF(imgs []image.Image, path string) error {
+	g := &gif.GIF{}
+	for idx, img := range imgs {
+		bounds := img.Bounds()
+		dst := image.NewPaletted(image.Rect(0, 0, bounds.Dx()-idx, bounds.Dy()), palette.Plan9)
+		draw.Draw(dst, img.Bounds(), img, image.Point{}, draw.Src)
+		g.Image = append(g.Image, dst)
+		g.Delay = append(g.Delay, 0)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return gif.EncodeAll(f, g)
 }
