@@ -135,7 +135,7 @@ $ caire -in ./input-directory -out ./output-directory
 <a href="https://snapcraft.io/caire"><img src="https://raw.githubusercontent.com/snapcore/snap-store-badges/master/EN/%5BEN%5D-snap-store-white-uneditable.png" alt="snapcraft caire"></a>
 
 
-## Sample images
+## Results
 
 #### Shrunk images
 | Original | Shrunk |
