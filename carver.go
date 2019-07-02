@@ -74,7 +74,7 @@ func (c *Carver) set(x, y int, px float64) {
 //
 //	- the minimum energy level is calculated by summing up the current pixel value
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
-func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
+func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) {
 	var srcImg *image.NRGBA
 	newImg := image.NewNRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
 	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
@@ -200,7 +200,6 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) []float64 {
 		right := c.get(0, y) + math.Min(c.get(c.Width-1, y-1), c.get(c.Width-2, y-1))
 		c.set(c.Width-1, y, right)
 	}
-	return c.Points
 }
 
 // FindLowestEnergySeams find the lowest vertical energy seam.
