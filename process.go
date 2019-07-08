@@ -15,6 +15,7 @@ import (
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"golang.org/x/image/bmp"
+	"fmt"
 )
 
 const MaxResizeWithoutScaling = 2000
@@ -100,13 +101,19 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		pw = c.Width - c.Height
 		ph = c.Height - c.Width
 
+		// In case pw and ph is zero, it means that the target image is square,
+		// which means we do not need to apply the seam carving algorithm, we can simply resize the image.
+		if pw == 0 && ph == 0 {
+			return resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3), nil
+		}
+
 		if p.Percentage {
 			// Calculate new sizes based on provided percentage.
 			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
 			if pw > newWidth || ph > newHeight {
-				return nil, errors.New("the generated image size should be less than original image size")
+				return nil, errors.New("the generated image size should be less than the original image size")
 			}
 		}
 		// Reduce image size horizontally
