@@ -15,7 +15,6 @@ import (
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"golang.org/x/image/bmp"
-	"fmt"
 )
 
 const MaxResizeWithoutScaling = 2000
