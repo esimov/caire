@@ -6,7 +6,7 @@ import (
 
 // RgbToGrayscale converts the image to grayscale mode.
 func RgbToGrayscale(src *image.NRGBA) []uint8 {
-	rows, cols := src.Bounds().Dx(), src.Bounds().Dy()
+	cols, rows := src.Bounds().Dx(), src.Bounds().Dy()
 	gray := make([]uint8, rows*cols)
 
 	for r := 0; r < rows; r++ {

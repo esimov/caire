@@ -1,0 +1,12 @@
+github.com/esimov/pigo v1.1.0 h1:NIAQiC8giUWQz5T+DcN2WAzYkxb8fCYTO0gniw7x4BI=
+github.com/esimov/pigo v1.1.0/go.mod h1:/weGpc3orB7x946PS43s7thO/9xQzjQyc4ZFU4kkUCo=
+github.com/esimov/pigo v1.2.0 h1:gGVBHnUKEOuDyE4b8wBKEBbksXAa9FXcG+ohFhEkh8Q=
+github.com/esimov/pigo v1.2.0/go.mod h1:J1jbqsMgq8X5K0K2XlZXLS3K2NRtwUicepBgULKhJmU=
+github.com/fogleman/gg v1.0.0/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
+github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0/go.mod h1:E/TSTwGwJL78qG/PmXZO1EjYhfJinVAhrmmHX6Z8B9k=
+github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
+github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
+github.com/pkg/errors v0.8.0 h1:WdK/asTD0HN+q6hsWO3/vpuAkAr+tw6aNJNDFFf0+qw=
+github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+golang.org/x/image v0.0.0-20180601115456-af66defab954 h1:n7UB+yxe5jyWxOA3BTAfwi23lhfKEIddaB/so7YOYe0=
+golang.org/x/image v0.0.0-20180601115456-af66defab954/go.mod h1:ux5Hcp/YLpHSI86hEcLt0YII63i6oz57MZXIpbrjZUs=
