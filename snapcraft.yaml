@@ -1,6 +1,6 @@
 name: caire
-version: '1.2.1'
-summary: Content aware image resize library 
+version: '1.2.3'
+summary: Content aware image resize library
 description: |
   Content aware image resize library
 grade: stable
