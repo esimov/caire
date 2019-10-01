@@ -146,8 +146,8 @@ func main() {
 			s.stop()
 
 			if err == nil {
-				fmt.Printf("\nRescaled in: \x1b[92m%.2fs\n", time.Since(start).Seconds())
-				fmt.Printf("\x1b[39mSaved as: \x1b[92m%s \n\n", path.Base(out))
+				fmt.Printf("\nRescaled in: \x1b[92m%.2fs\n\x1b[0m", time.Since(start).Seconds())
+				fmt.Printf("\x1b[39mSaved as: \x1b[92m%s \n\n\x1b[0m", path.Base(out))
 			} else {
 				fmt.Printf("\nError rescaling image %s. Reason: %s\n", inFile.Name(), err.Error())
 			}
