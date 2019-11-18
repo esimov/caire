@@ -45,7 +45,7 @@ Key features which differentiates this library from the other existing open sour
 
 The library is capable detecting human faces prior resizing the images via https://github.com/esimov/pigo, which does not require to have OpenCV installed. 
 
-The image below illustrates the application capabilities to detect human faces prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside faces, retaining the face zone unaltered.
+The image below illustrates the application capabilities to detect human faces prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
 
 | Original image | With face detection | Without face detection
 |:--:|:--:|:--:|
