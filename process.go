@@ -17,7 +17,7 @@ import (
 	"golang.org/x/image/bmp"
 )
 
-const MaxResizeWithoutScaling = 2000
+const maxResizeWithoutScaling = 2000
 
 var imgs []image.Image
 
@@ -153,8 +153,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// the tool first rescale the image to 1024x768, then it will remove the remaining 268px.
 
 		// Prevent memory overflow issue in case of huge images by switching to scaling first option
-		if img.Bounds().Dx() > MaxResizeWithoutScaling ||
-			img.Bounds().Dy() > MaxResizeWithoutScaling {
+		if img.Bounds().Dx() > maxResizeWithoutScaling ||
+			img.Bounds().Dy() > maxResizeWithoutScaling {
 			p.Scale = true
 		}
 
