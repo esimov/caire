@@ -100,10 +100,30 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		pw = c.Width - c.Height
 		ph = c.Height - c.Width
 
-		// In case pw and ph is zero, it means that the target image is square,
-		// which means we do not need to apply the seam carving algorithm, we can simply resize the image.
+		// In case pw and ph is zero, it means that the target image is square.
+		// In this case we don't have to apply the seam carving algorithm, we can simply resize the image.
 		if pw == 0 && ph == 0 {
 			return resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3), nil
+		}
+
+		if p.Square {
+			if p.NewWidth < p.NewHeight {
+				newImg = resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3)
+			} else {
+				newImg = resize.Resize(uint(p.NewHeight), 0, img, resize.Lanczos3)
+			}
+			dst := image.NewNRGBA(newImg.Bounds())
+			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
+			img = dst
+
+			nw, nh := img.Bounds().Dx(), img.Bounds().Dy()
+			if nw > nh {
+				pw = nw - nh
+				ph = 0
+			} else {
+				ph = nh - nw
+				pw = 0
+			}
 		}
 
 		if p.Percentage {
