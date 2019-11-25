@@ -6,7 +6,6 @@
 [![release](https://img.shields.io/badge/release-v1.2.3-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.2.3)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.2.3-orange.svg)](https://github.com/esimov/homebrew-caire)
 [![snapcraft](https://img.shields.io/badge/snapcraft-v1.2.3-green.svg)](https://snapcraft.io/caire)
-[![Snap Status](https://build.snapcraft.io/badge/esimov/caire.svg)](https://build.snapcraft.io/user/esimov/caire)
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper. 
 
