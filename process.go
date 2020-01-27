@@ -235,7 +235,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	case *os.File:
 		ext := filepath.Ext(w.(*os.File).Name())
 		switch ext {
-		case ".jpg", ".jpeg":
+		case "", ".jpg", ".jpeg":
 			err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 		case ".png":
 			err = png.Encode(w, res)
