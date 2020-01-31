@@ -26,6 +26,9 @@ Content aware image resize library.
 
 `
 
+// PipeName is the file name that indicates stdin/stdout is being used.
+const PipeName = "-"
+
 // Version indicates the current build version.
 var Version string
 
@@ -34,8 +37,8 @@ var extensions = []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
 
 var (
 	// Flags
-	source         = flag.String("in", "-", "Source")
-	destination    = flag.String("out", "-", "Destination")
+	source         = flag.String("in", PipeName, "Source")
+	destination    = flag.String("out", PipeName, "Destination")
 	blurRadius     = flag.Int("blur", 1, "Blur radius")
 	sobelThreshold = flag.Int("sobel", 10, "Sobel filter threshold")
 	newWidth       = flag.Int("width", 0, "New width")
@@ -110,7 +113,7 @@ func (s *spinner) stop() {
 
 func process(p *caire.Processor, dstname, srcname string) {
 	var src io.Reader
-	if srcname == "-" {
+	if srcname == PipeName {
 		if terminal.IsTerminal(int(os.Stdin.Fd())) {
 			log.Fatalln("`-` should be used with a pipe for stdin")
 		}
@@ -165,7 +168,7 @@ func process(p *caire.Processor, dstname, srcname string) {
 	}
 
 	var dst io.Writer
-	if dstname == "-" {
+	if dstname == PipeName {
 		if terminal.IsTerminal(int(os.Stdout.Fd())) {
 			log.Fatalln("`-` should be used with a pipe for stdout")
 		}
@@ -188,7 +191,9 @@ func process(p *caire.Processor, dstname, srcname string) {
 
 	if err == nil {
 		log.Printf("\nRescaled in: \x1b[92m%.2fs\n\x1b[0m", time.Since(start).Seconds())
-		log.Printf("\x1b[39mSaved as: \x1b[92m%s \n\n\x1b[0m", path.Base(dstname))
+		if dstname != PipeName {
+			log.Printf("\x1b[39mSaved as: \x1b[92m%s \n\n\x1b[0m", path.Base(dstname))
+		}
 	} else {
 		log.Printf("\nError rescaling image %s. Reason: %s\n", srcname, err.Error())
 	}
