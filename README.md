@@ -3,12 +3,11 @@
 [![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.2.2-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.2.2)
-[![homebrew](https://img.shields.io/badge/homebrew-v1.2.2-orange.svg)](https://github.com/esimov/homebrew-caire)
-[![snapcraft](https://img.shields.io/badge/snapcraft-v1.2.2-green.svg)](https://snapcraft.io/caire)
-[![Snap Status](https://build.snapcraft.io/badge/esimov/caire.svg)](https://build.snapcraft.io/user/esimov/caire)
+[![release](https://img.shields.io/badge/release-v1.2.3-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.2.3)
+[![homebrew](https://img.shields.io/badge/homebrew-v1.2.3-orange.svg)](https://github.com/esimov/homebrew-caire)
+[![snapcraft](https://img.shields.io/badge/snapcraft-v1.2.3-green.svg)](https://snapcraft.io/caire)
 
-**Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper. 
+**Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper.
 
 ### How does it work
 * An energy map (edge detection) is generated from the provided image.
@@ -24,7 +23,7 @@
 
 | Original image | Energy map | Seams applied
 |:--:|:--:|:--:|
-| ![original](https://user-images.githubusercontent.com/883386/35481925-de130752-0435-11e8-9246-3950679b4fd6.jpg) | ![sobel](https://user-images.githubusercontent.com/883386/35481899-5d5096ca-0435-11e8-9f9b-a84fefc06470.jpg) | ![debug](https://user-images.githubusercontent.com/883386/35481949-5c74dcb0-0436-11e8-97db-a6169cb150ca.jpg) | ![out](https://user-images.githubusercontent.com/883386/35564985-88c579d4-05c4-11e8-9068-5141714e6f43.jpg) | 
+| ![original](https://user-images.githubusercontent.com/883386/35481925-de130752-0435-11e8-9246-3950679b4fd6.jpg) | ![sobel](https://user-images.githubusercontent.com/883386/35481899-5d5096ca-0435-11e8-9f9b-a84fefc06470.jpg) | ![debug](https://user-images.githubusercontent.com/883386/35481949-5c74dcb0-0436-11e8-97db-a6169cb150ca.jpg) | ![out](https://user-images.githubusercontent.com/883386/35564985-88c579d4-05c4-11e8-9068-5141714e6f43.jpg) |
 
 ## Features
 Key features which differentiates this library from the other existing open source solutions:
@@ -43,9 +42,9 @@ Key features which differentiates this library from the other existing open sour
 
 ## Face detection
 
-The library is capable detecting human faces prior resizing the images via https://github.com/esimov/pigo, which does not require to have OpenCV installed. 
+The library is capable detecting human faces prior resizing the images via https://github.com/esimov/pigo, which does not require to have OpenCV installed.
 
-The image below illustrates the application capabilities to detect human faces prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside faces, retaining the face zone unaltered.
+The image below illustrates the application capabilities to detect human faces prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
 
 | Original image | With face detection | Without face detection
 |:--:|:--:|:--:|
@@ -91,15 +90,15 @@ $ caire -in input.jpg -out output.jpg -face=1 -cc="data/facefinder" -perc=1 -wid
 
 
 ### Supported commands:
-```bash 
+```bash
 $ caire --help
 ```
 The following flags are supported:
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `in` | n/a | Input file |
-| `out` | n/a | Output file |
+| `in` | - | Input file |
+| `out` | - | Output file |
 | `width` | n/a | New width |
 | `height` | n/a | New height |
 | `perc` | false | Reduce image by percentage |
@@ -112,7 +111,7 @@ The following flags are supported:
 | `angle` | float | Plane rotated faces angle |
 | `cc` | string | Cascade classifier |
 
-In case you wish to scale down the image by a specific percentage, it can be used the `-perc` boolean flag. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
+In case you wish to scale down the image by a specific percentage, it can be used the `-perc` boolean flag. In this case the values provided for the `width` and `height` options are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
 
 ```bash
 $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
@@ -122,10 +121,22 @@ Also the library supports the `-square` option. When this option is used the ima
 
 The `-scale` option will resize the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768, then will remove only the remaining 268px. **Using this option will drastically reduce the processing time.**
 
-The CLI command can process all the images from a specific directory too.
+The CLI command can process all the images from a specific directory:
 
 ```bash
 $ caire -in ./input-directory -out ./output-directory
+```
+
+You can also use stdin and stdout with `-`:
+
+```bash
+$ cat input/source.jpg | caire -in - -out - >out.jpg
+```
+
+`in` and `out` default to `-` so you can also use:
+
+```bash
+$ cat input/source.jpg | caire >out.jpg
 ```
 
 ### Caire integrations

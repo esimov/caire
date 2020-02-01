@@ -175,16 +175,16 @@ func (pg *Pigo) classifyRotatedRegion(r, c, s int, a float64, nrows, ncols int, 
 
 	r = r * 65536
 	c = c * 65536
+	
+	if (r+46341*s)/65536 >= nrows || (r-46341*s)/65536 < 0 || (c+46341*s)/65536 >= ncols || (c-46341*s)/65536 < 0 {
+		return -1
+	}
 
 	qCosTable := []int{256, 251, 236, 212, 181, 142, 97, 49, 0, -49, -97, -142, -181, -212, -236, -251, -256, -251, -236, -212, -181, -142, -97, -49, 0, 49, 97, 142, 181, 212, 236, 251, 256}
 	qSinTable := []int{0, 49, 97, 142, 181, 212, 236, 251, 256, 251, 236, 212, 181, 142, 97, 49, 0, -49, -97, -142, -181, -212, -236, -251, -256, -251, -236, -212, -181, -142, -97, -49, 0}
 
 	qsin := s * qSinTable[int(32.0*a)] //s*(256.0*math.Sin(2*math.Pi*a))
 	qcos := s * qCosTable[int(32.0*a)] //s*(256.0*math.Cos(2*math.Pi*a))
-
-	if (r+46341*s)/65536 >= nrows || (r-46341*s)/65536 < 0 || (c+46341*s)/65536 >= ncols || (c-46341*s)/65536 < 0 {
-		return -1
-	}
 
 	for i := 0; i < int(pg.treeNum); i++ {
 		var idx = 1
@@ -264,7 +264,7 @@ func (pg *Pigo) RunCascade(cp CascadeParams, angle float64) []Detection {
 }
 
 // ClusterDetections returns the intersection over union of multiple clusters.
-// We need to make this comparision to filter out multiple face detection regions.
+// We need to make this comparison to filter out multiple face detection regions.
 func (pg *Pigo) ClusterDetections(detections []Detection, iouThreshold float64) []Detection {
 	// Sort detections by their score
 	sort.Sort(det(detections))
@@ -292,7 +292,7 @@ func (pg *Pigo) ClusterDetections(detections []Detection, iouThreshold float64) 
 				q          float32
 			)
 			for j := 0; j < len(detections); j++ {
-				// Check if the comparision result is below a certain threshold.
+				// Check if the comparison result is below a certain threshold.
 				if calcIoU(detections[i], detections[j]) > iouThreshold {
 					assignments[j] = true
 					r += detections[j].Row

@@ -17,7 +17,7 @@ import (
 	"golang.org/x/image/bmp"
 )
 
-const MaxResizeWithoutScaling = 2000
+const maxResizeWithoutScaling = 2000
 
 var imgs []image.Image
 
@@ -100,10 +100,30 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		pw = c.Width - c.Height
 		ph = c.Height - c.Width
 
-		// In case pw and ph is zero, it means that the target image is square,
-		// which means we do not need to apply the seam carving algorithm, we can simply resize the image.
+		// In case pw and ph is zero, it means that the target image is square.
+		// In this case we don't have to apply the seam carving algorithm, we can simply resize the image.
 		if pw == 0 && ph == 0 {
 			return resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3), nil
+		}
+
+		if p.Square {
+			if p.NewWidth < p.NewHeight {
+				newImg = resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3)
+			} else {
+				newImg = resize.Resize(uint(p.NewHeight), 0, img, resize.Lanczos3)
+			}
+			dst := image.NewNRGBA(newImg.Bounds())
+			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
+			img = dst
+
+			nw, nh := img.Bounds().Dx(), img.Bounds().Dy()
+			if nw > nh {
+				pw = nw - nh
+				ph = 0
+			} else {
+				ph = nh - nw
+				pw = 0
+			}
 		}
 
 		if p.Percentage {
@@ -133,8 +153,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// the tool first rescale the image to 1024x768, then it will remove the remaining 268px.
 
 		// Prevent memory overflow issue in case of huge images by switching to scaling first option
-		if img.Bounds().Dx() > MaxResizeWithoutScaling ||
-			img.Bounds().Dy() > MaxResizeWithoutScaling {
+		if img.Bounds().Dx() > maxResizeWithoutScaling ||
+			img.Bounds().Dy() > maxResizeWithoutScaling {
 			p.Scale = true
 		}
 
@@ -215,7 +235,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	case *os.File:
 		ext := filepath.Ext(w.(*os.File).Name())
 		switch ext {
-		case ".jpg", ".jpeg":
+		case "", ".jpg", ".jpeg":
 			err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 		case ".png":
 			err = png.Encode(w, res)
