@@ -137,6 +137,7 @@ $ cat input/source.jpg | caire -in - -out - >out.jpg
 
 ```bash
 $ cat input/source.jpg | caire >out.jpg
+$ caire -out out.jpg < input/source.jpg
 ```
 
 ### Caire integrations
