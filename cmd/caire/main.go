@@ -77,7 +77,8 @@ func main() {
 		}
 		process(p, *destination, *source)
 	} else {
-		log.Fatal("\x1b[31mPlease provide a width, height or percentage for image rescaling!\x1b[39m")
+		flag.Usage()
+		log.Fatal("\n\x1b[31mPlease provide a width, height or percentage for image rescaling!\x1b[39m")
 	}
 
 	caire.RemoveTempImage(caire.TempImage)
