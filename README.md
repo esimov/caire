@@ -39,6 +39,7 @@ Key features which differentiates this library from the other existing open sour
 - [x] Support for proportional scaling
 - [x] Face detection to avoid face deformation
 - [x] Support for multiple output image type
+- [x] Support for various extensions: jpg, png, jpeg, bmp, gif
 
 ## Face detection
 
