@@ -38,8 +38,7 @@ Key features which differentiates this library from the other existing open sour
 - [x] Square the image with a single command
 - [x] Support for proportional scaling
 - [x] Face detection to avoid face deformation
-- [x] Support for multiple output image type
-- [x] Support for the following extensions: jpg, png, jpeg, bmp, gif
+- [x] Support for multiple output image type (jpg, jpeg, png, bmp, gif)
 
 ## Face detection
 
