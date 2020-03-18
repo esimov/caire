@@ -127,7 +127,7 @@ The CLI command can process all the images from a specific directory:
 $ caire -in ./input-directory -out ./output-directory
 ```
 
-You can also use stdin and stdout with `-`:
+You can also use `stdin` and `stdout` with `-`:
 
 ```bash
 $ cat input/source.jpg | caire -in - -out - >out.jpg
