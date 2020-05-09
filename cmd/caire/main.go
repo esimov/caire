@@ -84,34 +84,6 @@ func main() {
 	caire.RemoveTempImage(caire.TempImage)
 }
 
-type spinner struct {
-	stopChan chan struct{}
-}
-
-// Start process
-func (s *spinner) start(message string) {
-	s.stopChan = make(chan struct{}, 1)
-
-	go func() {
-		for {
-			for _, r := range `-\|/` {
-				select {
-				case <-s.stopChan:
-					return
-				default:
-					fmt.Fprintf(os.Stderr, "\r%s%s %c%s", message, "\x1b[92m", r, "\x1b[39m")
-					time.Sleep(time.Millisecond * 100)
-				}
-			}
-		}
-	}()
-}
-
-// End process
-func (s *spinner) stop() {
-	s.stopChan <- struct{}{}
-}
-
 func process(p *caire.Processor, dstname, srcname string) {
 	var src io.Reader
 	if srcname == PipeName {
@@ -198,4 +170,32 @@ func process(p *caire.Processor, dstname, srcname string) {
 	} else {
 		log.Printf("\nError rescaling image %s. Reason: %s\n", srcname, err.Error())
 	}
+}
+
+type spinner struct {
+	stopChan chan struct{}
+}
+
+// Start process
+func (s *spinner) start(message string) {
+	s.stopChan = make(chan struct{}, 1)
+
+	go func() {
+		for {
+			for _, r := range `-\|/` {
+				select {
+				case <-s.stopChan:
+					return
+				default:
+					fmt.Fprintf(os.Stderr, "\r%s%s %c%s", message, "\x1b[92m", r, "\x1b[39m")
+					time.Sleep(time.Millisecond * 100)
+				}
+			}
+		}
+	}()
+}
+
+// End process
+func (s *spinner) stop() {
+	s.stopChan <- struct{}{}
 }
