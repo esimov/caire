@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/esimov/caire"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 const HelpBanner = `
@@ -87,7 +87,7 @@ func main() {
 func process(p *caire.Processor, dstname, srcname string) {
 	var src io.Reader
 	if srcname == PipeName {
-		if terminal.IsTerminal(int(os.Stdin.Fd())) {
+		if term.IsTerminal(int(os.Stdin.Fd())) {
 			log.Fatalln("`-` should be used with a pipe for stdin")
 		}
 		src = os.Stdin
@@ -142,7 +142,7 @@ func process(p *caire.Processor, dstname, srcname string) {
 
 	var dst io.Writer
 	if dstname == PipeName {
-		if terminal.IsTerminal(int(os.Stdout.Fd())) {
+		if term.IsTerminal(int(os.Stdout.Fd())) {
 			log.Fatalln("`-` should be used with a pipe for stdout")
 		}
 		dst = os.Stdout
