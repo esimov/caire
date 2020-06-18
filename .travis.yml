@@ -6,16 +6,19 @@ branches:
 
 # In theory, older versions would probably work just fine
 go:
+  - 1.14.x
+  - 1.13.x
+  - 1.12.x
   - 1.11.x
   - 1.10.x
   - 1.9
-  - 1.8
   - tip
 
 matrix:
   allow_failures:
       - go: tip
-      - go: 1.11.x
+      - go: 1.9
+      - go: 1.10.x
   fast_finish: true
 
 env:
