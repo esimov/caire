@@ -19,7 +19,12 @@ import (
 
 const maxResizeWithoutScaling = 2000
 
-var imgs []image.Image
+var (
+	g      *gif.GIF
+	xCount int
+	yCount int
+	isGif  = false
+)
 
 // SeamCarver interface defines the Resize method.
 // This has to be implemented by every struct which declares a Resize method.
@@ -59,7 +64,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		newHeight int
 		pw, ph    int
 	)
-	imgs = []image.Image{}
+	xCount, yCount = 0, 0
 
 	if p.NewWidth > c.Width {
 		newWidth = p.NewWidth - (p.NewWidth - (p.NewWidth - c.Width))
@@ -85,7 +90,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		c.ComputeSeams(img, p)
 		seams := c.FindLowestEnergySeams()
 		img = c.RemoveSeam(img, seams, p.Debug)
-		imgs = append(imgs, img)
+
+		if isGif {
+			g = encodeImageToGif(img)
+		}
 	}
 	enlarge := func() {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
@@ -138,11 +146,13 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// Reduce image size horizontally
 		for x := 0; x < pw; x++ {
 			reduce()
+			xCount++
 		}
 		// Reduce image size vertically
 		img = c.RotateImage90(img)
 		for y := 0; y < ph; y++ {
 			reduce()
+			yCount++
 		}
 		img = c.RotateImage270(img)
 	} else if newWidth > 0 || newHeight > 0 {
@@ -195,6 +205,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			} else {
 				for x := 0; x < newWidth; x++ {
 					reduce()
+					xCount++
 				}
 			}
 		}
@@ -221,32 +232,50 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 // We are using the io package, because this way we can provide different types of input and output source,
 // as long as they implement the io.Reader and io.Writer interface.
 func (p *Processor) Process(r io.Reader, w io.Writer) error {
+	g = new(gif.GIF)
 	src, _, err := image.Decode(r)
 	if err != nil {
 		return err
 	}
 	img := imgToNRGBA(src)
-	res, err := Resize(p, img)
-	if err != nil {
-		return err
-	}
 
 	switch w.(type) {
 	case *os.File:
 		ext := filepath.Ext(w.(*os.File).Name())
 		switch ext {
 		case "", ".jpg", ".jpeg":
+			res, err := Resize(p, img)
+			if err != nil {
+				return err
+			}
 			err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 		case ".png":
+			res, err := Resize(p, img)
+			if err != nil {
+				return err
+			}
 			err = png.Encode(w, res)
 		case ".bmp":
+			res, err := Resize(p, img)
+			if err != nil {
+				return err
+			}
 			err = bmp.Encode(w, res)
 		case ".gif":
-			err = encodeGIF(imgs, w.(*os.File).Name())
+			isGif = true
+			_, err := Resize(p, img)
+			if err != nil {
+				return err
+			}
+			err = writeGifToFile(w.(*os.File).Name())
 		default:
 			err = errors.New("unsupported image format")
 		}
 	default:
+		res, err := Resize(p, img)
+		if err != nil {
+			return err
+		}
 		err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 	}
 	return err
@@ -310,16 +339,19 @@ func imgToNRGBA(img image.Image) *image.NRGBA {
 	return dst
 }
 
-// encodeGIF encodes the generated output into a gif file
-func encodeGIF(imgs []image.Image, path string) error {
-	g := &gif.GIF{}
-	for idx, img := range imgs {
-		bounds := img.Bounds()
-		dst := image.NewPaletted(image.Rect(0, 0, bounds.Dx()-idx, bounds.Dy()), palette.Plan9)
-		draw.Draw(dst, img.Bounds(), img, image.Point{}, draw.Src)
-		g.Image = append(g.Image, dst)
-		g.Delay = append(g.Delay, 0)
-	}
+// encodeImageToGif encode the provided image file to a Gif image.
+func encodeImageToGif(src image.Image) *gif.GIF {
+	bounds := src.Bounds()
+	dst := image.NewPaletted(image.Rect(0, 0, bounds.Dx()-xCount, bounds.Dy()-yCount), palette.Plan9)
+	draw.Draw(dst, src.Bounds(), src, image.Point{}, draw.Src)
+	g.Image = append(g.Image, dst)
+	g.Delay = append(g.Delay, 0)
+
+	return g
+}
+
+// writeGifToFile writes the encoded Gif file to the destination file.
+func writeGifToFile(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
