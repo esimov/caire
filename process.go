@@ -181,16 +181,12 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			hScaleFactor := float64(c.Height) / float64(p.NewHeight)
 			scaleWidth := math.Round(float64(c.Width) / math.Min(wScaleFactor, hScaleFactor)) //post scale width
 			scaleHeight := math.Round(float64(c.Height) / math.Min(wScaleFactor, hScaleFactor)) // post scale height
+			
 			newImg = resize.Resize(uint(scaleWidth), uint(scaleHeight), img, resize.Lanczos3)
-			
-			if wScaleFactor > hScaleFactor {	
-				newWidth = int(scaleWidth) - p.NewWidth
-				newHeight = 0
-			} else {
-				newWidth = 0
-				newHeight = int(scaleHeight) - p.NewHeight
-			}
-			
+			// The amount needed to remove by carving. One or both of these will be 0.
+			newWidth = int(scaleWidth) - p.NewWidth
+			newHeight = int(scaleHeight) - p.NewHeight
+
 			dst := image.NewNRGBA(newImg.Bounds())
 			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
 			img = dst
