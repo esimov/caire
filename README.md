@@ -80,15 +80,6 @@ $ brew install caire
 $ caire -in input.jpg -out output.jpg
 ```
 
-To detect faces prior rescaling use the `-face` flag and provide the face clasification binary file included in the `data` folder. The sample code below will rescale the provided image with 20% but will check for human faces prior rescaling.
-
-For the face detection related arguments check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
-
-```bash
-$ caire -in input.jpg -out output.jpg -face=1 -cc="data/facefinder" -perc=1 -width=20
-```
-
-
 ### Supported commands:
 ```bash
 $ caire --help
@@ -111,15 +102,28 @@ The following flags are supported:
 | `angle` | float | Plane rotated faces angle |
 | `cc` | string | Cascade classifier |
 
-In case you wish to scale down the image by a specific percentage, it can be used the `-perc` boolean flag. In this case the values provided for the `width` and `height` options are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
+
+#### Use the face detection option to avoid face deformation
+To detect faces prior rescaling use the `-face` flag and provide the face clasification binary file included in the `data` folder. The sample code below will rescale the provided image with 20% but will check for human faces prior rescaling.
+
+For the face detection related arguments check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
+
+```bash
+$ caire -in input.jpg -out output.jpg -face=1 -cc="data/facefinder" -perc=1 -width=20
+```
+
+#### Other options
+In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` options are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
 
 ```bash
 $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
 ```
 
-Also the library supports the `-square` option. When this option is used the image will be resized to a squre, based on the shortest edge.
+Also the library supports the **`-square`** option. When this option is used the image will be resized to a squre, based on the shortest edge.
 
-The `-scale` option will resize the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768, then will remove only the remaining 268px. **Using this option will drastically reduce the processing time.**
+The **`-scale`** option will resize the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768, then will remove only the remaining 268px. 
+
+**Notice: Using the `-scale` option will reduce drastically the processing time. Use this option whenever is possible!**
 
 The CLI command can process all the images from a specific directory:
 
