@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"math"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
@@ -159,9 +160,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// Use this option to rescale the image proportionally prior resizing.
 		// First the image is scaled down preserving the image aspect ratio,
 		// then the seam carving algorithm is applied only to the remaining pixels.
-		// Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500,
-		// the tool first rescale the image to 1024x768, then it will remove the remaining 268px.
-
+		
 		// Prevent memory overflow issue in case of huge images by switching to scaling first option
 		if img.Bounds().Dx() > maxResizeWithoutScaling ||
 			img.Bounds().Dy() > maxResizeWithoutScaling {
@@ -172,24 +171,26 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if p.NewWidth > img.Bounds().Max.X || p.NewHeight > img.Bounds().Max.Y {
 				return nil, errors.New("scale option can not be used on image enlargement")
 			}
-			// Preserve the aspect ratio on horizontal or vertical axes.
-			if p.NewWidth > p.NewHeight {
-				newWidth = 0
-				newImg = resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3)
-				if p.NewHeight < newImg.Bounds().Dy() {
-					newHeight = newImg.Bounds().Dy() - p.NewHeight
-				} else {
-					return nil, errors.New("cannot rescale to this size preserving the image aspect ratio")
-				}
-			} else {
+
+			// Find the scale factor for the width and the height
+			// Scale both the w and h by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
+			// This will scale one side directly to the target length,
+			// and the other proportionally larger than the target length.
+			// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080 
+			wScaleFactor := float64(c.Width) / float64(p.NewWidth) 
+			hScaleFactor := float64(c.Height) / float64(p.NewHeight)
+			scaleWidth := math.Round(float64(c.Width) / math.Min(wScaleFactor, hScaleFactor)) //post scale width
+			scaleHeight := math.Round(float64(c.Height) / math.Min(wScaleFactor, hScaleFactor)) // post scale height
+			newImg = resize.Resize(uint(scaleWidth), uint(scaleHeight), img, resize.Lanczos3)
+			
+			if wScaleFactor > hScaleFactor {	
+				newWidth = int(scaleWidth) - p.NewWidth
 				newHeight = 0
-				newImg = resize.Resize(0, uint(p.NewHeight), img, resize.Lanczos3)
-				if p.NewWidth < newImg.Bounds().Dx() {
-					newWidth = newImg.Bounds().Dx() - p.NewWidth
-				} else {
-					return nil, errors.New("cannot rescale to this size preserving the image aspect ratio")
-				}
+			} else {
+				newWidth = 0
+				newHeight = int(scaleHeight) - p.NewHeight
 			}
+			
 			dst := image.NewNRGBA(newImg.Bounds())
 			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
 			img = dst
