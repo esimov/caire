@@ -42,9 +42,9 @@ Key features which differentiates this library from the other existing open sour
 
 ## Face detection
 
-The library is capable detecting human faces prior resizing the images via https://github.com/esimov/pigo, which does not require to have OpenCV installed.
+The library is capable of detecting human faces prior resizing the images by using the Pigo (https://github.com/esimov/pigo) face detection library, which does not require to have OpenCV installed.
 
-The image below illustrates the application capabilities to detect human faces prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
+The image below illustrates the application capabilities for human face detection prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
 
 | Original image | With face detection | Without face detection
 |:--:|:--:|:--:|
@@ -67,7 +67,7 @@ $ go install
 ```
 
 ## MacOS (Brew) install
-The library now can be installed via Homebrew. The only thing you need is to run the commands below.
+The library can also be installed via Homebrew.
 
 ```bash
 $ brew tap esimov/caire
@@ -104,7 +104,7 @@ The following flags are supported:
 
 
 #### Use the face detection option to avoid face deformation
-To detect faces prior rescaling use the `-face` flag and provide the face clasification binary file included in the `data` folder. The sample code below will rescale the provided image with 20% but will check for human faces prior rescaling.
+To detect faces prior rescaling use the `-face` flag and provide the face clasification binary file included into the `data` folder. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
 
 For the face detection related arguments check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
@@ -121,7 +121,7 @@ $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=
 
 Also the library supports the **`-square`** option. When this option is used the image will be resized to a squre, based on the shortest edge.
 
-The **`-scale`** option will resize the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768, then will remove only the remaining 268px. 
+The **`-scale`** option will resize the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and will remove only the remaining 268px. 
 
 **Notice: Using the `-scale` option will reduce drastically the processing time. Use this option whenever is possible!**
 
