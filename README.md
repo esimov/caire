@@ -12,7 +12,7 @@
 ### How does it work
 * An energy map (edge detection) is generated from the provided image.
 * The algorithm tries to find the least important parts of the image taking into account the lowest energy values.
-* Using a dynamic programming approach the algorithm will generate individual seams accrossing the image from top to down, or from left to right (depending on the horizontal or vertical resizing) and will allocate for each seam a custom value, the least important pixels having the lowest energy cost and the most important ones having the highest cost.
+* Using a dynamic programming approach the algorithm will generate individual seams across the image from top to down, or from left to right (depending on the horizontal or vertical resizing) and will allocate for each seam a custom value, the least important pixels having the lowest energy cost and the most important ones having the highest cost.
 * Traverse the image from the second row to the last row and compute the cumulative minimum energy for all possible connected seams for each entry.
 * The minimum energy level is calculated by summing up the current pixel with the lowest value of the neighboring pixels from the previous row.
 * Traverse the image from top to bottom and compute the minimum energy level. For each pixel in a row we compute the energy of the current pixel plus the energy of one of the three possible pixels above it.
@@ -104,7 +104,7 @@ The following flags are supported:
 
 
 #### Use the face detection option to avoid face deformation
-To detect faces prior rescaling use the `-face` flag and provide the face clasification binary file included into the `data` folder. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
+To detect faces prior rescaling use the `-face` flag and provide the face classification binary file included into the `data` folder. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
 
 For the face detection related arguments check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
@@ -119,7 +119,7 @@ In case you wish to scale down the image by a specific percentage, it can be use
 $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
 ```
 
-Also the library supports the **`-square`** option. When this option is used the image will be resized to a squre, based on the shortest edge.
+Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
 
 The **`-scale`** option will resize the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and will remove only the remaining 268px. 
 
@@ -145,7 +145,7 @@ $ caire -out out.jpg < input/source.jpg
 ```
 
 ### Caire integrations
-- [x] Caire can be used as a servesless function via OpenFaaS: https://github.com/esimov/caire-openfaas
+- [x] Caire can be used as a serverless function via OpenFaaS: https://github.com/esimov/caire-openfaas
 - [x] Caire can also be used as a `snap` function (https://snapcraft.io/caire): `$ snap run caire --h`
 
 <a href="https://snapcraft.io/caire"><img src="https://raw.githubusercontent.com/snapcore/snap-store-badges/master/EN/%5BEN%5D-snap-store-white-uneditable.png" alt="snapcraft caire"></a>
