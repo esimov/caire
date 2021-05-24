@@ -304,6 +304,7 @@ func processor(in, out string, proc *caire.Processor) error {
 		<-signalChan
 		func() {
 			spinner.RestoreCursor()
+			caire.RemoveTempFile()
 			os.Exit(1)
 		}()
 	}()

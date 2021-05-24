@@ -10,8 +10,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	pigo "github.com/esimov/pigo/core"
@@ -20,8 +18,8 @@ import (
 
 var usedSeams []UsedSeams
 
-// tmpFile temporary image file.
-var tmpFile = fmt.Sprintf("%d.jpg", time.Now().Unix())
+// TempFile temporary image file.
+var TempFile = fmt.Sprintf("%d.jpg", time.Now().Unix())
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
@@ -89,14 +87,14 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
 
 	if p.FaceDetect {
-		defer removeTempFile(tmpFile)
+		defer RemoveTempFile()
 
 		cascadeFile, err := ioutil.ReadFile(p.Classifier)
 		if err != nil {
 			return errors.New(fmt.Sprintf("error reading the cascade file: %v", err))
 		}
 
-		tmpImg, err := os.OpenFile(tmpFile, os.O_CREATE|os.O_WRONLY, 0755)
+		tmpImg, err := os.OpenFile(TempFile, os.O_CREATE|os.O_WRONLY, 0755)
 		if err != nil {
 			return errors.New(fmt.Sprintf("cannot access the temporary image file: %v", err))
 		}
@@ -105,7 +103,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 			return errors.New(fmt.Sprintf("cannot encode the temporary image file: %v", err))
 		}
 
-		src, err := pigo.GetImage(tmpFile)
+		src, err := pigo.GetImage(TempFile)
 		if err != nil {
 			return errors.New(fmt.Sprintf("cannot open the temporary image file: %v", err))
 		}
@@ -155,16 +153,6 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 				draw.Draw(sobel, rect, &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
 			}
 		}
-
-		// Capture CTRL-C signal and remove the generated temporary image.
-		c := make(chan os.Signal, 2)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			for range c {
-				removeTempFile(tmpFile)
-				os.Exit(1)
-			}
-		}()
 	}
 
 	if p.BlurRadius > 0 {
@@ -382,10 +370,10 @@ func (c *Carver) RotateImage270(src *image.NRGBA) *image.NRGBA {
 	return dst
 }
 
-// removeTempFile removes the temporary image generated during face detection process.
-func removeTempFile(tmpFile string) {
+// RemoveTempFile removes the temporary image generated during face detection process.
+func RemoveTempFile() {
 	// Remove temporary image file.
-	if _, err := os.Stat(tmpFile); err == nil {
-		os.Remove(tmpFile)
+	if _, err := os.Stat(TempFile); err == nil {
+		os.Remove(TempFile)
 	}
 }
