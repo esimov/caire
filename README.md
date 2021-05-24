@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.2.6-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.2.6)
+[![release](https://img.shields.io/badge/release-v1.3.0-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.3.0)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.2.6-orange.svg)](https://github.com/esimov/homebrew-caire)
 [![snapcraft](https://img.shields.io/badge/snapcraft-v1.2.6-green.svg)](https://snapcraft.io/caire)
 
@@ -31,7 +31,7 @@ Key features which differentiates this library from the other existing open sour
 - [x] Customizable command line support
 - [x] Support for both shrinking or enlarging the image
 - [x] Resize image both vertically and horizontally
-- [x] Can resize all the images from a directory
+- [x] Can process whole directories recursively and concurrently
 - [x] Does not require any third party library
 - [x] Use of sobel threshold for fine tuning
 - [x] Use of blur filter for increased edge detection
