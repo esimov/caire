@@ -1,18 +1,21 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"path"
+	"os/signal"
 	"path/filepath"
-	"strings"
+	"runtime"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/esimov/caire"
+	"github.com/esimov/caire/utils"
 	"golang.org/x/term"
 )
 
@@ -26,19 +29,32 @@ Content aware image resize library.
 
 `
 
-// PipeName is the file name that indicates stdin/stdout is being used.
-const PipeName = "-"
+// pipeName is the file name that indicates stdin/stdout is being used.
+const pipeName = "-"
+
+// maxWorkers sets the maximum number of concurrently running workers.
+const maxWorkers = 20
+
+// result holds the relevant information about the triangulation process and the generated image.
+type result struct {
+	path string
+	err  error
+}
+
+var (
+	// imgurl holds the file being accessed be it normal file or pipe name.
+	imgurl *os.File
+	// spinner used to instantiate and call the progress indicator.
+	spinner *utils.Spinner
+)
 
 // Version indicates the current build version.
 var Version string
 
-// Supported image files.
-var extensions = []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
-
 var (
 	// Flags
-	source         = flag.String("in", PipeName, "Source")
-	destination    = flag.String("out", PipeName, "Destination")
+	source         = flag.String("in", pipeName, "Source")
+	destination    = flag.String("out", pipeName, "Destination")
 	blurRadius     = flag.Int("blur", 1, "Blur radius")
 	sobelThreshold = flag.Int("sobel", 10, "Sobel filter threshold")
 	newWidth       = flag.Int("width", 0, "New width")
@@ -50,6 +66,11 @@ var (
 	faceDetect     = flag.Bool("face", false, "Use face detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Plane rotated faces angle")
 	cascade        = flag.String("cc", "", "Cascade classifier")
+	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
+
+	// File related variables
+	fs  os.FileInfo
+	err error
 )
 
 func main() {
@@ -61,141 +82,314 @@ func main() {
 	}
 	flag.Parse()
 
-	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
-		p := &caire.Processor{
-			BlurRadius:     *blurRadius,
-			SobelThreshold: *sobelThreshold,
-			NewWidth:       *newWidth,
-			NewHeight:      *newHeight,
-			Percentage:     *percentage,
-			Square:         *square,
-			Debug:          *debug,
-			Scale:          *scale,
-			FaceDetect:     *faceDetect,
-			FaceAngle:      *faceAngle,
-			Classifier:     *cascade,
-		}
-		process(p, *destination, *source)
-	} else {
-		flag.Usage()
-		log.Fatal("\n\x1b[31mPlease provide a width, height or percentage for image rescaling!\x1b[39m")
+	proc := &caire.Processor{
+		BlurRadius:     *blurRadius,
+		SobelThreshold: *sobelThreshold,
+		NewWidth:       *newWidth,
+		NewHeight:      *newHeight,
+		Percentage:     *percentage,
+		Square:         *square,
+		Debug:          *debug,
+		Scale:          *scale,
+		FaceDetect:     *faceDetect,
+		FaceAngle:      *faceAngle,
+		Classifier:     *cascade,
 	}
 
-	caire.RemoveTempImage(caire.TempImage)
-}
+	spinnerText := fmt.Sprintf("%s %s",
+		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
+		utils.DecorateText("is resizing the image...", utils.DefaultMessage))
+	spinner = utils.NewSpinner(spinnerText, time.Millisecond*200, true)
 
-func process(p *caire.Processor, dstname, srcname string) {
-	var src io.Reader
-	if srcname == PipeName {
-		if term.IsTerminal(int(os.Stdin.Fd())) {
-			log.Fatalln("`-` should be used with a pipe for stdin")
-		}
-		src = os.Stdin
-	} else {
-		srcinfo, err := os.Stat(srcname)
-		if err != nil {
-			log.Fatalf("Unable to open source: %v", err)
+	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
+		if len(*cascade) == 0 {
+			log.Fatalf(utils.DecorateText("Please specify a face classifier in case you are using the -face flag!\n", utils.ErrorMessage))
 		}
 
-		if srcinfo.IsDir() {
-			dstinfo, err := os.Stat(dstname)
-			if err != nil {
-				log.Fatalf("Unable to get dir stats: %v", err)
-			}
-			if !dstinfo.IsDir() {
-				log.Fatalf("Please specify a directory as destination!")
-			}
+		// Supported files
+		validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
 
-			files, err := ioutil.ReadDir(srcname)
-			if err != nil {
-				log.Fatalf("Unable to read dir: %v", err)
-			}
+		// Check if source path is a local image or URL.
+		if utils.IsValidUrl(*source) {
+			src, err := utils.DownloadImage(*source)
+			defer src.Close()
+			defer os.Remove(src.Name())
 
-			// Range over all the image files and save them into a slice.
-			var images []string
-			for _, f := range files {
-				ext := filepath.Ext(f.Name())
-				for _, iex := range extensions {
-					if ext == iex {
-						images = append(images, f.Name())
-					}
+			fs, err = src.Stat()
+			if err != nil {
+				log.Fatalf(
+					utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
+					utils.DecorateText(err.Error(), utils.DefaultMessage),
+				)
+			}
+			img, err := os.Open(src.Name())
+			if err != nil {
+				log.Fatalf(
+					utils.DecorateText("Unable to open the temporary image file: %v", utils.ErrorMessage),
+					utils.DecorateText(err.Error(), utils.DefaultMessage),
+				)
+			}
+			imgurl = img
+		} else {
+			// Check if the source is a pipe name or a regular file.
+			if *source == pipeName {
+				fs, err = os.Stdin.Stat()
+			} else {
+				fs, err = os.Stat(*source)
+			}
+			if err != nil {
+				log.Fatalf(
+					utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
+					utils.DecorateText(err.Error(), utils.DefaultMessage),
+				)
+			}
+		}
+
+		now := time.Now()
+
+		switch mode := fs.Mode(); {
+		case mode.IsDir():
+			var wg sync.WaitGroup
+			// Read destination file or directory.
+			_, err := os.Stat(*destination)
+			if err != nil {
+				err = os.Mkdir(*destination, 0755)
+				if err != nil {
+					log.Fatalf(
+						utils.DecorateText("Unable to get dir stats: %v\n", utils.ErrorMessage),
+						utils.DecorateText(err.Error(), utils.DefaultMessage),
+					)
 				}
 			}
 
-			// Process images from directory.
-			for _, img := range images {
-				// Get the file base name.
-				name := strings.TrimSuffix(img, filepath.Ext(img))
-
-				process(p, filepath.Join(dstname, name+".jpg"), filepath.Join(srcname, img))
+			// Limit the concurrently running workers to maxWorkers.
+			if *workers <= 0 || *workers > maxWorkers {
+				*workers = runtime.NumCPU()
 			}
-			return
-		}
 
-		f, err := os.Open(srcname)
-		if err != nil {
-			log.Fatalf("Unable to open source file: %v", err)
+			// Process recursively the image files from the specified directory concurrently.
+			ch := make(chan result)
+			done := make(chan interface{})
+			defer close(done)
+
+			paths, errc := walkDir(done, *source, validExtensions)
+
+			wg.Add(*workers)
+			for i := 0; i < *workers; i++ {
+				go func() {
+					defer wg.Done()
+					consumer(done, paths, *destination, proc, ch)
+				}()
+			}
+
+			// Close the channel after the values are consumed.
+			go func() {
+				defer close(ch)
+				wg.Wait()
+			}()
+
+			// Consume the channel values.
+			for res := range ch {
+				printStatus(res.path, res.err)
+			}
+
+			if err := <-errc; err != nil {
+				fmt.Fprintf(os.Stderr, utils.DecorateText(err.Error(), utils.ErrorMessage))
+			}
+
+		case mode.IsRegular() || mode&os.ModeNamedPipe != 0: // check for regular files or pipe names
+			ext := filepath.Ext(*destination)
+			if !isValidExtension(ext, validExtensions) && *destination != pipeName {
+				log.Fatalf(utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
+			}
+
+			err := processor(*source, *destination, proc)
+			printStatus(*destination, err)
 		}
-		defer f.Close()
-		src = f
+		fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(fmt.Sprintf("%s", utils.FormatTime(time.Since(now))), utils.SuccessMessage))
+	} else {
+		flag.Usage()
+		log.Fatal(fmt.Sprintf("%s%s",
+			utils.DecorateText("\nPlease provide a width, height or percentage for image rescaling!", utils.ErrorMessage),
+			utils.DefaultColor,
+		))
+	}
+}
+
+// walkDir starts a goroutine to walk the specified directory tree in recursive manner
+// and send the path of each regular file on the string channel.
+// It sends the result of the walk on the error channel.
+// It terminates in case done channel is closed.
+func walkDir(
+	done <-chan interface{},
+	src string,
+	srcExts []string,
+) (<-chan string, <-chan error) {
+	pathChan := make(chan string)
+	errChan := make(chan error, 1)
+
+	go func() {
+		// Close the paths channel after Walk returns.
+		defer close(pathChan)
+
+		errChan <- filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+			isFileSupported := false
+			if err != nil {
+				return err
+			}
+			if !info.Mode().IsRegular() {
+				return nil
+			}
+
+			// Get the file base name.
+			fx := filepath.Ext(info.Name())
+			for _, ext := range srcExts {
+				if ext == fx {
+					isFileSupported = true
+					break
+				}
+			}
+
+			if isFileSupported {
+				select {
+				case <-done:
+					return errors.New("directory walk cancelled")
+				case pathChan <- path:
+				}
+			}
+			return nil
+		})
+	}()
+	return pathChan, errChan
+}
+
+// consumer reads the path names from the paths channel and
+// calls the triangulator processor against the source image
+// then sends the results on a new channel.
+func consumer(
+	done <-chan interface{},
+	paths <-chan string,
+	dest string,
+	proc *caire.Processor,
+	res chan<- result,
+) {
+	for src := range paths {
+		dest := filepath.Join(dest, filepath.Base(src))
+		err := processor(src, dest, proc)
+
+		select {
+		case <-done:
+			return
+		case res <- result{
+			path: src,
+			err:  err,
+		}:
+		}
+	}
+}
+
+// processor calls the resizer method over the source image and
+// returns the error in case exists, otherwise nil.
+func processor(in, out string, proc *caire.Processor) error {
+	var err error
+
+	src, dst, err := pathToFile(in, out)
+	defer src.(*os.File).Close()
+	defer dst.(*os.File).Close()
+
+	// Capture CTRL-C signal and restore the cursor visibility back.
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		func() {
+			spinner.RestoreCursor()
+			os.Exit(1)
+		}()
+	}()
+
+	// Start the progress indicator.
+	spinner.Start()
+	err = proc.Process(src, dst)
+
+	stopMsg := fmt.Sprintf("%s %s",
+		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
+		utils.DecorateText("is resizing the image... ✔", utils.DefaultMessage))
+	spinner.StopMsg = stopMsg
+
+	// Stop the progress indicator.
+	spinner.Stop()
+
+	return err
+}
+
+// pathToFile converts the source and destination paths to readable and writable files.
+func pathToFile(in, out string) (io.Reader, io.Writer, error) {
+	var (
+		src io.Reader
+		dst io.Writer
+		err error
+	)
+	// Check if the source path is a local image or URL.
+	if utils.IsValidUrl(in) {
+		src = imgurl
+	} else {
+		// Check if the source is a pipe name or a regular file.
+		if in == pipeName {
+			if term.IsTerminal(int(os.Stdin.Fd())) {
+				return nil, nil, errors.New("`-` should be used with a pipe for stdin")
+			}
+			src = os.Stdin
+		} else {
+			src, err = os.Open(in)
+			if err != nil {
+				return nil, nil, errors.New(
+					fmt.Sprintf("unable to open the source file: %v", err),
+				)
+			}
+		}
 	}
 
-	var dst io.Writer
-	if dstname == PipeName {
+	// Check if the destination is a pipe name or a regular file.
+	if out == pipeName {
 		if term.IsTerminal(int(os.Stdout.Fd())) {
-			log.Fatalln("`-` should be used with a pipe for stdout")
+			return nil, nil, errors.New("`-` should be used with a pipe for stdout")
 		}
 		dst = os.Stdout
 	} else {
-		f, err := os.OpenFile(dstname, os.O_CREATE|os.O_WRONLY, 0755)
+		dst, err = os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0755)
 		if err != nil {
-			log.Fatalf("Unable to open output file: %v", err)
+			return nil, nil, errors.New(
+				fmt.Sprintf("unable to create the destination file: %v", err),
+			)
 		}
-		defer f.Close()
-		dst = f
 	}
+	return src, dst, nil
+}
 
-	s := new(spinner)
-	s.start("Processing...")
-
-	start := time.Now()
-	err := p.Process(src, dst)
-	s.stop()
-
-	if err == nil {
-		log.Printf("\nRescaled in: \x1b[92m%.2fs\n\x1b[0m", time.Since(start).Seconds())
-		if dstname != PipeName {
-			log.Printf("\x1b[39mSaved as: \x1b[92m%s \n\n\x1b[0m", path.Base(dstname))
-		}
+// printStatus displays the relavant information about the triangulation process.
+func printStatus(fname string, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			utils.DecorateText("\nError resizing the image: %s", utils.ErrorMessage),
+			utils.DecorateText(fmt.Sprintf("\n\tReason: %v\n", err.Error()), utils.DefaultMessage),
+		)
 	} else {
-		log.Printf("\nError rescaling image %s. Reason: %s\n", srcname, err.Error())
+		if fname != pipeName {
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe resized image has been saved as: %s %s\n",
+				utils.DecorateText(filepath.Base(fname), utils.SuccessMessage),
+				utils.DefaultColor,
+			))
+		}
 	}
 }
 
-type spinner struct {
-	stopChan chan struct{}
-}
-
-// Start process
-func (s *spinner) start(message string) {
-	s.stopChan = make(chan struct{}, 1)
-
-	go func() {
-		for {
-			for _, r := range `-\|/` {
-				select {
-				case <-s.stopChan:
-					return
-				default:
-					fmt.Fprintf(os.Stderr, "\r%s%s %c%s", message, "\x1b[92m", r, "\x1b[39m")
-					time.Sleep(time.Millisecond * 100)
-				}
-			}
+// isValidExtension checks for the supported extensions.
+func isValidExtension(ext string, extensions []string) bool {
+	for _, ex := range extensions {
+		if ex == ext {
+			return true
 		}
-	}()
-}
-
-// End process
-func (s *spinner) stop() {
-	s.stopChan <- struct{}{}
+	}
+	return false
 }

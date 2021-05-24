@@ -15,12 +15,13 @@ import (
 	"time"
 
 	pigo "github.com/esimov/pigo/core"
+	"github.com/pkg/errors"
 )
 
 var usedSeams []UsedSeams
 
-// TempImage temporary image file.
-var TempImage = fmt.Sprintf("%d.jpg", time.Now().Unix())
+// tmpFile temporary image file.
+var tmpFile = fmt.Sprintf("%d.jpg", time.Now().Unix())
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
@@ -74,7 +75,7 @@ func (c *Carver) set(x, y int, px float64) {
 //
 //	- the minimum energy level is calculated by summing up the current pixel value
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
-func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) {
+func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 	var srcImg *image.NRGBA
 	newImg := image.NewNRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
 	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
@@ -88,27 +89,25 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) {
 	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
 
 	if p.FaceDetect {
-		if len(p.Classifier) == 0 {
-			log.Fatal("Please provide a face classifier!")
-		}
+		defer removeTempFile(tmpFile)
 
 		cascadeFile, err := ioutil.ReadFile(p.Classifier)
 		if err != nil {
-			log.Fatalf("Error reading the cascade file: %v", err)
+			return errors.New(fmt.Sprintf("error reading the cascade file: %v", err))
 		}
 
-		tmpImg, err := os.OpenFile(TempImage, os.O_CREATE|os.O_WRONLY, 0755)
+		tmpImg, err := os.OpenFile(tmpFile, os.O_CREATE|os.O_WRONLY, 0755)
 		if err != nil {
-			log.Fatalf("Cannot access temporary image file: %v", err)
+			return errors.New(fmt.Sprintf("cannot access the temporary image file: %v", err))
 		}
 
 		if err := jpeg.Encode(tmpImg, img, &jpeg.Options{Quality: 100}); err != nil {
-			log.Fatalf("Cannot encode temporary image file: %v", err)
+			return errors.New(fmt.Sprintf("cannot encode the temporary image file: %v", err))
 		}
 
-		src, err := pigo.GetImage(TempImage)
+		src, err := pigo.GetImage(tmpFile)
 		if err != nil {
-			log.Fatalf("Cannot open the image file: %v", err)
+			return errors.New(fmt.Sprintf("cannot open the temporary image file: %v", err))
 		}
 
 		pixels := pigo.RgbToGrayscale(src)
@@ -162,7 +161,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			for range c {
-				RemoveTempImage(TempImage)
+				removeTempFile(tmpFile)
 				os.Exit(1)
 			}
 		}()
@@ -200,6 +199,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) {
 		right := c.get(0, y) + math.Min(c.get(c.Width-1, y-1), c.get(c.Width-2, y-1))
 		c.set(c.Width-1, y, right)
 	}
+	return nil
 }
 
 // FindLowestEnergySeams find the lowest vertical energy seam.
@@ -382,10 +382,10 @@ func (c *Carver) RotateImage270(src *image.NRGBA) *image.NRGBA {
 	return dst
 }
 
-// RemoveTempImage removes the temporary image generated during face detection process.
-func RemoveTempImage(tmpImage string) {
+// removeTempFile removes the temporary image generated during face detection process.
+func removeTempFile(tmpFile string) {
 	// Remove temporary image file.
-	if _, err := os.Stat(tmpImage); err == nil {
-		os.Remove(tmpImage)
+	if _, err := os.Stat(tmpFile); err == nil {
+		os.Remove(tmpFile)
 	}
 }

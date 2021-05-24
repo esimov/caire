@@ -9,9 +9,9 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
-	"math"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
@@ -64,6 +64,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		newWidth  int
 		newHeight int
 		pw, ph    int
+		err       error
 	)
 	xCount, yCount = 0, 0
 
@@ -85,23 +86,30 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	if p.NewHeight == 0 {
 		newHeight = p.NewHeight
 	}
-	reduce := func() {
+	reduce := func() error {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
-		c.ComputeSeams(img, p)
+		if err := c.ComputeSeams(img, p); err != nil {
+			return err
+		}
 		seams := c.FindLowestEnergySeams()
 		img = c.RemoveSeam(img, seams, p.Debug)
 
 		if isGif {
 			g = encodeImageToGif(img)
 		}
+		return nil
 	}
-	enlarge := func() {
+	enlarge := func() error {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
-		c.ComputeSeams(img, p)
+		if err := c.ComputeSeams(img, p); err != nil {
+			return err
+		}
 		seams := c.FindLowestEnergySeams()
 		img = c.AddSeam(img, seams, p.Debug)
+
+		return nil
 	}
 
 	if p.Percentage || p.Square {
@@ -160,7 +168,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// Use this option to rescale the image proportionally prior resizing.
 		// First the image is scaled down preserving the image aspect ratio,
 		// then the seam carving algorithm is applied only to the remaining pixels.
-		
+
 		// Prevent memory overflow issue in case of huge images by switching to scaling first option
 		if img.Bounds().Dx() > maxResizeWithoutScaling ||
 			img.Bounds().Dy() > maxResizeWithoutScaling {
@@ -176,12 +184,12 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			// Scale both the w and h by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
 			// This will scale one side directly to the target length,
 			// and the other proportionally larger than the target length.
-			// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080 
-			wScaleFactor := float64(c.Width) / float64(p.NewWidth) 
+			// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080
+			wScaleFactor := float64(c.Width) / float64(p.NewWidth)
 			hScaleFactor := float64(c.Height) / float64(p.NewHeight)
-			scaleWidth := math.Round(float64(c.Width) / math.Min(wScaleFactor, hScaleFactor)) //post scale width
+			scaleWidth := math.Round(float64(c.Width) / math.Min(wScaleFactor, hScaleFactor))   //post scale width
 			scaleHeight := math.Round(float64(c.Height) / math.Min(wScaleFactor, hScaleFactor)) // post scale height
-			
+
 			newImg = resize.Resize(uint(scaleWidth), uint(scaleHeight), img, resize.Lanczos3)
 			// The amount needed to remove by carving. One or both of these will be 0.
 			newWidth = int(scaleWidth) - p.NewWidth
@@ -222,7 +230,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			img = c.RotateImage270(img)
 		}
 	}
-	return img, nil
+	return img, err
 }
 
 // Process is the main function having as parameters an input reader and an output writer.
