@@ -102,7 +102,7 @@ func main() {
 	spinner = utils.NewSpinner(spinnerText, time.Millisecond*200, true)
 
 	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
-		if len(*cascade) == 0 {
+		if *faceDetect && len(*cascade) == 0 {
 			log.Fatalf(utils.DecorateText("Please specify a face classifier in case you are using the -face flag!\n", utils.ErrorMessage))
 		}
 
