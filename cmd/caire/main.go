@@ -375,6 +375,7 @@ func printStatus(fname string, err error) {
 			utils.DecorateText("\nError resizing the image: %s", utils.ErrorMessage),
 			utils.DecorateText(fmt.Sprintf("\n\tReason: %v\n", err.Error()), utils.DefaultMessage),
 		)
+		os.Exit(0)
 	} else {
 		if fname != pipeName {
 			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe resized image has been saved as: %s %s\n",

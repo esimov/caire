@@ -154,13 +154,17 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		// Reduce image size horizontally
 		for x := 0; x < pw; x++ {
-			reduce()
+			if err = reduce(); err != nil {
+				return nil, err
+			}
 			xCount++
 		}
 		// Reduce image size vertically
 		img = c.RotateImage90(img)
 		for y := 0; y < ph; y++ {
-			reduce()
+			if err = reduce(); err != nil {
+				return nil, err
+			}
 			yCount++
 		}
 		img = c.RotateImage270(img)
@@ -205,11 +209,15 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if newWidth > 0 && newWidth != img.Bounds().Max.X {
 			if p.NewWidth > c.Width {
 				for x := 0; x < newWidth; x++ {
-					enlarge()
+					if err = enlarge(); err != nil {
+						return nil, err
+					}
 				}
 			} else {
 				for x := 0; x < newWidth; x++ {
-					reduce()
+					if err = reduce(); err != nil {
+						return nil, err
+					}
 					xCount++
 				}
 			}
@@ -220,17 +228,21 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			img = c.RotateImage90(img)
 			if p.NewHeight > c.Height {
 				for y := 0; y < newHeight; y++ {
-					enlarge()
+					if err = enlarge(); err != nil {
+						return nil, err
+					}
 				}
 			} else {
 				for y := 0; y < newHeight; y++ {
-					reduce()
+					if err = reduce(); err != nil {
+						return nil, err
+					}
 				}
 			}
 			img = c.RotateImage270(img)
 		}
 	}
-	return img, err
+	return img, nil
 }
 
 // Process is the main function having as parameters an input reader and an output writer.
