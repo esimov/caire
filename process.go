@@ -1,6 +1,7 @@
 package caire
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/color/palette"
@@ -9,10 +10,13 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
 
+	"github.com/esimov/caire/utils"
+	pigo "github.com/esimov/pigo/core"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"golang.org/x/image/bmp"
@@ -35,17 +39,18 @@ type SeamCarver interface {
 
 // Processor options
 type Processor struct {
-	SobelThreshold int
-	BlurRadius     int
-	NewWidth       int
-	NewHeight      int
-	Percentage     bool
-	Square         bool
-	Debug          bool
-	Scale          bool
-	FaceDetect     bool
-	FaceAngle      float64
-	Classifier     string
+	SobelThreshold   int
+	BlurRadius       int
+	NewWidth         int
+	NewHeight        int
+	Percentage       bool
+	Square           bool
+	Debug            bool
+	Scale            bool
+	FaceDetect       bool
+	FaceAngle        float64
+	Classifier       string
+	PigoFaceDetector *pigo.Pigo
 }
 
 // Resize implements the Resize method of the Carver interface.
@@ -249,6 +254,32 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 // We are using the io package, because this way we can provide different types of input and output source,
 // as long as they implement the io.Reader and io.Writer interface.
 func (p *Processor) Process(r io.Reader, w io.Writer) error {
+	var err error
+
+	// Instantiate a new Pigo object in case the face detection option is used.
+	p.PigoFaceDetector = pigo.NewPigo()
+
+	if p.FaceDetect {
+		contentType, err := utils.DetectFileContentType(p.Classifier)
+		if err != nil {
+			return err
+		}
+		if contentType != "application/octet-stream" {
+			return errors.New("the provided cascade classifier is not valid.")
+		}
+
+		cascadeFile, err := ioutil.ReadFile(p.Classifier)
+		if err != nil {
+			return errors.New(fmt.Sprintf("error reading the cascade file: %v", err))
+		}
+		// Unpack the binary file. This will return the number of cascade trees,
+		// the tree depth, the threshold and the prediction from tree's leaf nodes.
+		p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Error reading the cascade file: %v\n", err))
+		}
+	}
+
 	g = new(gif.GIF)
 	src, _, err := image.Decode(r)
 	if err != nil {

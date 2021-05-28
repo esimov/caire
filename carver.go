@@ -1,25 +1,15 @@
 package caire
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
-	"image/jpeg"
-	"io/ioutil"
-	"log"
 	"math"
-	"os"
-	"time"
 
 	pigo "github.com/esimov/pigo/core"
-	"github.com/pkg/errors"
 )
 
 var usedSeams []UsedSeams
-
-// TempFile temporary image file.
-var TempFile = fmt.Sprintf("%d.jpg", time.Now().Unix())
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
@@ -75,7 +65,9 @@ func (c *Carver) set(x, y int, px float64) {
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 	var srcImg *image.NRGBA
-	newImg := image.NewNRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
+
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+	newImg := image.NewNRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
 
 	// Replace the energy map seam values with the stored pixel values each time we add a new seam.
@@ -84,32 +76,13 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 			newImg.Set(as.X, as.Y, as.Pix)
 		}
 	}
-	sobel := SobelFilter(Grayscale(newImg), float64(p.SobelThreshold))
+	gray := c.Grayscale(newImg)
+	sobel := c.SobelFilter(gray, float64(p.SobelThreshold))
 
 	if p.FaceDetect {
-		defer RemoveTempFile()
-
-		cascadeFile, err := ioutil.ReadFile(p.Classifier)
-		if err != nil {
-			return errors.New(fmt.Sprintf("error reading the cascade file: %v", err))
-		}
-
-		tmpImg, err := os.OpenFile(TempFile, os.O_CREATE|os.O_WRONLY, 0755)
-		if err != nil {
-			return errors.New(fmt.Sprintf("cannot access the temporary image file: %v", err))
-		}
-
-		if err := jpeg.Encode(tmpImg, img, &jpeg.Options{Quality: 100}); err != nil {
-			return errors.New(fmt.Sprintf("cannot encode the temporary image file: %v", err))
-		}
-
-		src, err := pigo.GetImage(TempFile)
-		if err != nil {
-			return errors.New(fmt.Sprintf("cannot open the temporary image file: %v", err))
-		}
-
-		pixels := pigo.RgbToGrayscale(src)
-		cols, rows := src.Bounds().Max.X, src.Bounds().Max.Y
+		// Transform the image to a pixel array.
+		pixels := c.rgbToGrayscale(gray)
+		cols, rows := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
 
 		cParams := pigo.CascadeParams{
 			MinSize:     100,
@@ -125,20 +98,12 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 			},
 		}
 
-		pigo := pigo.NewPigo()
-		// Unpack the binary file. This will return the number of cascade trees,
-		// the tree depth, the threshold and the prediction from tree's leaf nodes.
-		classifier, err := pigo.Unpack(cascadeFile)
-		if err != nil {
-			log.Fatalf("Error reading the cascade file: %v\n", err)
-		}
-
 		// Run the classifier over the obtained leaf nodes and return the detection results.
 		// The result contains quadruplets representing the row, column, scale and detection score.
-		faces := classifier.RunCascade(cParams, p.FaceAngle)
+		faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
 
 		// Calculate the intersection over union (IoU) of two clusters.
-		faces = classifier.ClusterDetections(faces, 0.2)
+		faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
 
 		// Range over all the detected faces and draw a white rectangle mask over each of them.
 		// We need to trick the sobel detector to consider them as important image parts.
@@ -370,10 +335,59 @@ func (c *Carver) RotateImage270(src *image.NRGBA) *image.NRGBA {
 	return dst
 }
 
-// RemoveTempFile removes the temporary image generated during face detection process.
-func RemoveTempFile() {
-	// Remove temporary image file.
-	if _, err := os.Stat(TempFile); err == nil {
-		os.Remove(TempFile)
+// imgToPix converts an image to a pixel array.
+func (c *Carver) imgToPix(src *image.NRGBA) []uint8 {
+	bounds := src.Bounds()
+	pixels := make([]uint8, 0, bounds.Max.X*bounds.Max.Y*4)
+
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			r, g, b, _ := src.At(y, x).RGBA()
+			pixels = append(pixels, uint8(r>>8), uint8(g>>8), uint8(b>>8), 255)
+		}
 	}
+	return pixels
+}
+
+// pixToImage converts an array buffer to an image.
+func (c *Carver) pixToImage(pixels []uint8) image.Image {
+	dst := image.NewNRGBA(image.Rect(0, 0, c.Width, c.Height))
+	bounds := dst.Bounds()
+	dx, dy := bounds.Max.X, bounds.Max.Y
+	col := color.NRGBA{
+		R: uint8(0),
+		G: uint8(0),
+		B: uint8(0),
+		A: uint8(255),
+	}
+
+	for x := bounds.Min.X; x < dx; x++ {
+		for y := bounds.Min.Y; y < dy*4; y += 4 {
+			col.R = uint8(pixels[y+x*dy*4])
+			col.G = uint8(pixels[y+x*dy*4+1])
+			col.B = uint8(pixels[y+x*dy*4+2])
+			col.A = uint8(pixels[y+x*dy*4+3])
+
+			dst.SetNRGBA(x, int(y/4), col)
+		}
+	}
+	return dst
+}
+
+// rgbToGrayscale converts the rgb pixel values to grayscale.
+func (c *Carver) rgbToGrayscale(src *image.NRGBA) []uint8 {
+	width, height := src.Bounds().Dx(), src.Bounds().Dy()
+	gray := make([]uint8, width*height)
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			r, g, b, _ := src.At(x, y).RGBA()
+			gray[y*width+x] = uint8(
+				(0.299*float64(r) +
+					0.587*float64(g) +
+					0.114*float64(b)) / 256,
+			)
+		}
+	}
+	return gray
 }

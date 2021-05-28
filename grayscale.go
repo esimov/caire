@@ -6,7 +6,7 @@ import (
 )
 
 // Grayscale converts the image to grayscale mode.
-func Grayscale(src *image.NRGBA) *image.NRGBA {
+func (c *Carver) Grayscale(src *image.NRGBA) *image.NRGBA {
 	dx, dy := src.Bounds().Max.X, src.Bounds().Max.Y
 	dst := image.NewNRGBA(src.Bounds())
 	for x := 0; x < dx; x++ {

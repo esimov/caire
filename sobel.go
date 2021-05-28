@@ -23,7 +23,7 @@ var (
 
 // SobelFilter detects image edges.
 // See https://en.wikipedia.org/wiki/Sobel_operator
-func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
+func (c *Carver) SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 	var sumX, sumY int32
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 	dst := image.NewNRGBA(img.Bounds())
@@ -31,7 +31,7 @@ func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 	// Get 3x3 window of pixels because image data given is just a 1D array of pixels
 	maxPixelOffset := dx*2 + len(kernelX) - 1
 
-	data := getImageData(img)
+	data := c.getImageData(img)
 	length := len(data)*4 - maxPixelOffset
 	magnitudes := make([]uint8, length)
 
@@ -89,7 +89,7 @@ func SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 
 // getImageData returns an array of pixel grayscale brightness values
 // for the image (taking the red component of each pixel).
-func getImageData(img *image.NRGBA) []uint8 {
+func (c *Carver) getImageData(img *image.NRGBA) []uint8 {
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 	pixels := make([]uint8, dx*dy)
 
