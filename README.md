@@ -70,7 +70,6 @@ $ go install
 The library can also be installed via Homebrew.
 
 ```bash
-$ brew tap esimov/caire
 $ brew install caire
 ```
 
