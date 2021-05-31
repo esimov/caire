@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// MessageType is a placeholder for the various the message types.
+// MessageType is a custom type used as a placeholder for various message types.
 type MessageType int
 
 // The message types used accross the CLI application.

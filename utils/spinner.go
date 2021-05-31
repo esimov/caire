@@ -24,13 +24,13 @@ type Spinner struct {
 }
 
 // NewSpinner instantiates a new progress indicator.
-func NewSpinner(msg string, d time.Duration, hideCursor bool) *Spinner {
+func NewSpinner(msg string, d time.Duration) *Spinner {
 	return &Spinner{
 		mu:         &sync.RWMutex{},
 		delay:      d,
 		writer:     os.Stderr,
 		message:    msg,
-		hideCursor: hideCursor,
+		hideCursor: true,
 		stopChan:   make(chan struct{}, 1),
 	}
 }

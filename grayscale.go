@@ -9,6 +9,7 @@ import (
 func (c *Carver) Grayscale(src *image.NRGBA) *image.NRGBA {
 	dx, dy := src.Bounds().Max.X, src.Bounds().Max.Y
 	dst := image.NewNRGBA(src.Bounds())
+
 	for x := 0; x < dx; x++ {
 		for y := 0; y < dy; y++ {
 			r, g, b, _ := src.At(x, y).RGBA()

@@ -99,7 +99,8 @@ func main() {
 	spinnerText := fmt.Sprintf("%s %s",
 		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
 		utils.DecorateText("is resizing the image...", utils.DefaultMessage))
-	spinner = utils.NewSpinner(spinnerText, time.Millisecond*200, true)
+
+	spinner = utils.NewSpinner(spinnerText, time.Millisecond*100)
 
 	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
 		if *faceDetect && len(*cascade) == 0 {
