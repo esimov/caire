@@ -65,7 +65,6 @@ var (
 	scale          = flag.Bool("scale", false, "Proportional scaling")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Plane rotated faces angle")
-	cascade        = flag.String("cc", "", "Cascade classifier")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
 
 	// File related variables
@@ -93,7 +92,6 @@ func main() {
 		Scale:          *scale,
 		FaceDetect:     *faceDetect,
 		FaceAngle:      *faceAngle,
-		Classifier:     *cascade,
 	}
 
 	spinnerText := fmt.Sprintf("%s %s",
@@ -103,10 +101,6 @@ func main() {
 	spinner = utils.NewSpinner(spinnerText, time.Millisecond*100)
 
 	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
-		if *faceDetect && len(*cascade) == 0 {
-			log.Fatalf(utils.DecorateText("Please specify a face classifier in case you are using the -face flag!\n", utils.ErrorMessage))
-		}
-
 		// Supported files
 		validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
 

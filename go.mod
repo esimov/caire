@@ -1,6 +1,6 @@
 module github.com/esimov/caire
 
-go 1.12
+go 1.16
 
 require (
 	github.com/esimov/pigo v1.3.0

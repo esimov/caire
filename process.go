@@ -1,6 +1,7 @@
 package caire
 
 import (
+	"embed"
 	"fmt"
 	"image"
 	"image/color"
@@ -10,12 +11,10 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
 
-	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
@@ -23,6 +22,9 @@ import (
 )
 
 const maxResizeWithoutScaling = 2000
+
+//go:embed data/facefinder
+var classifier embed.FS
 
 var (
 	g      *gif.GIF
@@ -49,7 +51,6 @@ type Processor struct {
 	Scale            bool
 	FaceDetect       bool
 	FaceAngle        float64
-	Classifier       string
 	PigoFaceDetector *pigo.Pigo
 }
 
@@ -260,15 +261,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	p.PigoFaceDetector = pigo.NewPigo()
 
 	if p.FaceDetect {
-		contentType, err := utils.DetectFileContentType(p.Classifier)
-		if err != nil {
-			return err
-		}
-		if contentType != "application/octet-stream" {
-			return errors.New("the provided cascade classifier is not valid.")
-		}
-
-		cascadeFile, err := ioutil.ReadFile(p.Classifier)
+		cascadeFile, err := classifier.ReadFile("data/facefinder")
 		if err != nil {
 			return errors.New(fmt.Sprintf("error reading the cascade file: %v", err))
 		}
