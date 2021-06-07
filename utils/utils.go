@@ -47,24 +47,24 @@ func DecorateText(s string, msgType MessageType) string {
 // FormatTime formats time.Duration output to a human readable value.
 func FormatTime(d time.Duration) string {
 	if d.Seconds() < 60.0 {
-		return fmt.Sprintf("%ds", int64(d.Seconds()))
+		return fmt.Sprintf("%.2fs", d.Seconds())
 	}
 	if d.Minutes() < 60.0 {
 		remainingSeconds := math.Mod(d.Seconds(), 60)
-		return fmt.Sprintf("%dm:%ds", int64(d.Minutes()), int64(remainingSeconds))
+		return fmt.Sprintf("%dm %.2fs", int64(d.Minutes()), remainingSeconds)
 	}
 	if d.Hours() < 24.0 {
 		remainingMinutes := math.Mod(d.Minutes(), 60)
 		remainingSeconds := math.Mod(d.Seconds(), 60)
-		return fmt.Sprintf("%dh:%dm:%ds",
-			int64(d.Hours()), int64(remainingMinutes), int64(remainingSeconds))
+		return fmt.Sprintf("%dh %dm %.2fs",
+			int64(d.Hours()), int64(remainingMinutes), remainingSeconds)
 	}
 	remainingHours := math.Mod(d.Hours(), 24)
 	remainingMinutes := math.Mod(d.Minutes(), 60)
 	remainingSeconds := math.Mod(d.Seconds(), 60)
-	return fmt.Sprintf("%dd:%dh:%dm:%ds",
+	return fmt.Sprintf("%dd %dh %dm %.2fs",
 		int64(d.Hours()/24), int64(remainingHours),
-		int64(remainingMinutes), int64(remainingSeconds))
+		int64(remainingMinutes), remainingSeconds)
 }
 
 // DetectFileContentType detects the file type by reading MIME type information of the file content.
