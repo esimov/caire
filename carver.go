@@ -68,6 +68,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	newImg := image.NewNRGBA(image.Rect(0, 0, width, height))
+
 	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
 
 	// Replace the energy map seam values with the stored pixel values each time we add a new seam.
@@ -158,8 +159,10 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 // FindLowestEnergySeams find the lowest vertical energy seam.
 func (c *Carver) FindLowestEnergySeams() []Seam {
 	// Find the lowest cost seam from the energy matrix starting from the last row.
-	var min = math.MaxFloat64
-	var px int
+	var (
+		min = math.MaxFloat64
+		px  int
+	)
 	seams := make([]Seam, 0)
 
 	// Find the pixel on the last row with the minimum cumulative energy and use this as the starting pixel
@@ -230,12 +233,14 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 	return dst
 }
 
-// AddSeam add new seam.
+// AddSeam add a new seam.
 func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
-	var currentSeam []ActiveSeam
-	var lr, lg, lb uint32
-	var rr, rg, rb uint32
-	var py int
+	var (
+		currentSeam []ActiveSeam
+		lr, lg, lb  uint32
+		rr, rg, rb  uint32
+		py          int
+	)
 
 	bounds := img.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()+1, bounds.Dy()))

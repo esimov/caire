@@ -15,8 +15,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/disintegration/imaging"
 	pigo "github.com/esimov/pigo/core"
-	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"golang.org/x/image/bmp"
 )
@@ -34,7 +34,7 @@ var (
 )
 
 // SeamCarver interface defines the Resize method.
-// This has to be implemented by every struct which declares a Resize method.
+// This needs to be implemented by every struct which declares a Resize method.
 type SeamCarver interface {
 	Resize(*image.NRGBA) (image.Image, error)
 }
@@ -126,14 +126,14 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// In case pw and ph is zero, it means that the target image is square.
 		// In this case we don't have to apply the seam carving algorithm, we can simply resize the image.
 		if pw == 0 && ph == 0 {
-			return resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3), nil
+			return imaging.Resize(img, p.NewWidth, 0, imaging.Lanczos), nil
 		}
 
 		if p.Square {
 			if p.NewWidth < p.NewHeight {
-				newImg = resize.Resize(uint(p.NewWidth), 0, img, resize.Lanczos3)
+				newImg = imaging.Resize(img, p.NewWidth, 0, imaging.Lanczos)
 			} else {
-				newImg = resize.Resize(uint(p.NewHeight), 0, img, resize.Lanczos3)
+				newImg = imaging.Resize(img, p.NewHeight, 0, imaging.Lanczos)
 			}
 			dst := image.NewNRGBA(newImg.Bounds())
 			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
@@ -186,12 +186,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 
 		if p.Scale {
-			if p.NewWidth > img.Bounds().Max.X || p.NewHeight > img.Bounds().Max.Y {
-				return nil, errors.New("scale option can not be used on image enlargement")
-			}
-
-			// Find the scale factor for the width and the height
-			// Scale both the w and h by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
+			// Find the scale factor for width and height.
+			// Scale the width and height by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
 			// This will scale one side directly to the target length,
 			// and the other proportionally larger than the target length.
 			// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080
@@ -200,7 +196,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			scaleWidth := math.Round(float64(c.Width) / math.Min(wScaleFactor, hScaleFactor))   //post scale width
 			scaleHeight := math.Round(float64(c.Height) / math.Min(wScaleFactor, hScaleFactor)) // post scale height
 
-			newImg = resize.Resize(uint(scaleWidth), uint(scaleHeight), img, resize.Lanczos3)
+			newImg = imaging.Resize(img, int(scaleWidth), int(scaleHeight), imaging.Lanczos)
 			// The amount needed to remove by carving. One or both of these will be 0.
 			newWidth = int(scaleWidth) - p.NewWidth
 			newHeight = int(scaleHeight) - p.NewHeight
@@ -211,9 +207,12 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 
 		// Check if the new width does not match with the rescaled image width.
-		// We only need to run the carver function if the desired image width is less than the rescaled image width.
+		// Run the carver function if the desired image width is not identical with the rescaled image width.
 		if newWidth > 0 && newWidth != img.Bounds().Max.X {
-			if p.NewWidth > c.Width {
+			// Because scaling horizontally and vertically at the same time using the scale option
+			// it might happen that the scaled image exceeds the desired image size, we need to make sure
+			// that the new width and|or height is reduced and not enlarged.
+			if p.NewWidth > c.Width && newWidth < p.NewWidth && img.Bounds().Max.X < p.NewWidth {
 				for x := 0; x < newWidth; x++ {
 					if err = enlarge(); err != nil {
 						return nil, err
@@ -229,10 +228,11 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 		}
 		// Check if the new height does not match with the rescaled image height.
-		// We only need to run the carver function if the desired image height is less than the rescaled image height.
+		// Run the carver function if the desired image height is not identical with the rescaled image height.
 		if newHeight > 0 && newHeight != img.Bounds().Max.Y {
 			img = c.RotateImage90(img)
-			if p.NewHeight > c.Height {
+			// Check new height against the width of the image because the image is rotated 90deg.
+			if p.NewHeight > c.Height && (newHeight < p.NewHeight && img.Bounds().Max.X < p.NewHeight) {
 				for y := 0; y < newHeight; y++ {
 					if err = enlarge(); err != nil {
 						return nil, err
@@ -251,8 +251,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	return img, nil
 }
 
-// Process is the main function having as parameters an input reader and an output writer.
-// We are using the io package, because this way we can provide different types of input and output source,
+// Process encodes the resized image into an io.Writer interface.
+// We are using the io package, because this way we can provide different input and output types,
 // as long as they implement the io.Reader and io.Writer interface.
 func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	var err error
@@ -289,40 +289,40 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			if err != nil {
 				return err
 			}
-			err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
+			return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 		case ".png":
 			res, err := Resize(p, img)
 			if err != nil {
 				return err
 			}
-			err = png.Encode(w, res)
+			return png.Encode(w, res)
 		case ".bmp":
 			res, err := Resize(p, img)
 			if err != nil {
 				return err
 			}
-			err = bmp.Encode(w, res)
+			return bmp.Encode(w, res)
 		case ".gif":
 			isGif = true
 			_, err := Resize(p, img)
 			if err != nil {
 				return err
 			}
-			err = writeGifToFile(w.(*os.File).Name())
+			return writeGifToFile(w.(*os.File).Name())
 		default:
-			err = errors.New("unsupported image format")
+			return errors.New("unsupported image format")
 		}
 	default:
 		res, err := Resize(p, img)
 		if err != nil {
 			return err
 		}
-		err = jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
+		return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 	}
-	return err
+	return nil
 }
 
-// Converts any image type to *image.NRGBA with min-point at (0, 0).
+// imgToNRGBA converts any image type to *image.NRGBA with min-point at (0, 0).
 func imgToNRGBA(img image.Image) *image.NRGBA {
 	srcBounds := img.Bounds()
 	if srcBounds.Min.X == 0 && srcBounds.Min.Y == 0 {
@@ -380,7 +380,7 @@ func imgToNRGBA(img image.Image) *image.NRGBA {
 	return dst
 }
 
-// encodeImageToGif encode the provided image file to a Gif image.
+// encodeImageToGif encodes the provided image to a Gif file.
 func encodeImageToGif(src image.Image) *gif.GIF {
 	bounds := src.Bounds()
 	dst := image.NewPaletted(image.Rect(0, 0, bounds.Dx()-xCount, bounds.Dy()-yCount), palette.Plan9)
