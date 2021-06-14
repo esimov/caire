@@ -1,10 +1,10 @@
 <h1 align="center"><img alt="Caire Logo" src="https://user-images.githubusercontent.com/883386/51555990-a1762600-1e81-11e9-9a6a-0cd815870358.png" height="180"></h1>
 
-[![Build Status](https://travis-ci.org/esimov/caire.svg?branch=master)](https://travis-ci.org/esimov/caire)
+[![build](https://github.com/esimov/caire/actions/workflows/build.yml/badge.svg)](https://github.com/esimov/caire/actions/workflows/build.yml)
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.3.1-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.3.1)
-[![homebrew](https://img.shields.io/badge/homebrew-v1.3.1-orange.svg)](https://formulae.brew.sh/formula/caire)
+[![release](https://img.shields.io/badge/release-v1.3.2-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.3.2)
+[![homebrew](https://img.shields.io/badge/homebrew-v1.3.2-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![snapcraft](https://img.shields.io/badge/snapcraft-v1.2.6-green.svg)](https://snapcraft.io/caire)
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper.
