@@ -42,16 +42,17 @@ func (s *Spinner) Start() {
 		fmt.Fprintf(s.writer, "\033[?25l")
 	}
 
+	charSet := []string{"⠈⠁", "⠈⠑", "⠈⠱", "⠈⡱", "⢀⡱", "⢄⡱", "⢄⡱", "⢆⡱", "⢎⡱", "⢎⡰", "⢎⡠", "⢎⡀", "⢎⠁", "⠎⠁", "⠊⠁"}
 	go func() {
 		for {
-			for _, r := range `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` {
+			for _, r := range charSet {
 				select {
 				case <-s.stopChan:
 					return
 				default:
 					s.mu.Lock()
 
-					output := fmt.Sprintf("\r%s%s %c%s", s.message, SuccessColor, r, DefaultColor)
+					output := fmt.Sprintf("\r%s%s %s%s", s.message, StatusColor, r, DefaultColor)
 					fmt.Fprintf(s.writer, output)
 					s.lastOutput = output
 

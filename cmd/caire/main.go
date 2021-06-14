@@ -35,7 +35,7 @@ const pipeName = "-"
 // maxWorkers sets the maximum number of concurrently running workers.
 const maxWorkers = 20
 
-// result holds the relevant information about the triangulation process and the generated image.
+// result holds the relevant information about the resizing process and the generated image.
 type result struct {
 	path string
 	err  error
@@ -67,14 +67,14 @@ var (
 	faceAngle      = flag.Float64("angle", 0.0, "Plane rotated faces angle")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
 
-	// File related variables
-	fs  os.FileInfo
-	err error
+	// Common file related variable
+	fs os.FileInfo
 )
 
 func main() {
-	log.SetFlags(0)
+	var err error
 
+	log.SetFlags(0)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf(HelpBanner, Version))
 		flag.PrintDefaults()
@@ -94,11 +94,12 @@ func main() {
 		FaceAngle:      *faceAngle,
 	}
 
-	spinnerText := fmt.Sprintf("%s %s",
+	defaultMsg := fmt.Sprintf("%s %s",
 		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-		utils.DecorateText("is resizing the image...", utils.DefaultMessage))
+		utils.DecorateText("⇢ image resizing in progress (be patient, it may take a while)...", utils.DefaultMessage),
+	)
 
-	spinner = utils.NewSpinner(spinnerText, time.Millisecond*100)
+	spinner = utils.NewSpinner(defaultMsg, time.Millisecond*80)
 
 	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
 		// Supported files
@@ -185,10 +186,13 @@ func main() {
 
 			// Consume the channel values.
 			for res := range ch {
+				if res.err != nil {
+					err = res.err
+				}
 				printStatus(res.path, res.err)
 			}
 
-			if err := <-errc; err != nil {
+			if err = <-errc; err != nil {
 				fmt.Fprintf(os.Stderr, utils.DecorateText(err.Error(), utils.ErrorMessage))
 			}
 
@@ -198,10 +202,12 @@ func main() {
 				log.Fatalf(utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
 			}
 
-			err := processor(*source, *destination, proc)
+			err = processor(*source, *destination, proc)
 			printStatus(*destination, err)
 		}
-		fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(fmt.Sprintf("%s", utils.FormatTime(time.Since(now))), utils.SuccessMessage))
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(fmt.Sprintf("%s", utils.FormatTime(time.Since(now))), utils.SuccessMessage))
+		}
 	} else {
 		flag.Usage()
 		log.Fatal(fmt.Sprintf("%s%s",
@@ -259,7 +265,7 @@ func walkDir(
 }
 
 // consumer reads the path names from the paths channel and
-// calls the triangulator processor against the source image
+// calls the resizing processor against the source image
 // then sends the results on a new channel.
 func consumer(
 	done <-chan interface{},
@@ -269,8 +275,8 @@ func consumer(
 	res chan<- result,
 ) {
 	for src := range paths {
-		dest := filepath.Join(dest, filepath.Base(src))
-		err := processor(src, dest, proc)
+		dst := filepath.Join(dest, filepath.Base(src))
+		err := processor(src, dst, proc)
 
 		select {
 		case <-done:
@@ -286,11 +292,30 @@ func consumer(
 // processor calls the resizer method over the source image and
 // returns the error in case exists, otherwise nil.
 func processor(in, out string, proc *caire.Processor) error {
-	var err error
+	var (
+		successMsg string
+		errorMsg   string
+	)
+	// Start the progress indicator.
+	spinner.Start()
+
+	successMsg = fmt.Sprintf("%s %s %s",
+		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
+		utils.DecorateText("⇢", utils.DefaultMessage),
+		utils.DecorateText("the image has been resized sucessfully ✔", utils.SuccessMessage),
+	)
+
+	errorMsg = fmt.Sprintf("%s %s %s",
+		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
+		utils.DecorateText("resizing image failed...", utils.DefaultMessage),
+		utils.DecorateText("✘", utils.ErrorMessage),
+	)
 
 	src, dst, err := pathToFile(in, out)
-	defer src.(*os.File).Close()
-	defer dst.(*os.File).Close()
+	if err != nil {
+		spinner.StopMsg = errorMsg
+		return err
+	}
 
 	// Capture CTRL-C signal and restore the cursor visibility back.
 	signalChan := make(chan os.Signal, 1)
@@ -299,23 +324,31 @@ func processor(in, out string, proc *caire.Processor) error {
 		<-signalChan
 		func() {
 			spinner.RestoreCursor()
+			os.Remove(dst.(*os.File).Name())
 			os.Exit(1)
 		}()
 	}()
 
-	// Start the progress indicator.
-	spinner.Start()
+	defer src.(*os.File).Close()
+	defer dst.(*os.File).Close()
+
 	err = proc.Process(src, dst)
+	if err != nil {
+		// remove the generated image file in case of an error
+		os.Remove(dst.(*os.File).Name())
 
-	stopMsg := fmt.Sprintf("%s %s",
-		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-		utils.DecorateText("is resizing the image... ✔", utils.DefaultMessage))
-	spinner.StopMsg = stopMsg
+		spinner.StopMsg = errorMsg
+		// Stop the progress indicator.
+		spinner.Stop()
 
-	// Stop the progress indicator.
-	spinner.Stop()
+		return err
+	} else {
+		spinner.StopMsg = successMsg
+		// Stop the progress indicator.
+		spinner.Stop()
+	}
 
-	return err
+	return nil
 }
 
 // pathToFile converts the source and destination paths to readable and writable files.
@@ -362,17 +395,16 @@ func pathToFile(in, out string) (io.Reader, io.Writer, error) {
 	return src, dst, nil
 }
 
-// printStatus displays the relavant information about the triangulation process.
+// printStatus displays the relavant information about the image resizing process.
 func printStatus(fname string, err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			utils.DecorateText("\nError resizing the image: %s", utils.ErrorMessage),
 			utils.DecorateText(fmt.Sprintf("\n\tReason: %v\n", err.Error()), utils.DefaultMessage),
 		)
-		os.Exit(0)
 	} else {
 		if fname != pipeName {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe resized image has been saved as: %s %s\n",
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe new image has been saved as: %s %s\n\n",
 				utils.DecorateText(filepath.Base(fname), utils.SuccessMessage),
 				utils.DefaultColor,
 			))

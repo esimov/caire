@@ -21,27 +21,27 @@ const (
 
 // Colors used accross the CLI application.
 const (
-	ErrorColor   = "\x1b[31m"
-	SuccessColor = "\x1b[32m"
 	DefaultColor = "\x1b[0m"
 	StatusColor  = "\x1b[36m"
+	SuccessColor = "\x1b[32m"
+	ErrorColor   = "\x1b[31m"
 )
 
 // DecorateText shows the message types in different colors.
 func DecorateText(s string, msgType MessageType) string {
 	switch msgType {
-	case SuccessMessage:
-		s = SuccessColor + s
-	case ErrorMessage:
-		s = ErrorColor + s
 	case DefaultMessage:
 		s = DefaultColor + s
 	case StatusMessage:
 		s = StatusColor + s
+	case SuccessMessage:
+		s = SuccessColor + s
+	case ErrorMessage:
+		s = ErrorColor + s
 	default:
 		return s
 	}
-	return s + "\x1b[0m"
+	return s + DefaultColor
 }
 
 // FormatTime formats time.Duration output to a human readable value.
