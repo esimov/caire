@@ -7,10 +7,10 @@ import (
 	"image"
 )
 
-// blurStack is a linked list containing the color value and a pointer to the next struct.
-type blurStack struct {
+// blurstack is a linked list containing the color value and a pointer to the next struct.
+type blurstack struct {
 	r, g, b, a uint32
-	next       *blurStack
+	next       *blurstack
 }
 
 var mulTable = []uint32{
@@ -51,15 +51,10 @@ var shgTable = []uint32{
 	24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
 }
 
-// NewBlurStack is a constructor function returning a new struct of type blurStack.
-func (bs *blurStack) NewBlurStack() *blurStack {
-	return &blurStack{bs.r, bs.g, bs.b, bs.a, bs.next}
-}
-
 // StackBlur applies a blur filter to the provided image.
 // The radius defines the bluring average.
-func StackBlur(img *image.NRGBA, radius uint32) *image.NRGBA {
-	var stackEnd, stackIn, stackOut *blurStack
+func (c *Carver) StackBlur(img *image.NRGBA, radius uint32) *image.NRGBA {
+	var stackEnd, stackIn, stackOut *blurstack
 	var width, height = uint32(img.Bounds().Dx()), uint32(img.Bounds().Dy())
 	var (
 		div, widthMinus1, heightMinus1, radiusPlus1, sumFactor uint32
@@ -76,12 +71,11 @@ func StackBlur(img *image.NRGBA, radius uint32) *image.NRGBA {
 	radiusPlus1 = radius + 1
 	sumFactor = radiusPlus1 * (radiusPlus1 + 1) / 2
 
-	bs := blurStack{}
-	stackStart := bs.NewBlurStack()
+	stackStart := new(blurstack)
 	stack := stackStart
 
 	for i = 1; i < div; i++ {
-		stack.next = bs.NewBlurStack()
+		stack.next = new(blurstack)
 		stack = stack.next
 		if i == radiusPlus1 {
 			stackEnd = stack

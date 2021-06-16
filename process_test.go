@@ -22,7 +22,6 @@ func reduceImageH(t *testing.T) {
 		Percentage:     false,
 		Square:         false,
 		Debug:          false,
-		Scale:          false,
 	}
 	// Reduce image size horizontally
 	for x := 0; x < newWidth; x++ {
@@ -51,7 +50,6 @@ func reduceImageV(t *testing.T) {
 		Percentage:     false,
 		Square:         false,
 		Debug:          false,
-		Scale:          false,
 	}
 	// Reduce image size horizontally
 	img = c.RotateImage90(img)

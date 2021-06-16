@@ -122,7 +122,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 	}
 
 	if p.BlurRadius > 0 {
-		srcImg = StackBlur(sobel, uint32(p.BlurRadius))
+		srcImg = c.StackBlur(sobel, uint32(p.BlurRadius))
 	} else {
 		srcImg = sobel
 	}

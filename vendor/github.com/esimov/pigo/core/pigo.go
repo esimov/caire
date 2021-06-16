@@ -136,29 +136,32 @@ func (pg *Pigo) classifyRegion(r, c, s int, pixels []uint8, dim int) float32 {
 	r = r * 256
 	c = c * 256
 
-	for i := 0; i < int(pg.treeNum); i++ {
-		idx := 1
+	if pg.treeNum > 0 {
+		for i := 0; i < int(pg.treeNum); i++ {
+			idx := 1
 
-		for j := 0; j < int(pg.treeDepth); j++ {
-			x1 := ((r+int(pg.treeCodes[root+4*idx+0])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+1])*s) >> 8)
-			x2 := ((r+int(pg.treeCodes[root+4*idx+2])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+3])*s) >> 8)
+			for j := 0; j < int(pg.treeDepth); j++ {
+				x1 := ((r+int(pg.treeCodes[root+4*idx+0])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+1])*s) >> 8)
+				x2 := ((r+int(pg.treeCodes[root+4*idx+2])*s)>>8)*dim + ((c + int(pg.treeCodes[root+4*idx+3])*s) >> 8)
 
-			bintest := func(px1, px2 uint8) int {
-				if px1 <= px2 {
-					return 1
+				bintest := func(px1, px2 uint8) int {
+					if px1 <= px2 {
+						return 1
+					}
+					return 0
 				}
-				return 0
+				idx = 2*idx + bintest(pixels[x1], pixels[x2])
 			}
-			idx = 2*idx + bintest(pixels[x1], pixels[x2])
-		}
-		out += pg.treePred[treeDepth*i+idx-treeDepth]
+			out += pg.treePred[treeDepth*i+idx-treeDepth]
 
-		if out <= pg.treeThreshold[i] {
-			return -1.0
+			if out <= pg.treeThreshold[i] {
+				return -1.0
+			}
+			root += 4 * treeDepth
 		}
-		root += 4 * treeDepth
+		return out - pg.treeThreshold[pg.treeNum-1]
 	}
-	return out - pg.treeThreshold[pg.treeNum-1]
+	return 0.0
 }
 
 // classifyRotatedRegion applies the face classification function over a rotated image based on the parsed binary data.
@@ -175,32 +178,35 @@ func (pg *Pigo) classifyRotatedRegion(r, c, s int, a float64, nrows, ncols int, 
 	qsin := s * qSinTable[int(32.0*a)] //s*(256.0*math.Sin(2*math.Pi*a))
 	qcos := s * qCosTable[int(32.0*a)] //s*(256.0*math.Cos(2*math.Pi*a))
 
-	for i := 0; i < int(pg.treeNum); i++ {
-		var idx = 1
+	if pg.treeNum > 0 {
+		for i := 0; i < int(pg.treeNum); i++ {
+			var idx = 1
 
-		for j := 0; j < int(pg.treeDepth); j++ {
-			r1 := abs(min(nrows-1, max(0, 65536*r+qcos*int(pg.treeCodes[root+4*idx+0])-qsin*int(pg.treeCodes[root+4*idx+1]))>>16))
-			c1 := abs(min(nrows-1, max(0, 65536*c+qsin*int(pg.treeCodes[root+4*idx+0])+qcos*int(pg.treeCodes[root+4*idx+1]))>>16))
+			for j := 0; j < int(pg.treeDepth); j++ {
+				r1 := abs(min(nrows-1, max(0, 65536*r+qcos*int(pg.treeCodes[root+4*idx+0])-qsin*int(pg.treeCodes[root+4*idx+1]))>>16))
+				c1 := abs(min(nrows-1, max(0, 65536*c+qsin*int(pg.treeCodes[root+4*idx+0])+qcos*int(pg.treeCodes[root+4*idx+1]))>>16))
 
-			r2 := abs(min(nrows-1, max(0, 65536*r+qcos*int(pg.treeCodes[root+4*idx+2])-qsin*int(pg.treeCodes[root+4*idx+3]))>>16))
-			c2 := abs(min(nrows-1, max(0, 65536*c+qsin*int(pg.treeCodes[root+4*idx+2])+qcos*int(pg.treeCodes[root+4*idx+3]))>>16))
+				r2 := abs(min(nrows-1, max(0, 65536*r+qcos*int(pg.treeCodes[root+4*idx+2])-qsin*int(pg.treeCodes[root+4*idx+3]))>>16))
+				c2 := abs(min(nrows-1, max(0, 65536*c+qsin*int(pg.treeCodes[root+4*idx+2])+qcos*int(pg.treeCodes[root+4*idx+3]))>>16))
 
-			bintest := func(px1, px2 uint8) int {
-				if px1 <= px2 {
-					return 1
+				bintest := func(px1, px2 uint8) int {
+					if px1 <= px2 {
+						return 1
+					}
+					return 0
 				}
-				return 0
+				idx = 2*idx + bintest(pixels[r1*dim+c1], pixels[r2*dim+c2])
 			}
-			idx = 2*idx + bintest(pixels[r1*dim+c1], pixels[r2*dim+c2])
-		}
-		out += pg.treePred[treeDepth*i+idx-treeDepth]
+			out += pg.treePred[treeDepth*i+idx-treeDepth]
 
-		if out <= pg.treeThreshold[i] {
-			return -1.0
+			if out <= pg.treeThreshold[i] {
+				return -1.0
+			}
+			root += 4 * treeDepth
 		}
-		root += 4 * treeDepth
+		return out - pg.treeThreshold[pg.treeNum-1]
 	}
-	return out - pg.treeThreshold[pg.treeNum-1]
+	return 0.0
 }
 
 // Detection struct contains the detection results composed of

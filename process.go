@@ -21,8 +21,6 @@ import (
 	"golang.org/x/image/bmp"
 )
 
-const maxResizeWithoutScaling = 2000
-
 //go:embed data/facefinder
 var classifier embed.FS
 
@@ -48,7 +46,6 @@ type Processor struct {
 	Percentage       bool
 	Square           bool
 	Debug            bool
-	Scale            bool
 	FaceDetect       bool
 	FaceAngle        float64
 	PigoFaceDetector *pigo.Pigo
@@ -92,6 +89,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	if p.NewHeight == 0 {
 		newHeight = p.NewHeight
 	}
+
 	reduce := func() error {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
@@ -175,28 +173,26 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		img = c.RotateImage270(img)
 	} else if newWidth > 0 || newHeight > 0 {
-		// Use this option to rescale the image proportionally prior resizing.
-		// First the image is scaled down preserving the image aspect ratio,
+		// We are trying to rescale the image proportionally prior resizing.
+		// First the image is scaled down or up by preserving the image aspect ratio,
 		// then the seam carving algorithm is applied only to the remaining pixels.
 
-		// Prevent memory overflow issue in case of huge images by switching to scaling first option
-		if img.Bounds().Dx() > maxResizeWithoutScaling ||
-			img.Bounds().Dy() > maxResizeWithoutScaling {
-			p.Scale = true
-		}
+		// Scale the width and height by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
+		// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080
+		wScaleFactor := float64(c.Width) / float64(p.NewWidth)
+		hScaleFactor := float64(c.Height) / float64(p.NewHeight)
+		scaleWidth := math.Round(float64(c.Width) / math.Min(wScaleFactor, hScaleFactor))
+		scaleHeight := math.Round(float64(c.Height) / math.Min(wScaleFactor, hScaleFactor))
 
-		if p.Scale {
-			// Find the scale factor for width and height.
-			// Scale the width and height by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
-			// This will scale one side directly to the target length,
-			// and the other proportionally larger than the target length.
-			// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080
-			wScaleFactor := float64(c.Width) / float64(p.NewWidth)
-			hScaleFactor := float64(c.Height) / float64(p.NewHeight)
-			scaleWidth := math.Round(float64(c.Width) / math.Min(wScaleFactor, hScaleFactor))   //post scale width
-			scaleHeight := math.Round(float64(c.Height) / math.Min(wScaleFactor, hScaleFactor)) // post scale height
+		newImg = imaging.Resize(img, int(scaleWidth), int(scaleHeight), imaging.Lanczos)
 
-			newImg = imaging.Resize(img, int(scaleWidth), int(scaleHeight), imaging.Lanczos)
+		dx0, dy0 := img.Bounds().Max.X, newImg.Bounds().Max.Y
+		dx1, dy1 := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
+
+		// Rescale the image only when it's resized both horizontally and vertically
+		// and the new image width or height are preserved, otherwise it might happen, that
+		// the generated image size does not match with the requested image size.
+		if !((p.NewWidth == 0 && dx0 == dx1) || (p.NewHeight == 0 && dy0 == dy1)) {
 			// The amount needed to remove by carving. One or both of these will be 0.
 			newWidth = int(scaleWidth) - p.NewWidth
 			newHeight = int(scaleHeight) - p.NewHeight
@@ -206,13 +202,12 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			img = dst
 		}
 
-		// Check if the new width does not match with the rescaled image width.
 		// Run the carver function if the desired image width is not identical with the rescaled image width.
 		if newWidth > 0 && newWidth != img.Bounds().Max.X {
-			// Because scaling horizontally and vertically at the same time using the scale option
-			// it might happen that the scaled image exceeds the desired image size, we need to make sure
+			// Because of scaling horizontally and vertically at the same time it might happen
+			// that the scaled image exceeds the desired image size, we need to make sure
 			// that the new width and|or height is reduced and not enlarged.
-			if p.NewWidth > c.Width && newWidth < p.NewWidth && img.Bounds().Max.X < p.NewWidth {
+			if p.NewWidth > c.Width && img.Bounds().Max.X < p.NewWidth {
 				for x := 0; x < newWidth; x++ {
 					if err = enlarge(); err != nil {
 						return nil, err
@@ -227,12 +222,11 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				}
 			}
 		}
-		// Check if the new height does not match with the rescaled image height.
 		// Run the carver function if the desired image height is not identical with the rescaled image height.
 		if newHeight > 0 && newHeight != img.Bounds().Max.Y {
 			img = c.RotateImage90(img)
 			// Check new height against the width of the image because the image is rotated 90deg.
-			if p.NewHeight > c.Height && (newHeight < p.NewHeight && img.Bounds().Max.X < p.NewHeight) {
+			if p.NewHeight > c.Height && img.Bounds().Max.X < p.NewHeight {
 				for y := 0; y < newHeight; y++ {
 					if err = enlarge(); err != nil {
 						return nil, err

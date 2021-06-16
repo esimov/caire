@@ -62,7 +62,6 @@ var (
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
-	scale          = flag.Bool("scale", false, "Proportional scaling")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Plane rotated faces angle")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
@@ -89,7 +88,6 @@ func main() {
 		Percentage:     *percentage,
 		Square:         *square,
 		Debug:          *debug,
-		Scale:          *scale,
 		FaceDetect:     *faceDetect,
 		FaceAngle:      *faceAngle,
 	}
