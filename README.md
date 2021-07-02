@@ -93,7 +93,6 @@ The following flags are supported:
 | `height` | n/a | New height |
 | `perc` | false | Reduce image by percentage |
 | `square` | false | Reduce image to square dimensions |
-| `scale` | false | Proportional scaling |
 | `blur` | 1 | Blur radius |
 | `sobel` | 10 | Sobel filter threshold |
 | `debug` | false | Use debugger |
@@ -120,9 +119,7 @@ $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=
 
 Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
 
-The **`-scale`** option will resize the image proportionally. First the image is scaled down preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and will remove only the remaining 268px. 
-
-**Notice: Using the `-scale` option will reduce drastically the processing time. Use this option whenever is possible!**
+When an image is resized both horizontally and vertically, the algorithm will try to rescale it prior resizing, but also preserving the image aspect ratio. Then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and will remove only the remaining 268px.
 
 The CLI command can process all the images from a specific directory:
 
