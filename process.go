@@ -239,7 +239,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				p.NewWidth = min(p.NewWidth, p.NewHeight)
 				p.NewHeight = p.NewWidth
 
-				newImg = p.calculateImgFitness(img, c)
+				newImg = p.calculateFitness(img, c)
 				if newImg != nil {
 					dst := image.NewNRGBA(newImg.Bounds())
 					draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
@@ -362,7 +362,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 }
 
 // calculateFitness iteratively try to find the best image aspect ratio for the rescale.
-func (p *Processor) calculateImgFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
+func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 	var (
 		w      = float64(c.Width)
 		h      = float64(c.Height)
