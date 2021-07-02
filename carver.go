@@ -18,7 +18,7 @@ type Carver struct {
 	Points []float64
 }
 
-// UsedSeams contains the avlready generated seams.
+// UsedSeams contains the already generated seams.
 type UsedSeams struct {
 	ActiveSeam []ActiveSeam
 }
