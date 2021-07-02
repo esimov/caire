@@ -18,7 +18,7 @@ type Carver struct {
 	Points []float64
 }
 
-// UsedSeams contains the already generated seams.
+// UsedSeams contains the avlready generated seams.
 type UsedSeams struct {
 	ActiveSeam []ActiveSeam
 }
@@ -87,7 +87,7 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 
 		cParams := pigo.CascadeParams{
 			MinSize:     100,
-			MaxSize:     int(math.Max(float64(cols), float64(rows))),
+			MaxSize:     max(cols, rows),
 			ShiftFactor: 0.1,
 			ScaleFactor: 1.1,
 
@@ -277,8 +277,8 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				} else {
 					rr, rg, rb, _ = img.At(x, y).RGBA()
 				}
-				alr, alg, alb := (lr+rr)/2, (lg+rg)/2, (lb+rb)/2
-				dst.Set(x, y, color.RGBA{uint8(alr >> 8), uint8(alg >> 8), uint8(alb >> 8), 255})
+				avr, avg, avb := (lr+rr)/2, (lg+rg)/2, (lb+rb)/2
+				dst.Set(x, y, color.RGBA{uint8(avr >> 8), uint8(avg >> 8), uint8(avb >> 8), 255})
 
 				// Append the current seam position and color to the existing seams.
 				// To avoid picking the same optimal seam over and over again,
@@ -288,9 +288,9 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				currentSeam = append(currentSeam,
 					ActiveSeam{Seam{x + 1, y},
 						color.RGBA{
-							R: uint8((alr + alr) >> 8),
-							G: uint8((alg + alg) >> 8),
-							B: uint8((alb + alb) >> 8),
+							R: uint8((avr + avr) >> 8),
+							G: uint8((avg + avg) >> 8),
+							B: uint8((avb + avb) >> 8),
 							A: 255,
 						},
 					})
