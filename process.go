@@ -313,7 +313,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if (c.Width > p.NewWidth && c.Height > p.NewHeight) &&
 			(p.NewWidth != 0 && p.NewHeight != 0) {
 
-			newImg = p.calculateImgFitness(img, c)
+			newImg = p.calculateFitness(img, c)
 
 			dx0, dy0 := img.Bounds().Max.X, img.Bounds().Max.Y
 			dx1, dy1 := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
@@ -385,7 +385,7 @@ func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 	c.Height = dy
 
 	if int(sw) < p.NewWidth || int(sh) < p.NewHeight {
-		img = p.calculateImgFitness(newImg, c)
+		img = p.calculateFitness(newImg, c)
 	}
 	return newImg
 }
