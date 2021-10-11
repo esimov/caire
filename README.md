@@ -3,8 +3,8 @@
 [![build](https://github.com/esimov/caire/actions/workflows/build.yml/badge.svg)](https://github.com/esimov/caire/actions/workflows/build.yml)
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.3.2-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.3.2)
-[![homebrew](https://img.shields.io/badge/homebrew-v1.3.2-orange.svg)](https://formulae.brew.sh/formula/caire)
+[![release](https://img.shields.io/badge/release-v1.3.3-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.3.3)
+[![homebrew](https://img.shields.io/badge/homebrew-v1.3.3-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![caire](https://snapcraft.io/caire/badge.svg)](https://snapcraft.io/caire)
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper.
@@ -102,9 +102,9 @@ The following flags are supported:
 
 
 #### Use the face detection option to avoid face deformation
-To detect faces prior rescaling use the `-face` flag and provide the face classification binary file included into the `data` folder. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
+To detect faces prior rescaling use the `-face` flag. There is no need to provide a face classification cascade file, since it's already embedded into the generated binary file. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
 
-For the face detection related arguments check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
+For face detection related settings please check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
 ```bash
 $ caire -in input.jpg -out output.jpg -face=1 -cc="data/facefinder" -perc=1 -width=20
@@ -119,9 +119,9 @@ $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=
 
 Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
 
-When an image is resized both horizontally and vertically, the algorithm will try to rescale it prior resizing, but also preserving the image aspect ratio. Then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and will remove only the remaining 268px.
+When an image is resized both horizontally and vertically, the algorithm will try to rescale it prior resizing, but also preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and will remove only the remaining 268px.
 
-The CLI command can process all the images from a specific directory:
+The CLI application of the library can also process the images from a specific directory concurrently boosting up the processing speed considerably.
 
 ```bash
 $ caire -in ./input-directory -out ./output-directory
