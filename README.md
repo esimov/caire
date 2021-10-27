@@ -98,8 +98,6 @@ The following flags are supported:
 | `debug` | false | Use debugger |
 | `face` | false | Use face detection |
 | `angle` | float | Plane rotated faces angle |
-| `cc` | string | Cascade classifier |
-
 
 #### Use the face detection option to avoid face deformation
 To detect faces prior rescaling use the `-face` flag. There is no need to provide a face classification cascade file, since it's already embedded into the generated binary file. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
