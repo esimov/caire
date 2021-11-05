@@ -417,7 +417,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	img := imgToNRGBA(src)
+	img := p.imgToNRGBA(src)
 
 	switch w.(type) {
 	case *os.File:
@@ -491,7 +491,7 @@ func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 }
 
 // imgToNRGBA converts any image type to *image.NRGBA with min-point at (0, 0).
-func imgToNRGBA(img image.Image) *image.NRGBA {
+func (p *Processor) imgToNRGBA(img image.Image) *image.NRGBA {
 	srcBounds := img.Bounds()
 	if srcBounds.Min.X == 0 && srcBounds.Min.Y == 0 {
 		if src0, ok := img.(*image.NRGBA); ok {

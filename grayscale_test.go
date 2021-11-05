@@ -6,10 +6,12 @@ import (
 	"testing"
 )
 
-const ImgWidth = 10
-const ImgHeight = 10
+const (
+	ImgWidth  = 10
+	ImgHeight = 10
+)
 
-func TestGrayscale(t *testing.T) {
+func TestImage_GrayscaleMode(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
 	for i := 0; i < img.Bounds().Dx(); i++ {
 		for j := 0; j < img.Bounds().Dy(); j++ {
