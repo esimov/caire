@@ -69,6 +69,9 @@ func (c *Carver) StackBlur(img *image.NRGBA, radius uint32) *image.NRGBA {
 	if int(radius) >= len(mulTable) {
 		radius = uint32(len(mulTable) - 1)
 	}
+	if radius < 1 {
+		radius = 1
+	}
 
 	div = radius + radius + 1
 	widthMinus1 = width - 1
