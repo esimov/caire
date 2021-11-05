@@ -64,6 +64,11 @@ func (c *Carver) StackBlur(img *image.NRGBA, radius uint32) *image.NRGBA {
 		rInSum, gInSum, bInSum, aInSum,
 		pr, pg, pb, pa uint32
 	)
+	// Limit the maximum blur radius to 255, otherwise it overflows the multable length
+	// and will panic with and index out of range error.
+	if int(radius) >= len(mulTable) {
+		radius = uint32(len(mulTable) - 1)
+	}
 
 	div = radius + radius + 1
 	widthMinus1 = width - 1
