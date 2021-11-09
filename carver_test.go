@@ -202,3 +202,40 @@ func TestCarver_AddSeam(t *testing.T) {
 		t.Errorf("Seam should have been added")
 	}
 }
+
+func Test_ComputeSeams(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	bounds := img.Bounds()
+
+	// We choose to fill up the background with an uniform white color
+	// Afterwards we'll replace the colors in a single row with lower intensity ones.
+	draw.Draw(img, bounds, &image.Uniform{image.White}, image.ZP, draw.Src)
+
+	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
+	// Replace the pixels in row 5 with lower intensity colors.
+	for x := 0; x < dx; x++ {
+		img.Pix[(5*dx+x)*4+0] = 0xdd
+		img.Pix[(5*dx+x)*4+1] = 0xdd
+		img.Pix[(5*dx+x)*4+2] = 0xdd
+		img.Pix[(5*dx+x)*4+3] = 0xdd
+	}
+
+	c := NewCarver(dx, dy)
+	c.ComputeSeams(img, p)
+
+	otherThenZero := findNonZeroValue(c.Points)
+	if !otherThenZero {
+		t.Errorf("The seams computation should have been returned a slice of points with values other then zeros")
+	}
+}
+
+// findNonZeroValue utility function to check if the slice contains values other then zeros.
+func findNonZeroValue(points []float64) bool {
+	var found = false
+	for i := 0; i < len(points); i++ {
+		if points[i] != 0 {
+			found = true
+		}
+	}
+	return found
+}
