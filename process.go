@@ -408,7 +408,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		// the tree depth, the threshold and the prediction from tree's leaf nodes.
 		p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Error reading the cascade file: %v\n", err))
+			return errors.New(fmt.Sprintf("error unpacking the cascade file: %v\n", err))
 		}
 	}
 
