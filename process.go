@@ -262,7 +262,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 		}
 
-		// Use the Percentage flag only to shrink and image.
+		// Use the Percentage flag only for shrinking the image.
 		if p.Percentage {
 			// Calculate the new image size based on the provided percentage.
 			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
@@ -275,89 +275,62 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				return nil, errors.New("the generated image size should be less than the original image size")
 			}
 		}
+	}
 
-		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
-		if p.NewWidth > 0 {
-			if p.NewWidth <= dx {
-				img, _ = shrinkHorizFn(c, img)
-			} else {
-				img, _ = enlargeHorizFn(c, img)
-			}
+	// Rescale the image when it's resized both horizontally and vertically.
+	// First the image is scaled down or up by preserving the image aspect ratio,
+	// then the seam carving algorithm is applied only to the remaining pixels.
+
+	// Scale the width and height by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
+	// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080
+	if (c.Width > p.NewWidth && c.Height > p.NewHeight) &&
+		(p.NewWidth != 0 && p.NewHeight != 0) {
+
+		newImg = p.calculateFitness(img, c)
+
+		dx0, dy0 := img.Bounds().Max.X, img.Bounds().Max.Y
+		dx1, dy1 := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
+
+		// Rescale the image when the new image width or height are preserved,
+		// otherwise it might happen, that the generated image size
+		// does not match with the requested image size.
+		if !((p.NewWidth == 0 && dx0 == dx1) || (p.NewHeight == 0 && dy0 == dy1)) {
+			dst := image.NewNRGBA(newImg.Bounds())
+			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
+			img = dst
 		}
-		if p.NewHeight > 0 {
-			if p.NewHeight <= dy {
-				if !resizeBothSide {
-					img = c.RotateImage90(img)
-				}
-				img, _ = shrinkVertFn(c, img)
-				if !resizeBothSide {
-					img = c.RotateImage270(img)
-				}
-			} else {
-				if !resizeBothSide {
-					img = c.RotateImage90(img)
-				}
-				img, _ = enlargeVertFn(c, img)
-				if !resizeBothSide {
-					img = c.RotateImage270(img)
-				}
-			}
+	}
+
+	// Run the carver function if the desired image width is not identical with the rescaled image width.
+	if newWidth > 0 && p.NewWidth != c.Width {
+		if p.NewWidth > c.Width {
+			img, _ = enlargeHorizFn(c, img)
+		} else {
+			img, _ = shrinkHorizFn(c, img)
 		}
-	} else {
-		// Rescale the image when it's resized both horizontally and vertically.
-		// First the image is scaled down or up by preserving the image aspect ratio,
-		// then the seam carving algorithm is applied only to the remaining pixels.
+	}
 
-		// Scale the width and height by the smaller factor (i.e Min(wScaleFactor, hScaleFactor))
-		// Example: input: 5000x2500, scale: 2160x1080, final target: 1920x1080
-		if (c.Width > p.NewWidth && c.Height > p.NewHeight) &&
-			(p.NewWidth != 0 && p.NewHeight != 0) {
-
-			newImg = p.calculateFitness(img, c)
-
-			dx0, dy0 := img.Bounds().Max.X, img.Bounds().Max.Y
-			dx1, dy1 := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
-
-			// Rescale the image when the new image width or height are preserved,
-			// otherwise it might happen, that the generated image size
-			// does not match with the requested image size.
-			if !((p.NewWidth == 0 && dx0 == dx1) || (p.NewHeight == 0 && dy0 == dy1)) {
-				dst := image.NewNRGBA(newImg.Bounds())
-				draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
-				img = dst
+	// Run the carver function if the desired image height is not identical with the rescaled image height.
+	if newHeight > 0 && p.NewHeight != c.Height {
+		if p.NewHeight > c.Height {
+			if !resizeBothSide {
+				img = c.RotateImage90(img)
 			}
-		}
-
-		// Run the carver function if the desired image width is not identical with the rescaled image width.
-		if newWidth > 0 && p.NewWidth != c.Width {
-			if p.NewWidth > c.Width {
-				img, _ = enlargeHorizFn(c, img)
-			} else {
-				img, _ = shrinkHorizFn(c, img)
+			img, _ = enlargeVertFn(c, img)
+			if !resizeBothSide {
+				img = c.RotateImage270(img)
 			}
-		}
-
-		// Run the carver function if the desired image height is not identical with the rescaled image height.
-		if newHeight > 0 && p.NewHeight != c.Height {
-			if p.NewHeight > c.Height {
-				if !resizeBothSide {
-					img = c.RotateImage90(img)
-				}
-				img, _ = enlargeVertFn(c, img)
-				if !resizeBothSide {
-					img = c.RotateImage270(img)
-				}
-			} else {
-				if !resizeBothSide {
-					img = c.RotateImage90(img)
-				}
-				img, _ = shrinkVertFn(c, img)
-				if !resizeBothSide {
-					img = c.RotateImage270(img)
-				}
+		} else {
+			if !resizeBothSide {
+				img = c.RotateImage90(img)
+			}
+			img, _ = shrinkVertFn(c, img)
+			if !resizeBothSide {
+				img = c.RotateImage270(img)
 			}
 		}
 	}
+
 	return img, nil
 }
 
