@@ -105,7 +105,7 @@ To detect faces prior rescaling use the `-face` flag. There is no need to provid
 For face detection related settings please check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
 ```bash
-$ caire -in input.jpg -out output.jpg -face=1 -cc="data/facefinder" -perc=1 -width=20
+$ caire -in input.jpg -out output.jpg -face=1 -perc=1 -width=20
 ```
 
 #### Other options
