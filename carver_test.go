@@ -4,7 +4,11 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"os"
+	"path/filepath"
 	"testing"
+
+	pigo "github.com/esimov/pigo/core"
 )
 
 var p *Processor
@@ -203,13 +207,12 @@ func TestCarver_AddSeam(t *testing.T) {
 	}
 }
 
-func Test_ComputeSeams(t *testing.T) {
+func TestCarver_ComputeSeams(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
-	bounds := img.Bounds()
 
 	// We choose to fill up the background with an uniform white color
 	// Afterwards we'll replace the colors in a single row with lower intensity ones.
-	draw.Draw(img, bounds, &image.Uniform{image.White}, image.ZP, draw.Src)
+	//draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.ZP, draw.Src)
 
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 	// Replace the pixels in row 5 with lower intensity colors.
@@ -226,6 +229,144 @@ func Test_ComputeSeams(t *testing.T) {
 	otherThenZero := findNonZeroValue(c.Points)
 	if !otherThenZero {
 		t.Errorf("The seams computation should have been returned a slice of points with values other then zeros")
+	}
+}
+
+func TestCarver_ShouldDetectFace(t *testing.T) {
+	p.FaceDetect = true
+
+	sampleImg := filepath.Join("./testdata", "sample.jpg")
+	f, err := os.Open(sampleImg)
+	if err != nil {
+		t.Fatalf("could not load sample image: %v", err)
+	}
+	defer f.Close()
+
+	cf, err := classifier.ReadFile("data/facefinder")
+	if err != nil {
+		t.Fatalf("error reading the cascade file: %v", err)
+	}
+	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cf)
+	if err != nil {
+		t.Fatalf("error unpacking the cascade file: %v", err)
+	}
+
+	src, _, err := image.Decode(f)
+	if err != nil {
+		t.Fatalf("error decoding image: %v", err)
+	}
+	img := p.imgToNRGBA(src)
+	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
+
+	c := NewCarver(dx, dy)
+	gray := c.Grayscale(img)
+	// Transform the image to a pixel array.
+	pixels := c.rgbToGrayscale(gray)
+
+	cParams := pigo.CascadeParams{
+		MinSize:     100,
+		MaxSize:     max(dx, dy),
+		ShiftFactor: 0.1,
+		ScaleFactor: 1.1,
+
+		ImageParams: pigo.ImageParams{
+			Pixels: pixels,
+			Rows:   dy,
+			Cols:   dx,
+			Dim:    dx,
+		},
+	}
+
+	// Run the classifier over the obtained leaf nodes and return the detection results.
+	// The result contains quadruplets representing the row, column, scale and detection score.
+	faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
+
+	// Calculate the intersection over union (IoU) of two clusters.
+	faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
+
+	if len(faces) == 0 {
+		t.Errorf("Expected 1 face to be detected, got %d.", len(faces))
+	}
+}
+
+func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
+	p.FaceDetect = true
+	p.BlurRadius = 4
+
+	sampleImg := filepath.Join("./testdata", "sample.jpg")
+	f, err := os.Open(sampleImg)
+	if err != nil {
+		t.Fatalf("could not load sample image: %v", err)
+	}
+	defer f.Close()
+
+	cf, err := classifier.ReadFile("data/facefinder")
+	if err != nil {
+		t.Fatalf("error reading the cascade file: %v", err)
+	}
+	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cf)
+	if err != nil {
+		t.Fatalf("error unpacking the cascade file: %v", err)
+	}
+
+	src, _, err := image.Decode(f)
+	if err != nil {
+		t.Fatalf("error decoding image: %v", err)
+	}
+	img := p.imgToNRGBA(src)
+	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
+
+	c := NewCarver(dx, dy)
+	gray := c.Grayscale(img)
+	sobel := c.SobelFilter(gray, float64(p.SobelThreshold))
+	img = c.StackBlur(sobel, uint32(p.BlurRadius))
+
+	// Transform the image to a pixel array.
+	pixels := c.rgbToGrayscale(gray)
+
+	cParams := pigo.CascadeParams{
+		MinSize:     100,
+		MaxSize:     max(dx, dy),
+		ShiftFactor: 0.1,
+		ScaleFactor: 1.1,
+
+		ImageParams: pigo.ImageParams{
+			Pixels: pixels,
+			Rows:   dy,
+			Cols:   dx,
+			Dim:    dx,
+		},
+	}
+
+	// Run the classifier over the obtained leaf nodes and return the detection results.
+	// The result contains quadruplets representing the row, column, scale and detection score.
+	faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
+
+	// Calculate the intersection over union (IoU) of two clusters.
+	faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
+
+	// Range over all the detected faces and draw a white rectangle mask over each of them.
+	// We need to trick the sobel detector to consider them as important image parts.
+	var rect image.Rectangle
+	for _, face := range faces {
+		if face.Q > 5.0 {
+			rect = image.Rect(
+				face.Col-face.Scale/2,
+				face.Row-face.Scale/2,
+				face.Col+face.Scale/2,
+				face.Row+face.Scale/2,
+			)
+			draw.Draw(sobel, rect, &image.Uniform{image.White}, image.ZP, draw.Src)
+		}
+	}
+	c.ComputeSeams(img, p)
+	seams := c.FindLowestEnergySeams()
+
+	for _, seam := range seams {
+		if seam.X >= rect.Min.X && seam.X <= rect.Max.X {
+			t.Errorf("Carver shouldn't remove seams from face zone")
+			break
+		}
 	}
 }
 
