@@ -259,7 +259,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	c := NewCarver(dx, dy)
-	gray := c.Grayscale(img)
+	gray := p.Grayscale(img)
 	// Transform the image to a pixel array.
 	pixels := c.rgbToGrayscale(gray)
 
@@ -291,7 +291,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 
 func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	p.FaceDetect = true
-	p.BlurRadius = 4
+	p.BlurRadius = 2
 
 	sampleImg := filepath.Join("./testdata", "sample.jpg")
 	f, err := os.Open(sampleImg)
@@ -317,12 +317,12 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	c := NewCarver(dx, dy)
-	gray := c.Grayscale(img)
-	sobel := c.SobelFilter(gray, float64(p.SobelThreshold))
-	img = c.StackBlur(sobel, uint32(p.BlurRadius))
-
 	// Transform the image to a pixel array.
-	pixels := c.rgbToGrayscale(gray)
+	pixels := c.rgbToGrayscale(img)
+
+	img = p.Grayscale(img)
+	sobel := c.EdgeDetect(img, float64(p.SobelThreshold))
+	img = c.StackBlur(sobel, uint32(p.BlurRadius))
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
