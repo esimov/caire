@@ -321,7 +321,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	pixels := c.rgbToGrayscale(img)
 
 	img = p.Grayscale(img)
-	sobel := c.EdgeDetect(img, float64(p.SobelThreshold))
+	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
 	img = c.StackBlur(sobel, uint32(p.BlurRadius))
 
 	cParams := pigo.CascadeParams{

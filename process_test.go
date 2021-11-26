@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestResize_ReduceImageWidth(t *testing.T) {
+func TestResize_ShrinkImageWidth(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	newWidth := ImgWidth / 2
@@ -27,7 +27,7 @@ func TestResize_ReduceImageWidth(t *testing.T) {
 	}
 }
 
-func TestResize_ReduceImageHeight(t *testing.T) {
+func TestResize_ShrinkImageHeight(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	newHeight := ImgHeight / 2
@@ -51,7 +51,7 @@ func TestResize_ReduceImageHeight(t *testing.T) {
 	}
 }
 
-func TestResize_IncreaseImageWidth(t *testing.T) {
+func TestResize_EnlargeImageWidth(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
 	origImgWidth := img.Bounds().Dx()
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
@@ -74,7 +74,7 @@ func TestResize_IncreaseImageWidth(t *testing.T) {
 	}
 }
 
-func TestResize_IncreaseImageHeight(t *testing.T) {
+func TestResize_EnlargeImageHeight(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
 	origImgHeigth := img.Bounds().Dy()
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
