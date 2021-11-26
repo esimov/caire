@@ -67,35 +67,22 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 	var srcImg *image.NRGBA
 
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	newImg := image.NewNRGBA(image.Rect(0, 0, width, height))
-
-	draw.Draw(newImg, newImg.Bounds(), img, image.ZP, draw.Src)
-
-	// Replace the energy map seam values with the stored pixel values each time we add a new seam.
-	for _, seam := range usedSeams {
-		for _, as := range seam.ActiveSeam {
-			newImg.Set(as.X, as.Y, as.Pix)
-		}
-	}
-	gray := c.Grayscale(newImg)
-	sobel := c.SobelFilter(gray, float64(p.SobelThreshold))
+	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
 
 	if p.FaceDetect {
 		// Transform the image to a pixel array.
-		pixels := c.rgbToGrayscale(gray)
-		cols, rows := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
-
+		pixels := c.rgbToGrayscale(img)
 		cParams := pigo.CascadeParams{
 			MinSize:     100,
-			MaxSize:     max(cols, rows),
+			MaxSize:     max(width, height),
 			ShiftFactor: 0.1,
 			ScaleFactor: 1.1,
 
 			ImageParams: pigo.ImageParams{
 				Pixels: pixels,
-				Rows:   rows,
-				Cols:   cols,
-				Dim:    cols,
+				Rows:   height,
+				Cols:   width,
+				Dim:    width,
 			},
 		}
 

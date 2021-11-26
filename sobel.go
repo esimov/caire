@@ -21,9 +21,9 @@ var (
 	}
 )
 
-// SobelFilter detects image edges.
+// SobelDetector uses the sobel filter operator for detecting image edges.
 // See https://en.wikipedia.org/wiki/Sobel_operator
-func (c *Carver) SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
+func (c *Carver) SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA {
 	var sumX, sumY int32
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 	dst := image.NewNRGBA(img.Bounds())
@@ -87,8 +87,7 @@ func (c *Carver) SobelFilter(img *image.NRGBA, threshold float64) *image.NRGBA {
 	return dst
 }
 
-// getImageData returns an array of pixel grayscale brightness values
-// for the image (taking the red component of each pixel).
+// getImageData gets the red component of an image and returns an array of pixel brightness values.
 func (c *Carver) getImageData(img *image.NRGBA) []uint8 {
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 	pixels := make([]uint8, dx*dy)
