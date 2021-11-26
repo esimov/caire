@@ -40,6 +40,9 @@ Key features which differentiates this library from the other existing open sour
 - [x] Face detection to avoid face deformation
 - [x] Support for multiple output image type (jpg, jpeg, png, bmp, gif)
 
+#### TODO
+- [ ] GUI progress indicator
+
 ## Face detection
 
 The library is capable of detecting human faces prior resizing the images by using the Pigo (https://github.com/esimov/pigo) face detection library, which does not require to have OpenCV installed.
