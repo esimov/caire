@@ -111,8 +111,11 @@ For face detection related settings please check the Pigo [documentation](https:
 $ caire -in input.jpg -out output.jpg -face=1 -perc=1 -width=20
 ```
 
+#### Support for multiple image type output
+The application detects the output type automatically by the provided output file extension and encodes the image to that specific type. The **Gif** output type is also supported. In this case the generated Gif file presents interactively the resizing process.
+
 #### Other options
-In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` options are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
+In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
 
 ```bash
 $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
@@ -120,9 +123,9 @@ $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=
 
 Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
 
-When an image is resized both horizontally and vertically, the algorithm will try to rescale it prior resizing, but also preserving the image aspect ratio, then the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and will remove only the remaining 268px.
+When an image is resized on both the X and Y axis, the algorithm first try to rescale it prior resizing, but also preserves the image aspect ratio. Afterwards the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
 
-The CLI application of the library can also process the images from a specific directory concurrently boosting up the processing speed considerably.
+The application can also process the images from the specified directory concurrently, significantly boosting up the processing speed.
 
 ```bash
 $ caire -in ./input-directory -out ./output-directory
