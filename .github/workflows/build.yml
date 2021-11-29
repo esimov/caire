@@ -34,6 +34,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
 
+      - name: Install Linux Dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libvulkan-dev
+
       - name: Checkout code
         uses: actions/checkout@v2
 
