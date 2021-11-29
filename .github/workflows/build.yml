@@ -38,7 +38,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y libvulkan-dev
+          sudo apt-get install -y libvulkan-dev libwayland-dev
 
       - name: Checkout code
         uses: actions/checkout@v2
