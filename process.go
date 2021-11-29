@@ -2,6 +2,7 @@ package caire
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/disintegration/imaging"
 	pigo "github.com/esimov/pigo/core"
-	"github.com/pkg/errors"
 	"golang.org/x/image/bmp"
 )
 
@@ -26,11 +26,21 @@ var classifier embed.FS
 
 var (
 	g              *gif.GIF
-	xCount         int
-	yCount         int
-	resizeBothSide = false // used to tell that the image is resized both verticlaly and horizontally
+	rCount         int
+	resizeBothSide = false // the image is resized both verticlaly and horizontally
 	isGif          = false
 )
+
+var (
+	imgWorker = make(chan worker) // channel used to transfer the image to the GUI
+	errs      = make(chan error)
+)
+
+// worker struct contains all the information needed for transfering the resized image to the Gio GUI.
+type worker struct {
+	carver *Carver
+	img    *image.NRGBA
+}
 
 // SeamCarver interface defines the Resize method.
 // This needs to be implemented by every struct which declares a Resize method.
@@ -53,9 +63,12 @@ type Processor struct {
 	Percentage       bool
 	Square           bool
 	Debug            bool
+	Preview          bool
 	FaceDetect       bool
 	FaceAngle        float64
 	PigoFaceDetector *pigo.Pigo
+
+	vRes bool
 }
 
 var (
@@ -83,7 +96,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		pw, ph    int
 		err       error
 	)
-	xCount, yCount = 0, 0
+	rCount = 0
 
 	if p.NewWidth > c.Width {
 		newWidth = p.NewWidth - (p.NewWidth - (p.NewWidth - c.Width))
@@ -104,11 +117,11 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		newHeight = p.NewHeight
 	}
 
-	// shrinkHorizFn calls itself iteratively and shrink the image horizontally.
+	// shrinkHorizFn calls itself recursively to shrink the image horizontally.
 	// If the image is resized on both X and Y axis it calls the shrink and enlarge
 	// function intermitently up until the desired dimension is reached.
 	// We are opting for this solution instead of resizing the image secventially,
-	// because we can merge more seamlessly together the horizontal and vertical seams.
+	// because this way the horizontal and vertical seams are merged together seamlessly.
 	shrinkHorizFn = func(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 		if dx > p.NewWidth {
@@ -126,11 +139,11 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				img, _ = shrinkHorizFn(c, img)
 			}
 		}
-		xCount++
+		rCount++
 		return img, nil
 	}
 
-	// enlargeHorizFn calls itself iteratively and enlarge the image horizontally.
+	// enlargeHorizFn calls itself recursively to enlarge the image horizontally.
 	enlargeHorizFn = func(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 		if dx < p.NewWidth {
@@ -148,20 +161,23 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				img, _ = enlargeHorizFn(c, img)
 			}
 		}
+		rCount++
 		return img, nil
 	}
 
-	// shrinkVertFn calls itself iteratively and shrink the image vertically.
+	// shrinkVertFn calls itself recursively to shrink the image vertically.
 	shrinkVertFn = func(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
+		p.vRes = true
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
-		// If the image is resized on both side we need to rotate the image
-		// each time we are invoking the shrink function.
-		// Otherwise if we are resizing the image on one side only we can invoke
-		// the rotating function only once, right before calling this function.
+
+		// If the image is resized both horizontally and vertically we need
+		// to rotate the image each time we are invoking the shrink function.
+		// Otherwise we rotate the image only once, right before calling this function.
 		if resizeBothSide {
+			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = c.RotateImage90(img)
 		}
-		if dy > p.NewHeight {
+		if dx > p.NewHeight {
 			img, err = p.shrink(c, img)
 			if err != nil {
 				return nil, err
@@ -169,8 +185,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if resizeBothSide {
 				img = c.RotateImage270(img)
 			}
-			if p.NewWidth > 0 && p.NewWidth != dx {
-				if p.NewWidth <= dx {
+			if p.NewWidth > 0 && p.NewWidth != dy {
+				if p.NewWidth <= dy {
 					img, _ = shrinkHorizFn(c, img)
 				} else {
 					img, _ = enlargeHorizFn(c, img)
@@ -183,17 +199,20 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				img = c.RotateImage270(img)
 			}
 		}
-		yCount++
+		rCount++
 		return img, nil
 	}
 
-	// shrinkVertFn calls itself iteratively and enlarge the image vertically.
+	// enlargeVertFn calls itself recursively to enlarge the image vertically.
 	enlargeVertFn = func(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
+		p.vRes = true
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
+
 		if resizeBothSide {
+			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = c.RotateImage90(img)
 		}
-		if dy < p.NewHeight {
+		if dx < p.NewHeight {
 			img, err = p.enlarge(c, img)
 			if err != nil {
 				return nil, err
@@ -201,8 +220,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if resizeBothSide {
 				img = c.RotateImage270(img)
 			}
-			if p.NewWidth > 0 && p.NewWidth != dx {
-				if p.NewWidth <= dx {
+			if p.NewWidth > 0 && p.NewWidth != dy {
+				if p.NewWidth <= dy {
 					img, _ = shrinkHorizFn(c, img)
 				} else {
 					img, _ = enlargeHorizFn(c, img)
@@ -215,6 +234,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				img = c.RotateImage270(img)
 			}
 		}
+		rCount++
 		return img, nil
 	}
 
@@ -223,16 +243,23 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	}
 
 	if p.Percentage || p.Square {
-		// When square option is used the image will be resized to a square based on the shortest edge.
 		pw = c.Width - c.Height
 		ph = c.Height - c.Width
 
 		// In case pw and ph is zero, it means that the target image is square.
 		// In this case we can simply resize the image without running the carving operation.
-		if pw == 0 && ph == 0 {
-			return imaging.Resize(img, p.NewWidth, p.NewHeight, imaging.Lanczos), nil
+		if p.Percentage && pw == 0 && ph == 0 {
+			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
+			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
+
+			p.NewWidth = absint(c.Width - pw)
+			p.NewHeight = absint(c.Height - ph)
+
+			resImgSize := min(p.NewWidth, p.NewHeight)
+			return imaging.Resize(img, resImgSize, 0, imaging.Lanczos), nil
 		}
 
+		// When the square option is used the image will be resized to a square based on the shortest edge.
 		if p.Square {
 			// Calling the image rescale method only when both a new width and height is provided.
 			if p.NewWidth != 0 && p.NewHeight != 0 {
@@ -268,11 +295,14 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
-			p.NewWidth = absint(c.Width - pw)
-			p.NewHeight = absint(c.Height - ph)
-
-			if pw > newWidth || ph > newHeight {
-				return nil, errors.New("the generated image size should be less than the original image size")
+			if p.NewWidth != 0 {
+				p.NewWidth = absint(c.Width - pw)
+			}
+			if p.NewHeight != 0 {
+				p.NewHeight = absint(c.Height - ph)
+			}
+			if pw >= c.Width || ph >= c.Height {
+				return nil, errors.New("cannot use the percentage flag for image enlargement")
 			}
 		}
 	}
@@ -312,22 +342,16 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 	// Run the carver function if the desired image height is not identical with the rescaled image height.
 	if newHeight > 0 && p.NewHeight != c.Height {
+		if !resizeBothSide {
+			img = c.RotateImage90(img)
+		}
 		if p.NewHeight > c.Height {
-			if !resizeBothSide {
-				img = c.RotateImage90(img)
-			}
 			img, _ = enlargeVertFn(c, img)
-			if !resizeBothSide {
-				img = c.RotateImage270(img)
-			}
 		} else {
-			if !resizeBothSide {
-				img = c.RotateImage90(img)
-			}
 			img, _ = shrinkVertFn(c, img)
-			if !resizeBothSide {
-				img = c.RotateImage270(img)
-			}
+		}
+		if !resizeBothSide {
+			img = c.RotateImage270(img)
 		}
 	}
 
@@ -385,12 +409,33 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		}
 	}
 
-	g = new(gif.GIF)
 	src, _, err := image.Decode(r)
 	if err != nil {
 		return err
 	}
 	img := p.imgToNRGBA(src)
+
+	if p.Preview {
+		guiWidth := img.Bounds().Max.X
+		guiHeight := img.Bounds().Max.Y
+
+		if p.NewWidth > guiWidth {
+			guiWidth = p.NewWidth
+		}
+		if p.NewHeight > guiHeight {
+			guiHeight = p.NewHeight
+		}
+
+		guiParams := struct {
+			width  int
+			height int
+		}{
+			width:  guiWidth,
+			height: guiHeight,
+		}
+		// Lunch Gio GUI thread.
+		go p.showPreview(imgWorker, errs, guiParams)
+	}
 
 	switch w.(type) {
 	case *os.File:
@@ -415,12 +460,13 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			}
 			return bmp.Encode(w, res)
 		case ".gif":
+			g = new(gif.GIF)
 			isGif = true
 			_, err := Resize(p, img)
 			if err != nil {
 				return err
 			}
-			return writeGifToFile(w.(*os.File).Name())
+			return writeGifToFile(w.(*os.File).Name(), g)
 		default:
 			return errors.New("unsupported image format")
 		}
@@ -445,8 +491,19 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	img = c.RemoveSeam(img, seams, p.Debug)
 
 	if isGif {
-		g = encodeImageToGif(img)
+		p.encodeImgToGif(c, img, g)
 	}
+
+	go func() {
+		select {
+		case imgWorker <- worker{
+			carver: c,
+			img:    img,
+		}:
+		case <-errs:
+			return
+		}
+	}()
 	return img, nil
 }
 
@@ -459,6 +516,21 @@ func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	}
 	seams := c.FindLowestEnergySeams()
 	img = c.AddSeam(img, seams, p.Debug)
+
+	if isGif {
+		p.encodeImgToGif(c, img, g)
+	}
+
+	go func() {
+		select {
+		case imgWorker <- worker{
+			carver: c,
+			img:    img,
+		}:
+		case <-errs:
+			return
+		}
+	}()
 
 	return img, nil
 }
@@ -521,19 +593,39 @@ func (p *Processor) imgToNRGBA(img image.Image) *image.NRGBA {
 	return dst
 }
 
-// encodeImageToGif encodes the provided image to a Gif file.
-func encodeImageToGif(src image.Image) *gif.GIF {
-	bounds := src.Bounds()
-	dst := image.NewPaletted(image.Rect(0, 0, bounds.Dx()-xCount, bounds.Dy()-yCount), palette.Plan9)
+// encodeImgToGif encodes the provided image to a Gif file.
+func (p *Processor) encodeImgToGif(c *Carver, src image.Image, g *gif.GIF) {
+	dx, dy := src.Bounds().Max.X, src.Bounds().Max.Y
+	dst := image.NewPaletted(image.Rect(0, 0, dx, dy), palette.Plan9)
+	if p.NewHeight != 0 {
+		dst = image.NewPaletted(image.Rect(0, 0, dy, dx), palette.Plan9)
+	}
+
+	if p.NewWidth > dx {
+		dx += rCount
+		g.Config.Width = dst.Bounds().Max.X + 1
+		g.Config.Height = dst.Bounds().Max.Y + 1
+	} else {
+		dx -= rCount
+	}
+	if p.NewHeight > dx {
+		dx += rCount
+		g.Config.Width = dst.Bounds().Max.X + 1
+		g.Config.Height = dst.Bounds().Max.Y + 1
+	} else {
+		dx -= rCount
+	}
+
+	if p.NewHeight != 0 {
+		src = c.RotateImage270(src.(*image.NRGBA))
+	}
 	draw.Draw(dst, src.Bounds(), src, image.Point{}, draw.Src)
 	g.Image = append(g.Image, dst)
 	g.Delay = append(g.Delay, 0)
-
-	return g
 }
 
 // writeGifToFile writes the encoded Gif file to the destination file.
-func writeGifToFile(path string) error {
+func writeGifToFile(path string, g *gif.GIF) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err

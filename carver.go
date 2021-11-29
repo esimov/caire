@@ -9,7 +9,13 @@ import (
 	pigo "github.com/esimov/pigo/core"
 )
 
-var usedSeams []UsedSeams
+// maxFaceDetAttempts defines the maximum number of attempts of face detections,
+const maxFaceDetAttempts = 20
+
+var (
+	faceDetAttempts int
+	usedSeams       []UsedSeams
+)
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
@@ -69,12 +75,22 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
 
-	if p.FaceDetect {
-		// Transform the image to a pixel array.
+	if p.FaceDetect && faceDetAttempts < maxFaceDetAttempts {
+		var ratio float64
+
+		if width < height {
+			ratio = float64(width) / float64(height)
+		} else {
+			ratio = float64(height) / float64(width)
+		}
+		minSize := float64(min(width, height)) * ratio / 3
+
+		// Transform the image to pixel array.
 		pixels := c.rgbToGrayscale(img)
+
 		cParams := pigo.CascadeParams{
-			MinSize:     100,
-			MaxSize:     max(width, height),
+			MinSize:     int(minSize),
+			MaxSize:     min(width, height),
 			ShiftFactor: 0.1,
 			ScaleFactor: 1.1,
 
@@ -85,13 +101,24 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 				Dim:    width,
 			},
 		}
-
+		if p.vRes {
+			p.FaceAngle = 0.5
+		}
 		// Run the classifier over the obtained leaf nodes and return the detection results.
 		// The result contains quadruplets representing the row, column, scale and detection score.
 		faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
 
 		// Calculate the intersection over union (IoU) of two clusters.
-		faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
+		faces = p.PigoFaceDetector.ClusterDetections(faces, 0.1)
+
+		if len(faces) == 0 {
+			// Retry detecting faces for a certain amount of time.
+			if faceDetAttempts < maxFaceDetAttempts {
+				faceDetAttempts++
+			}
+		} else {
+			faceDetAttempts = 0
+		}
 
 		// Range over all the detected faces and draw a white rectangle mask over each of them.
 		// We need to trick the sobel detector to consider them as important image parts.
@@ -236,7 +263,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 		y := seam.Y
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
-				if debug == true {
+				if debug {
 					dst.Set(x, y, color.RGBA{255, 0, 0, 255})
 					continue
 				}

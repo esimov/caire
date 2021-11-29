@@ -62,8 +62,9 @@ var (
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
+	preview        = flag.Bool("preview", true, "Show preview window")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
-	faceAngle      = flag.Float64("angle", 0.0, "Plane rotated faces angle")
+	faceAngle      = flag.Float64("angle", 0.0, "Face rotation angle")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
 
 	// Common file related variable
@@ -88,6 +89,7 @@ func main() {
 		Percentage:     *percentage,
 		Square:         *square,
 		Debug:          *debug,
+		Preview:        *preview,
 		FaceDetect:     *faceDetect,
 		FaceAngle:      *faceAngle,
 	}
@@ -155,6 +157,7 @@ func main() {
 					)
 				}
 			}
+			proc.Preview = false
 
 			// Limit the concurrently running workers to maxWorkers.
 			if *workers <= 0 || *workers > maxWorkers {
@@ -231,17 +234,17 @@ func walkDir(
 		// Close the paths channel after Walk returns.
 		defer close(pathChan)
 
-		errChan <- filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		errChan <- filepath.Walk(src, func(path string, f os.FileInfo, err error) error {
 			isFileSupported := false
 			if err != nil {
 				return err
 			}
-			if !info.Mode().IsRegular() {
+			if !f.Mode().IsRegular() {
 				return nil
 			}
 
 			// Get the file base name.
-			fx := filepath.Ext(info.Name())
+			fx := filepath.Ext(f.Name())
 			for _, ext := range srcExts {
 				if ext == fx {
 					isFileSupported = true
@@ -402,7 +405,7 @@ func printStatus(fname string, err error) {
 		)
 	} else {
 		if fname != pipeName {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe new image has been saved as: %s %s\n\n",
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe resized image has been saved as: %s %s\n\n",
 				utils.DecorateText(filepath.Base(fname), utils.SuccessMessage),
 				utils.DefaultColor,
 			))
