@@ -1,0 +1,27 @@
+#version 100
+precision mediump float;
+precision highp int;
+
+uniform mediump sampler2D tex;
+
+varying highp vec2 vUV;
+
+vec3 sRGBtoRGB(vec3 rgb)
+{
+    bvec3 cutoff = greaterThanEqual(rgb, vec3(0.040449999272823333740234375));
+    vec3 below = rgb / vec3(12.9200000762939453125);
+    vec3 above = pow((rgb + vec3(0.054999999701976776123046875)) / vec3(1.05499994754791259765625), vec3(2.400000095367431640625));
+    return vec3(cutoff.x ? above.x : below.x, cutoff.y ? above.y : below.y, cutoff.z ? above.z : below.z);
+}
+
+void main()
+{
+    vec4 texel = texture2D(tex, vUV);
+    vec3 param = texel.xyz;
+    vec3 _59 = sRGBtoRGB(param);
+    texel.x = _59.x;
+    texel.y = _59.y;
+    texel.z = _59.z;
+    gl_FragData[0] = texel;
+}
+

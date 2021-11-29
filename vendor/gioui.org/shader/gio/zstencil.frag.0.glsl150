@@ -1,0 +1,37 @@
+#version 150
+
+in vec2 vTo;
+in vec2 vFrom;
+in vec2 vCtrl;
+out vec4 fragCover;
+
+void main()
+{
+    float dx = vTo.x - vFrom.x;
+    bool increasing = vTo.x >= vFrom.x;
+    bvec2 _35 = bvec2(increasing);
+    vec2 left = vec2(_35.x ? vFrom.x : vTo.x, _35.y ? vFrom.y : vTo.y);
+    bvec2 _41 = bvec2(increasing);
+    vec2 right = vec2(_41.x ? vTo.x : vFrom.x, _41.y ? vTo.y : vFrom.y);
+    vec2 extent = clamp(vec2(vFrom.x, vTo.x), vec2(-0.5), vec2(0.5));
+    float midx = mix(extent.x, extent.y, 0.5);
+    float x0 = midx - left.x;
+    vec2 p1 = vCtrl - left;
+    vec2 v = right - vCtrl;
+    float t = x0 / (p1.x + sqrt((p1.x * p1.x) + ((v.x - p1.x) * x0)));
+    float y = mix(mix(left.y, vCtrl.y, t), mix(vCtrl.y, right.y, t), t);
+    vec2 d_half = mix(p1, v, vec2(t));
+    float dy = d_half.y / d_half.x;
+    float width = extent.y - extent.x;
+    dy = abs(dy * width);
+    vec4 sides = vec4((dy * 0.5) + y, (dy * (-0.5)) + y, (0.5 - y) / dy, ((-0.5) - y) / dy);
+    sides = clamp(sides + vec4(0.5), vec4(0.0), vec4(1.0));
+    float area = 0.5 * ((((sides.z - (sides.z * sides.y)) + 1.0) - sides.x) + (sides.x * sides.w));
+    area *= width;
+    if (width == 0.0)
+    {
+        area = 0.0;
+    }
+    fragCover.x = area;
+}
+

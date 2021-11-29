@@ -1,21 +1,75 @@
-# github.com/disintegration/imaging v1.6.1
+# gioui.org v0.0.0-20211113093644-40bc2e1f88b8
+## explicit
+gioui.org/app
+gioui.org/app/internal/log
+gioui.org/app/internal/windows
+gioui.org/app/internal/xkb
+gioui.org/f32
+gioui.org/gesture
+gioui.org/gpu
+gioui.org/gpu/internal/d3d11
+gioui.org/gpu/internal/driver
+gioui.org/gpu/internal/metal
+gioui.org/gpu/internal/opengl
+gioui.org/gpu/internal/vulkan
+gioui.org/internal/byteslice
+gioui.org/internal/cocoainit
+gioui.org/internal/d3d11
+gioui.org/internal/egl
+gioui.org/internal/f32color
+gioui.org/internal/fling
+gioui.org/internal/gl
+gioui.org/internal/ops
+gioui.org/internal/scene
+gioui.org/internal/stroke
+gioui.org/internal/vk
+gioui.org/io/clipboard
+gioui.org/io/event
+gioui.org/io/key
+gioui.org/io/pointer
+gioui.org/io/profile
+gioui.org/io/router
+gioui.org/io/system
+gioui.org/layout
+gioui.org/op
+gioui.org/op/clip
+gioui.org/op/paint
+gioui.org/text
+gioui.org/unit
+gioui.org/widget
+# gioui.org/cpu v0.0.0-20210817075930-8d6a761490d2
+gioui.org/cpu
+# gioui.org/shader v1.0.6
+gioui.org/shader
+gioui.org/shader/gio
+gioui.org/shader/piet
+# github.com/disintegration/imaging v1.6.2
 ## explicit
 github.com/disintegration/imaging
-# github.com/esimov/pigo v1.3.0
+# github.com/esimov/pigo v1.4.5
 ## explicit
 github.com/esimov/pigo/core
-# github.com/pkg/errors v0.8.0
+# github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# golang.org/x/image v0.0.0-20180708004352-c73c2afc3b81
+# golang.org/x/exp v0.0.0-20210722180016-6781d3edade3
+golang.org/x/exp/shiny/iconvg
+golang.org/x/exp/shiny/iconvg/internal/gradient
+# golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 ## explicit
 golang.org/x/image/bmp
+golang.org/x/image/ccitt
+golang.org/x/image/math/f32
+golang.org/x/image/math/f64
+golang.org/x/image/math/fixed
 golang.org/x/image/tiff
 golang.org/x/image/tiff/lzw
-# golang.org/x/sys v0.0.0-20191026070338-33540a1f6037
+golang.org/x/image/vector
+# golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.0.0-20191110171634-ad39bd3f0407
+# golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 ## explicit
 golang.org/x/term

@@ -1,11 +1,11 @@
 package pigo
 
 import (
-	"bytes"
 	"encoding/binary"
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 	"unsafe"
 )
 
@@ -41,86 +41,57 @@ func (plc *PuplocCascade) UnpackCascade(packet []byte) (*PuplocCascade, error) {
 		scales    float32
 		trees     uint32
 		treeDepth uint32
-		treeCodes []int8
-		treePreds []float32
+
+		treeCodes = make([]int8, 0, 409200)
+		treePreds = make([]float32, 0, 204800)
 	)
 
 	pos := 0
-	buff := make([]byte, 4)
-	dataView := bytes.NewBuffer(buff)
+	// Get the number of stages as 32-bit unsigned integer.
+	stages = binary.LittleEndian.Uint32(packet[pos:])
+	pos += 4
 
-	// Read the depth (size) of each tree and write it into the buffer array.
-	_, err := dataView.Write([]byte{packet[pos+0], packet[pos+1], packet[pos+2], packet[pos+3]})
-	if err != nil {
-		return nil, err
-	}
+	// Obtain the scale multiplier (applied after each stage).
+	u32scales := binary.LittleEndian.Uint32(packet[pos:])
+	// Convert uint32 to float32
+	scales = *(*float32)(unsafe.Pointer(&u32scales))
+	pos += 4
 
-	if dataView.Len() > 0 {
-		// Get the number of stages as 32-bit uint and write it into the buffer array.
-		stages = binary.LittleEndian.Uint32(packet[pos:])
-		_, err := dataView.Write([]byte{packet[pos+0], packet[pos+1], packet[pos+2], packet[pos+3]})
-		if err != nil {
-			return nil, err
-		}
-		pos += 4
+	// Obtain the number of trees per stage.
+	trees = binary.LittleEndian.Uint32(packet[pos:])
+	pos += 4
 
-		// Obtain the scale multiplier (applied after each stage) and write it into the buffer array.
-		u32scales := binary.LittleEndian.Uint32(packet[pos:])
-		// Convert uint32 to float32
-		scales = *(*float32)(unsafe.Pointer(&u32scales))
-		_, err = dataView.Write([]byte{packet[pos+0], packet[pos+1], packet[pos+2], packet[pos+3]})
-		if err != nil {
-			return nil, err
-		}
-		pos += 4
+	// Obtain the depth of each tree.
+	treeDepth = binary.LittleEndian.Uint32(packet[pos:])
+	pos += 4
 
-		// Obtain the number of trees per stage and write it into the buffer array.
-		trees = binary.LittleEndian.Uint32(packet[pos:])
-		_, err = dataView.Write([]byte{packet[pos+0], packet[pos+1], packet[pos+2], packet[pos+3]})
-		if err != nil {
-			return nil, err
-		}
-		pos += 4
+	// Traverse all the stages of the binary tree.
+	for s := 0; s < int(stages); s++ {
+		// Traverse the branches of each stage.
+		for t := 0; t < int(trees); t++ {
+			depth := int(pow(2, int(treeDepth)))
 
-		// Obtain the depth of each tree and write it into the buffer array.
-		treeDepth = binary.LittleEndian.Uint32(packet[pos:])
-		_, err = dataView.Write([]byte{packet[pos+0], packet[pos+1], packet[pos+2], packet[pos+3]})
-		if err != nil {
-			return nil, err
-		}
-		pos += 4
+			code := packet[pos : pos+4*depth-4]
+			// Convert unsigned bytecodes to signed ones.
+			i8code := *(*[]int8)(unsafe.Pointer(&code))
+			treeCodes = append(treeCodes, i8code...)
 
-		// Traverse all the stages of the binary tree
-		for s := 0; s < int(stages); s++ {
-			// Traverse the branches of each stage
-			for t := 0; t < int(trees); t++ {
-				depth := int(math.Pow(2, float64(treeDepth)))
+			pos += 4*depth - 4
 
-				code := packet[pos : pos+4*depth-4]
-				// Convert unsigned bytecodes to signed ones.
-				i8code := *(*[]int8)(unsafe.Pointer(&code))
-				treeCodes = append(treeCodes, i8code...)
-
-				pos += 4*depth - 4
-
-				// Read prediction from tree's leaf nodes.
-				for i := 0; i < depth; i++ {
-					for l := 0; l < 2; l++ {
-						_, err := dataView.Write([]byte{packet[pos+0], packet[pos+1], packet[pos+2], packet[pos+3]})
-						if err != nil {
-							return nil, err
-						}
-						u32pred := binary.LittleEndian.Uint32(packet[pos:])
-						// Convert uint32 to float32
-						f32pred := *(*float32)(unsafe.Pointer(&u32pred))
-						treePreds = append(treePreds, f32pred)
-						pos += 4
-					}
+			// Read prediction from tree's leaf nodes.
+			for i := 0; i < depth; i++ {
+				for l := 0; l < 2; l++ {
+					u32pred := binary.LittleEndian.Uint32(packet[pos:])
+					// Convert uint32 to float32
+					f32pred := *(*float32)(unsafe.Pointer(&u32pred))
+					treePreds = append(treePreds, f32pred)
+					pos += 4
 				}
 			}
-
 		}
+
 	}
+
 	return &PuplocCascade{
 		stages:    stages,
 		scales:    scales,
@@ -132,11 +103,11 @@ func (plc *PuplocCascade) UnpackCascade(packet []byte) (*PuplocCascade, error) {
 }
 
 // classifyRegion applies the face classification function over an image.
-func (plc *PuplocCascade) classifyRegion(r, c, s float32, nrows, ncols int, pixels []uint8, dim int, flipV bool) []float32 {
-	var c1, c2 int
-
-	root := 0
-	treeDepth := int(math.Pow(2, float64(plc.treeDepth)))
+func (plc *PuplocCascade) classifyRegion(r, c, s float32, treeDepth, nrows, ncols int, pixels []uint8, dim int, flipV bool) []float32 {
+	var (
+		c1, c2 int
+		root   int
+	)
 
 	for i := 0; i < int(plc.stages); i++ {
 		var dr, dc float32 = 0.0, 0.0
@@ -144,17 +115,17 @@ func (plc *PuplocCascade) classifyRegion(r, c, s float32, nrows, ncols int, pixe
 		for j := 0; j < int(plc.trees); j++ {
 			idx := 0
 			for k := 0; k < int(plc.treeDepth); k++ {
-				r1 := min(nrows-1, max(0, (256*int(r)+int(plc.treeCodes[root+4*idx+0])*int(round(float64(s))))>>8))
-				r2 := min(nrows-1, max(0, (256*int(r)+int(plc.treeCodes[root+4*idx+2])*int(round(float64(s))))>>8))
+				r1 := min(nrows-1, max(0, (256*int(r)+int(plc.treeCodes[root+4*idx+0])*int(math.Round(float64(s))))>>8))
+				r2 := min(nrows-1, max(0, (256*int(r)+int(plc.treeCodes[root+4*idx+2])*int(math.Round(float64(s))))>>8))
 
 				// flipV means that we wish to flip the column coordinates sign in the tree nodes.
-				// This is required when we are running the facial landmark detector over the right side of the detected eyes.
+				// This is required at running the facial landmark detector over the right side of the detected face.
 				if flipV {
-					c1 = min(ncols-1, max(0, (256*int(c)+int(-plc.treeCodes[root+4*idx+1])*int(round(float64(s))))>>8))
-					c2 = min(ncols-1, max(0, (256*int(c)+int(-plc.treeCodes[root+4*idx+3])*int(round(float64(s))))>>8))
+					c1 = min(ncols-1, max(0, (256*int(c)+int(-plc.treeCodes[root+4*idx+1])*int(math.Round(float64(s))))>>8))
+					c2 = min(ncols-1, max(0, (256*int(c)+int(-plc.treeCodes[root+4*idx+3])*int(math.Round(float64(s))))>>8))
 				} else {
-					c1 = min(ncols-1, max(0, (256*int(c)+int(plc.treeCodes[root+4*idx+1])*int(round(float64(s))))>>8))
-					c2 = min(ncols-1, max(0, (256*int(c)+int(plc.treeCodes[root+4*idx+3])*int(round(float64(s))))>>8))
+					c1 = min(ncols-1, max(0, (256*int(c)+int(plc.treeCodes[root+4*idx+1])*int(math.Round(float64(s))))>>8))
+					c2 = min(ncols-1, max(0, (256*int(c)+int(plc.treeCodes[root+4*idx+3])*int(math.Round(float64(s))))>>8))
 				}
 				bintest := func(p1, p2 uint8) uint8 {
 					if p1 > p2 {
@@ -183,11 +154,11 @@ func (plc *PuplocCascade) classifyRegion(r, c, s float32, nrows, ncols int, pixe
 }
 
 // classifyRotatedRegion applies the face classification function over a rotated image.
-func (plc *PuplocCascade) classifyRotatedRegion(r, c, s float32, a float64, nrows, ncols int, pixels []uint8, dim int, flipV bool) []float32 {
-	var row1, col1, row2, col2 int
-
-	root := 0
-	treeDepth := int(math.Pow(2, float64(plc.treeDepth)))
+func (plc *PuplocCascade) classifyRotatedRegion(r, c, s float32, a float64, treeDepth, nrows, ncols int, pixels []uint8, dim int, flipV bool) []float32 {
+	var (
+		row1, col1, row2, col2 int
+		root                   int
+	)
 
 	qCosTable := []float32{256, 251, 236, 212, 181, 142, 97, 49, 0, -49, -97, -142, -181, -212, -236, -251, -256, -251, -236, -212, -181, -142, -97, -49, 0, 49, 97, 142, 181, 212, 236, 251, 256}
 	qSinTable := []float32{0, 49, 97, 142, 181, 212, 236, 251, 256, 251, 236, 212, 181, 142, 97, 49, 0, -49, -97, -142, -181, -212, -236, -251, -256, -251, -236, -212, -181, -142, -97, -49, 0}
@@ -205,7 +176,7 @@ func (plc *PuplocCascade) classifyRotatedRegion(r, c, s float32, a float64, nrow
 				row2 = int(plc.treeCodes[root+4*idx+2])
 
 				// flipV means that we wish to flip the column coordinates sign in the tree nodes.
-				// This is required when we are running the facial landmark detector over the right side of the detected eyes.
+				// This is required at running the facial landmark detector over the right side of the detected face.
 				if flipV {
 					col1 = int(-plc.treeCodes[root+4*idx+1])
 					col2 = int(-plc.treeCodes[root+4*idx+3])
@@ -245,10 +216,33 @@ func (plc *PuplocCascade) classifyRotatedRegion(r, c, s float32, a float64, nrow
 	return []float32{r, c, s}
 }
 
+// puplocPool is a struct for holding the pupil localization values in sync pool.
+type puplocPool struct {
+	rows  []float32
+	cols  []float32
+	scale []float32
+}
+
+// Create a sync.Pool for further reusing the allocated memory space
+// in order to keep the GC overhead as low as possible.
+var plcPool = sync.Pool{
+	New: func() interface{} {
+		return &puplocPool{
+			rows:  make([]float32, 63),
+			cols:  make([]float32, 63),
+			scale: make([]float32, 63),
+		}
+	},
+}
+
 // RunDetector runs the pupil localization function.
 func (plc *PuplocCascade) RunDetector(pl Puploc, img ImageParams, angle float64, flipV bool) *Puploc {
-	rows, cols, scale := []float32{}, []float32{}, []float32{}
-	res := []float32{}
+	var res = make([]float32, 3)
+
+	det := plcPool.Get().(*puplocPool)
+	defer plcPool.Put(det)
+
+	treeDepth := int(pow(2, int(plc.treeDepth)))
 
 	for i := 0; i < pl.Perturbs; i++ {
 		row := float32(pl.Row) + float32(pl.Scale)*0.15*(0.5-rand.Float32())
@@ -259,40 +253,32 @@ func (plc *PuplocCascade) RunDetector(pl Puploc, img ImageParams, angle float64,
 			if angle > 1.0 {
 				angle = 1.0
 			}
-			res = plc.classifyRotatedRegion(row, col, sc, angle, img.Rows, img.Cols, img.Pixels, img.Dim, flipV)
+			res = plc.classifyRotatedRegion(row, col, sc, angle, treeDepth, img.Rows, img.Cols, img.Pixels, img.Dim, flipV)
 		} else {
-			res = plc.classifyRegion(row, col, sc, img.Rows, img.Cols, img.Pixels, img.Dim, flipV)
+			res = plc.classifyRegion(row, col, sc, treeDepth, img.Rows, img.Cols, img.Pixels, img.Dim, flipV)
 		}
 
-		rows = append(rows, res[0])
-		cols = append(cols, res[1])
-		scale = append(scale, res[2])
+		det.rows[i] = res[0]
+		det.cols[i] = res[1]
+		det.scale[i] = res[2]
 	}
 
 	// Sorting the perturbations in ascendent order
-	sort.Sort(plocSort(rows))
-	sort.Sort(plocSort(cols))
-	sort.Sort(plocSort(scale))
+	sort.Sort(plocSort(det.rows))
+	sort.Sort(plocSort(det.cols))
+	sort.Sort(plocSort(det.scale))
 
 	// Get the median value of the sorted perturbation results
 	return &Puploc{
-		Row:   int(rows[int(round(float64(pl.Perturbs)/2))]),
-		Col:   int(cols[int(round(float64(pl.Perturbs)/2))]),
-		Scale: scale[int(round(float64(pl.Perturbs)/2))],
+		Row:   int(det.rows[int(math.Round(float64(pl.Perturbs)/2))]),
+		Col:   int(det.cols[int(math.Round(float64(pl.Perturbs)/2))]),
+		Scale: det.scale[int(math.Round(float64(pl.Perturbs)/2))],
 	}
 }
 
 // Implement custom sorting function on detection values.
 type plocSort []float32
 
-func (q plocSort) Len() int      { return len(q) }
-func (q plocSort) Swap(i, j int) { q[i], q[j] = q[j], q[i] }
-func (q plocSort) Less(i, j int) bool {
-	if q[i] < q[j] {
-		return true
-	}
-	if q[i] > q[j] {
-		return false
-	}
-	return q[i] < q[j]
-}
+func (q plocSort) Len() int           { return len(q) }
+func (q plocSort) Less(i, j int) bool { return q[i] < q[j] }
+func (q plocSort) Swap(i, j int)      { q[i], q[j] = q[j], q[i] }

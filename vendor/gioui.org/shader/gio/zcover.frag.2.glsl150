@@ -1,0 +1,16 @@
+#version 150
+
+uniform sampler2D tex;
+uniform sampler2D cover;
+
+out vec4 fragColor;
+in vec2 vUV;
+in vec2 vCoverUV;
+
+void main()
+{
+    fragColor = texture(tex, vUV);
+    float c = min(abs(texture(cover, vCoverUV).x), 1.0);
+    fragColor *= c;
+}
+

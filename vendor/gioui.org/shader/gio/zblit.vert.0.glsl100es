@@ -1,0 +1,37 @@
+#version 100
+
+struct m3x2
+{
+    vec3 r0;
+    vec3 r1;
+};
+
+struct Block
+{
+    vec4 transform;
+    vec4 uvTransformR1;
+    vec4 uvTransformR2;
+};
+
+uniform Block _block;
+
+attribute vec2 pos;
+varying vec2 vUV;
+attribute vec2 uv;
+
+vec3 transform3x2(m3x2 t, vec3 v)
+{
+    return vec3(dot(t.r0, v), dot(t.r1, v), dot(vec3(0.0, 0.0, 1.0), v));
+}
+
+void main()
+{
+    vec2 p = (pos * _block.transform.xy) + _block.transform.zw;
+    m3x2 param = m3x2(vec3(1.0, 0.0, 0.0), vec3(0.0, -1.0, 0.0));
+    vec3 param_1 = vec3(p, 0.0);
+    gl_Position = vec4(transform3x2(param, param_1), 1.0);
+    m3x2 param_2 = m3x2(_block.uvTransformR1.xyz, _block.uvTransformR2.xyz);
+    vec3 param_3 = vec3(uv, 1.0);
+    vUV = transform3x2(param_2, param_3).xy;
+}
+

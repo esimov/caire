@@ -1,0 +1,64 @@
+#version 100
+
+struct m3x2
+{
+    vec3 r0;
+    vec3 r1;
+};
+
+struct Block
+{
+    vec4 transform;
+    vec2 pathOffset;
+};
+
+uniform Block _block;
+
+attribute vec2 from;
+attribute vec2 ctrl;
+attribute vec2 to;
+attribute float maxy;
+attribute float corner;
+varying vec2 vFrom;
+varying vec2 vCtrl;
+varying vec2 vTo;
+
+vec3 transform3x2(m3x2 t, vec3 v)
+{
+    return vec3(dot(t.r0, v), dot(t.r1, v), dot(vec3(0.0, 0.0, 1.0), v));
+}
+
+void main()
+{
+    vec2 from_1 = from + _block.pathOffset;
+    vec2 ctrl_1 = ctrl + _block.pathOffset;
+    vec2 to_1 = to + _block.pathOffset;
+    float maxy_1 = maxy + _block.pathOffset.y;
+    float c = corner;
+    vec2 pos;
+    if (c >= 0.375)
+    {
+        c -= 0.5;
+        pos.y = maxy_1 + 1.0;
+    }
+    else
+    {
+        pos.y = min(min(from_1.y, ctrl_1.y), to_1.y) - 1.0;
+    }
+    if (c >= 0.125)
+    {
+        pos.x = max(max(from_1.x, ctrl_1.x), to_1.x) + 1.0;
+    }
+    else
+    {
+        pos.x = min(min(from_1.x, ctrl_1.x), to_1.x) - 1.0;
+    }
+    vFrom = from_1 - pos;
+    vCtrl = ctrl_1 - pos;
+    vTo = to_1 - pos;
+    pos = (pos * _block.transform.xy) + _block.transform.zw;
+    m3x2 param = m3x2(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+    vec3 param_1 = vec3(pos, 0.0);
+    gl_Position = vec4(transform3x2(param, param_1), 1.0);
+}
+

@@ -1,0 +1,19 @@
+#version 100
+precision mediump float;
+precision highp int;
+
+struct Gradient
+{
+    vec4 color1;
+    vec4 color2;
+};
+
+uniform Gradient _gradient;
+
+varying highp vec2 vUV;
+
+void main()
+{
+    gl_FragData[0] = mix(_gradient.color1, _gradient.color2, vec4(clamp(vUV.x, 0.0, 1.0)));
+}
+

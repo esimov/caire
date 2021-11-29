@@ -1,0 +1,9 @@
+#version 100
+precision mediump float;
+precision highp int;
+
+void main()
+{
+    gl_FragData[0] = vec4(0.25, 0.550000011920928955078125, 0.75, 1.0);
+}
+

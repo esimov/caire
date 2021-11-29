@@ -1,0 +1,413 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT OR Unlicense
+
+// The element processing stage, first in the pipeline.
+//
+// This stage is primarily about applying transforms and computing bounding
+// boxes. It is organized as a scan over the input elements, producing
+// annotated output elements.
+
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "mem.h"
+#include "setup.h"
+
+#define N_ROWS 4
+#define WG_SIZE 32
+#define LG_WG_SIZE 5
+#define PARTITION_SIZE (WG_SIZE * N_ROWS)
+
+layout(local_size_x = WG_SIZE, local_size_y = 1) in;
+
+layout(set = 0, binding = 1) readonly buffer ConfigBuf {
+    Config conf;
+};
+
+layout(set = 0, binding = 2) readonly buffer SceneBuf {
+    uint[] scene;
+};
+
+// It would be better to use the Vulkan memory model than
+// "volatile" but shooting for compatibility here rather
+// than doing things right.
+layout(set = 0, binding = 3) volatile buffer StateBuf {
+    uint part_counter;
+    uint[] state;
+};
+
+#include "scene.h"
+#include "state.h"
+#include "annotated.h"
+#include "pathseg.h"
+#include "tile.h"
+
+#define StateBuf_stride (4 + 2 * State_size)
+
+StateRef state_aggregate_ref(uint partition_ix) {
+    return StateRef(4 + partition_ix * StateBuf_stride);
+}
+
+StateRef state_prefix_ref(uint partition_ix) {
+    return StateRef(4 + partition_ix * StateBuf_stride + State_size);
+}
+
+uint state_flag_index(uint partition_ix) {
+    return partition_ix * (StateBuf_stride / 4);
+}
+
+// These correspond to X, A, P respectively in the prefix sum paper.
+#define FLAG_NOT_READY 0
+#define FLAG_AGGREGATE_READY 1
+#define FLAG_PREFIX_READY 2
+
+#define FLAG_SET_LINEWIDTH 1
+#define FLAG_SET_BBOX 2
+#define FLAG_RESET_BBOX 4
+#define FLAG_SET_FILL_MODE 8
+// Fill modes take up the next bit. Non-zero fill is 0, stroke is 1.
+#define LG_FILL_MODE 4
+#define FILL_MODE_BITS 1
+#define FILL_MODE_MASK (FILL_MODE_BITS << LG_FILL_MODE)
+
+// This is almost like a monoid (the interaction between transformation and
+// bounding boxes is approximate)
+State combine_state(State a, State b) {
+    State c;
+    c.bbox.x = min(a.mat.x * b.bbox.x, a.mat.x * b.bbox.z) + min(a.mat.z * b.bbox.y, a.mat.z * b.bbox.w) + a.translate.x;
+    c.bbox.y = min(a.mat.y * b.bbox.x, a.mat.y * b.bbox.z) + min(a.mat.w * b.bbox.y, a.mat.w * b.bbox.w) + a.translate.y;
+    c.bbox.z = max(a.mat.x * b.bbox.x, a.mat.x * b.bbox.z) + max(a.mat.z * b.bbox.y, a.mat.z * b.bbox.w) + a.translate.x;
+    c.bbox.w = max(a.mat.y * b.bbox.x, a.mat.y * b.bbox.z) + max(a.mat.w * b.bbox.y, a.mat.w * b.bbox.w) + a.translate.y;
+    if ((a.flags & FLAG_RESET_BBOX) == 0 && b.bbox.z <= b.bbox.x && b.bbox.w <= b.bbox.y) {
+        c.bbox = a.bbox;
+    } else if ((a.flags & FLAG_RESET_BBOX) == 0 && (b.flags & FLAG_SET_BBOX) == 0 &&
+        (a.bbox.z > a.bbox.x || a.bbox.w > a.bbox.y))
+    {
+        c.bbox.xy = min(a.bbox.xy, c.bbox.xy);
+        c.bbox.zw = max(a.bbox.zw, c.bbox.zw);
+    }
+    // It would be more concise to cast to matrix types; ah well.
+    c.mat.x = a.mat.x * b.mat.x + a.mat.z * b.mat.y;
+    c.mat.y = a.mat.y * b.mat.x + a.mat.w * b.mat.y;
+    c.mat.z = a.mat.x * b.mat.z + a.mat.z * b.mat.w;
+    c.mat.w = a.mat.y * b.mat.z + a.mat.w * b.mat.w;
+    c.translate.x = a.mat.x * b.translate.x + a.mat.z * b.translate.y + a.translate.x;
+    c.translate.y = a.mat.y * b.translate.x + a.mat.w * b.translate.y + a.translate.y;
+    c.linewidth = (b.flags & FLAG_SET_LINEWIDTH) == 0 ? a.linewidth : b.linewidth;
+    c.flags = (a.flags & (FLAG_SET_LINEWIDTH | FLAG_SET_BBOX | FLAG_SET_FILL_MODE)) | b.flags;
+    c.flags |= (a.flags & FLAG_RESET_BBOX) >> 1;
+    uint fill_mode = (b.flags & FLAG_SET_FILL_MODE) == 0 ? a.flags : b.flags;
+    fill_mode &= FILL_MODE_MASK;
+    c.flags = (c.flags & ~FILL_MODE_MASK) | fill_mode;
+    c.path_count = a.path_count + b.path_count;
+    c.pathseg_count = a.pathseg_count + b.pathseg_count;
+    c.trans_count = a.trans_count + b.trans_count;
+    return c;
+}
+
+State map_element(ElementRef ref) {
+    // TODO: it would *probably* be more efficient to make the memory read patterns less
+    // divergent, though it would be more wasted memory.
+    uint tag = Element_tag(ref).tag;
+    State c;
+    c.bbox = vec4(0.0, 0.0, 0.0, 0.0);
+    c.mat = vec4(1.0, 0.0, 0.0, 1.0);
+    c.translate = vec2(0.0, 0.0);
+    c.linewidth = 1.0; // TODO should be 0.0
+    c.flags = 0;
+    c.path_count = 0;
+    c.pathseg_count = 0;
+    c.trans_count = 0;
+    switch (tag) {
+    case Element_Line:
+        LineSeg line = Element_Line_read(ref);
+        c.bbox.xy = min(line.p0, line.p1);
+        c.bbox.zw = max(line.p0, line.p1);
+        c.pathseg_count = 1;
+        break;
+    case Element_Quad:
+        QuadSeg quad = Element_Quad_read(ref);
+        c.bbox.xy = min(min(quad.p0, quad.p1), quad.p2);
+        c.bbox.zw = max(max(quad.p0, quad.p1), quad.p2);
+        c.pathseg_count = 1;
+        break;
+    case Element_Cubic:
+        CubicSeg cubic = Element_Cubic_read(ref);
+        c.bbox.xy = min(min(cubic.p0, cubic.p1), min(cubic.p2, cubic.p3));
+        c.bbox.zw = max(max(cubic.p0, cubic.p1), max(cubic.p2, cubic.p3));
+        c.pathseg_count = 1;
+        break;
+    case Element_FillColor:
+    case Element_FillImage:
+    case Element_BeginClip:
+        c.flags = FLAG_RESET_BBOX;
+        c.path_count = 1;
+        break;
+    case Element_EndClip:
+        c.path_count = 1;
+        break;
+    case Element_SetLineWidth:
+        SetLineWidth lw = Element_SetLineWidth_read(ref);
+        c.linewidth = lw.width;
+        c.flags = FLAG_SET_LINEWIDTH;
+        break;
+    case Element_Transform:
+        Transform t = Element_Transform_read(ref);
+        c.mat = t.mat;
+        c.translate = t.translate;
+        c.trans_count = 1;
+        break;
+    case Element_SetFillMode:
+        SetFillMode fm = Element_SetFillMode_read(ref);
+        c.flags = FLAG_SET_FILL_MODE | (fm.fill_mode << LG_FILL_MODE);
+        break;
+    }
+    return c;
+}
+
+// Get the bounding box of a circle transformed by the matrix into an ellipse.
+vec2 get_linewidth(State st) {
+    // See https://www.iquilezles.org/www/articles/ellipses/ellipses.htm
+    return 0.5 * st.linewidth * vec2(length(st.mat.xz), length(st.mat.yw));
+}
+
+shared State sh_state[WG_SIZE];
+
+shared uint sh_part_ix;
+shared State sh_prefix;
+
+void main() {
+    State th_state[N_ROWS];
+    // Determine partition to process by atomic counter (described in Section
+    // 4.4 of prefix sum paper).
+    if (gl_LocalInvocationID.x == 0) {
+        sh_part_ix = atomicAdd(part_counter, 1);
+    }
+    barrier();
+    uint part_ix = sh_part_ix;
+
+    uint ix = part_ix * PARTITION_SIZE + gl_LocalInvocationID.x * N_ROWS;
+    ElementRef ref = ElementRef(ix * Element_size);
+
+    th_state[0] = map_element(ref);
+    for (uint i = 1; i < N_ROWS; i++) {
+        // discussion question: would it be faster to load using more coherent patterns
+        // into thread memory? This is kinda strided.
+        th_state[i] = combine_state(th_state[i - 1], map_element(Element_index(ref, i)));
+    }
+    State agg = th_state[N_ROWS - 1];
+    sh_state[gl_LocalInvocationID.x] = agg;
+    for (uint i = 0; i < LG_WG_SIZE; i++) {
+        barrier();
+        if (gl_LocalInvocationID.x >= (1 << i)) {
+            State other = sh_state[gl_LocalInvocationID.x - (1 << i)];
+            agg = combine_state(other, agg);
+        }
+        barrier();
+        sh_state[gl_LocalInvocationID.x] = agg;
+    }
+
+    State exclusive;
+    exclusive.bbox = vec4(0.0, 0.0, 0.0, 0.0);
+    exclusive.mat = vec4(1.0, 0.0, 0.0, 1.0);
+    exclusive.translate = vec2(0.0, 0.0);
+    exclusive.linewidth = 1.0; //TODO should be 0.0
+    exclusive.flags = 0;
+    exclusive.path_count = 0;
+    exclusive.pathseg_count = 0;
+    exclusive.trans_count = 0;
+
+    // Publish aggregate for this partition
+    if (gl_LocalInvocationID.x == WG_SIZE - 1) {
+        // Note: with memory model, we'd want to generate the atomic store version of this.
+        State_write(state_aggregate_ref(part_ix), agg);
+    }
+    memoryBarrierBuffer();
+    if (gl_LocalInvocationID.x == WG_SIZE - 1) {
+        uint flag = FLAG_AGGREGATE_READY;
+        if (part_ix == 0) {
+            State_write(state_prefix_ref(part_ix), agg);
+            flag = FLAG_PREFIX_READY;
+        }
+        state[state_flag_index(part_ix)] = flag;
+        if (part_ix != 0) {
+            // step 4 of paper: decoupled lookback
+            uint look_back_ix = part_ix - 1;
+
+            State their_agg;
+            uint their_ix = 0;
+            while (true) {
+                flag = state[state_flag_index(look_back_ix)];
+                if (flag == FLAG_PREFIX_READY) {
+                    State their_prefix = State_read(state_prefix_ref(look_back_ix));
+                    exclusive = combine_state(their_prefix, exclusive);
+                    break;
+                } else if (flag == FLAG_AGGREGATE_READY) {
+                    their_agg = State_read(state_aggregate_ref(look_back_ix));
+                    exclusive = combine_state(their_agg, exclusive);
+                    look_back_ix--;
+                    their_ix = 0;
+                    continue;
+                }
+                // else spin
+
+                // Unfortunately there's no guarantee of forward progress of other
+                // workgroups, so compute a bit of the aggregate before trying again.
+                // In the worst case, spinning stops when the aggregate is complete.
+                ElementRef ref = ElementRef((look_back_ix * PARTITION_SIZE + their_ix) * Element_size);
+                State s = map_element(ref);
+                if (their_ix == 0) {
+                    their_agg = s;
+                } else {
+                    their_agg = combine_state(their_agg, s);
+                }
+                their_ix++;
+                if (their_ix == PARTITION_SIZE) {
+                    exclusive = combine_state(their_agg, exclusive);
+                    if (look_back_ix == 0) {
+                        break;
+                    }
+                    look_back_ix--;
+                    their_ix = 0;
+                }
+            }
+
+            // step 5 of paper: compute inclusive prefix
+            State inclusive_prefix = combine_state(exclusive, agg);
+            sh_prefix = exclusive;
+            State_write(state_prefix_ref(part_ix), inclusive_prefix);
+        }
+    }
+    memoryBarrierBuffer();
+    if (gl_LocalInvocationID.x == WG_SIZE - 1 && part_ix != 0) {
+        state[state_flag_index(part_ix)] = FLAG_PREFIX_READY;
+    }
+    barrier();
+    if (part_ix != 0) {
+        exclusive = sh_prefix;
+    }
+
+    State row = exclusive;
+    if (gl_LocalInvocationID.x > 0) {
+        State other = sh_state[gl_LocalInvocationID.x - 1];
+        row = combine_state(row, other);
+    }
+    for (uint i = 0; i < N_ROWS; i++) {
+        State st = combine_state(row, th_state[i]);
+
+        // Here we read again from the original scene. There may be
+        // gains to be had from stashing in shared memory or possibly
+        // registers (though register pressure is an issue).
+        ElementRef this_ref = Element_index(ref, i);
+        ElementTag tag = Element_tag(this_ref);
+        uint fill_mode = fill_mode_from_flags(st.flags >> LG_FILL_MODE);
+        bool is_stroke = fill_mode == MODE_STROKE;
+        switch (tag.tag) {
+        case Element_Line:
+            LineSeg line = Element_Line_read(this_ref);
+            PathCubic path_cubic;
+            path_cubic.p0 = line.p0;
+            path_cubic.p1 = mix(line.p0, line.p1, 1.0 / 3.0);
+            path_cubic.p2 = mix(line.p1, line.p0, 1.0 / 3.0);
+            path_cubic.p3 = line.p1;
+            path_cubic.path_ix = st.path_count;
+            path_cubic.trans_ix = st.trans_count;
+            if (is_stroke) {
+                path_cubic.stroke = get_linewidth(st);
+            } else {
+                path_cubic.stroke = vec2(0.0);
+            }
+            PathSegRef path_out_ref = PathSegRef(conf.pathseg_alloc.offset + (st.pathseg_count - 1) * PathSeg_size);
+            PathSeg_Cubic_write(conf.pathseg_alloc, path_out_ref, fill_mode, path_cubic);
+            break;
+        case Element_Quad:
+            QuadSeg quad = Element_Quad_read(this_ref);
+            path_cubic.p0 = quad.p0;
+            path_cubic.p1 = mix(quad.p1, quad.p0, 1.0 / 3.0);
+            path_cubic.p2 = mix(quad.p1, quad.p2, 1.0 / 3.0);
+            path_cubic.p3 = quad.p2;
+            path_cubic.path_ix = st.path_count;
+            path_cubic.trans_ix = st.trans_count;
+            if (is_stroke) {
+                path_cubic.stroke = get_linewidth(st);
+            } else {
+                path_cubic.stroke = vec2(0.0);
+            }
+            path_out_ref = PathSegRef(conf.pathseg_alloc.offset + (st.pathseg_count - 1) * PathSeg_size);
+            PathSeg_Cubic_write(conf.pathseg_alloc, path_out_ref, fill_mode, path_cubic);
+            break;
+        case Element_Cubic:
+            CubicSeg cubic = Element_Cubic_read(this_ref);
+            path_cubic.p0 = cubic.p0;
+            path_cubic.p1 = cubic.p1;
+            path_cubic.p2 = cubic.p2;
+            path_cubic.p3 = cubic.p3;
+            path_cubic.path_ix = st.path_count;
+            path_cubic.trans_ix = st.trans_count;
+            if (is_stroke) {
+                path_cubic.stroke = get_linewidth(st);
+            } else {
+                path_cubic.stroke = vec2(0.0);
+            }
+            path_out_ref = PathSegRef(conf.pathseg_alloc.offset + (st.pathseg_count - 1) * PathSeg_size);
+            PathSeg_Cubic_write(conf.pathseg_alloc, path_out_ref, fill_mode, path_cubic);
+            break;
+        case Element_FillColor:
+            FillColor fill = Element_FillColor_read(this_ref);
+            AnnoColor anno_fill;
+            anno_fill.rgba_color = fill.rgba_color;
+            if (is_stroke) {
+                vec2 lw = get_linewidth(st);
+                anno_fill.bbox = st.bbox + vec4(-lw, lw);
+                anno_fill.linewidth = st.linewidth * sqrt(abs(st.mat.x * st.mat.w - st.mat.y * st.mat.z));
+            } else {
+                anno_fill.bbox = st.bbox;
+                anno_fill.linewidth = 0.0;
+            }
+            AnnotatedRef out_ref = AnnotatedRef(conf.anno_alloc.offset + (st.path_count - 1) * Annotated_size);
+            Annotated_Color_write(conf.anno_alloc, out_ref, fill_mode, anno_fill);
+            break;
+        case Element_FillImage:
+            FillImage fill_img = Element_FillImage_read(this_ref);
+            AnnoImage anno_img;
+            anno_img.index = fill_img.index;
+            anno_img.offset = fill_img.offset;
+            if (is_stroke) {
+                vec2 lw = get_linewidth(st);
+                anno_img.bbox = st.bbox + vec4(-lw, lw);
+                anno_img.linewidth = st.linewidth * sqrt(abs(st.mat.x * st.mat.w - st.mat.y * st.mat.z));
+            } else {
+                anno_img.bbox = st.bbox;
+                anno_img.linewidth = 0.0;
+            }
+            out_ref = AnnotatedRef(conf.anno_alloc.offset + (st.path_count - 1) * Annotated_size);
+            Annotated_Image_write(conf.anno_alloc, out_ref, fill_mode, anno_img);
+            break;
+        case Element_BeginClip:
+            Clip begin_clip = Element_BeginClip_read(this_ref);
+            AnnoBeginClip anno_begin_clip;
+            // This is the absolute bbox, it's been transformed during encoding.
+            anno_begin_clip.bbox = begin_clip.bbox;
+            if (is_stroke) {
+                vec2 lw = get_linewidth(st);
+                anno_begin_clip.linewidth = st.linewidth * sqrt(abs(st.mat.x * st.mat.w - st.mat.y * st.mat.z));
+            } else {
+                anno_fill.linewidth = 0.0;
+            }
+            out_ref = AnnotatedRef(conf.anno_alloc.offset + (st.path_count - 1) * Annotated_size);
+            Annotated_BeginClip_write(conf.anno_alloc, out_ref, fill_mode, anno_begin_clip);
+            break;
+        case Element_EndClip:
+            Clip end_clip = Element_EndClip_read(this_ref);
+            // This bbox is expected to be the same as the begin one.
+            AnnoEndClip anno_end_clip = AnnoEndClip(end_clip.bbox);
+            out_ref = AnnotatedRef(conf.anno_alloc.offset + (st.path_count - 1) * Annotated_size);
+            Annotated_EndClip_write(conf.anno_alloc, out_ref, anno_end_clip);
+            break;
+        case Element_Transform:
+            TransformSeg transform = TransformSeg(st.mat, st.translate);
+            TransformSegRef trans_ref = TransformSegRef(conf.trans_alloc.offset + (st.trans_count - 1) * TransformSeg_size);
+            TransformSeg_write(conf.trans_alloc, trans_ref, transform);
+            break;
+        }
+    }
+}

@@ -5,6 +5,7 @@ import (
 	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"os"
 )
 
@@ -16,7 +17,12 @@ func GetImage(input string) (*image.NRGBA, error) {
 	}
 	defer file.Close()
 
-	src, _, err := image.Decode(file)
+	return DecodeImage(file)
+}
+
+// DecodeImage decodes the image file to *image.NRGBA type.
+func DecodeImage(f io.Reader) (*image.NRGBA, error) {
+	src, _, err := image.Decode(f)
 	if err != nil {
 		return nil, err
 	}
