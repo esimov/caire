@@ -2,3 +2,6 @@
 *.png
 *.jpeg
 /packages
+!/testdata/*.png
+!/testdata/*.jpg
+!/examples/**/*.png
