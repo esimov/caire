@@ -3,8 +3,6 @@ package utils
 import (
 	"fmt"
 	"math"
-	"net/http"
-	"os"
 	"time"
 )
 
@@ -65,28 +63,4 @@ func FormatTime(d time.Duration) string {
 	return fmt.Sprintf("%dd %dh %dm %.2fs",
 		int64(d.Hours()/24), int64(remainingHours),
 		int64(remainingMinutes), remainingSeconds)
-}
-
-// DetectFileContentType detects the file type by reading MIME type information of the file content.
-func DetectFileContentType(fname string) (interface{}, error) {
-	file, err := os.Open(fname)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	// Only the first 512 bytes are used to sniff the content type.
-	buffer := make([]byte, 512)
-	_, err = file.Read(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	// Reset the read pointer if necessary.
-	file.Seek(0, 0)
-
-	// Always returns a valid content-type and "application/octet-stream" if no others seemed to match.
-	contentType := http.DetectContentType(buffer)
-
-	return string(contentType), nil
 }
