@@ -48,4 +48,6 @@ jobs:
 
       - name: Build project
         id: makefile
-        run: make
+        run: |
+          make
+          go test -v ./... -run=. -cover
