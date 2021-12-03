@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
 // DownloadImage downloads the image from the internet and saves it into a temporary file.
@@ -35,6 +36,13 @@ func DownloadImage(url string) (*os.File, error) {
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("unable to copy the source URI into the destination file"))
 	}
+	ctype, err := detectContentType(tmpfile.Name())
+	if err != nil {
+		return nil, err
+	}
+	if !strings.Contains(ctype.(string), "image") {
+		return nil, errors.New("the downloaded file is a valid image type.")
+	}
 	return tmpfile, nil
 }
 
@@ -53,8 +61,8 @@ func IsValidUrl(uri string) bool {
 	return true
 }
 
-// DetectFileContentType detects the file type by reading MIME type information of the file content.
-func DetectFileContentType(fname string) (interface{}, error) {
+// detectContentType detects the file type by reading MIME type information of the file content.
+func detectContentType(fname string) (interface{}, error) {
 	file, err := os.Open(fname)
 	if err != nil {
 		return nil, err

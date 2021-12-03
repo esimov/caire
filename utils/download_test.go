@@ -27,7 +27,7 @@ func TestUtils_ShouldBeValidUrl(t *testing.T) {
 func TestUtils_ShouldDetectValidFileType(t *testing.T) {
 	sampleImg := filepath.Join("../testdata", "sample.jpg")
 
-	ftype, err := DetectFileContentType(sampleImg)
+	ftype, err := detectContentType(sampleImg)
 	if err != nil {
 		t.Fatalf("could not detect content type: %v", err)
 	}

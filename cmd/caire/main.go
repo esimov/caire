@@ -108,9 +108,16 @@ func main() {
 		// Check if source path is a local image or URL.
 		if utils.IsValidUrl(*source) {
 			src, err := utils.DownloadImage(*source)
+			if src != nil {
+				defer os.Remove(src.Name())
+			}
 			defer src.Close()
-			defer os.Remove(src.Name())
-
+			if err != nil {
+				log.Fatalf(
+					utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
+					utils.DecorateText(err.Error(), utils.DefaultMessage),
+				)
+			}
 			fs, err = src.Stat()
 			if err != nil {
 				log.Fatalf(
