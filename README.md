@@ -32,20 +32,17 @@ Key features which differentiates this library from the other existing open sour
 - [x] Support for both shrinking or enlarging the image
 - [x] Resize image both vertically and horizontally
 - [x] Can process whole directories recursively and concurrently
-- [x] Does not require any third party library
 - [x] Use of sobel threshold for fine tuning
 - [x] Use of blur filter for increased edge detection
-- [x] Square the image with a single command
+- [x] Support for squaring the image with a single command
 - [x] Support for proportional scaling
 - [x] Face detection to avoid face deformation
 - [x] Support for multiple output image type (jpg, jpeg, png, bmp, gif)
-
-#### TODO
-- [ ] GUI progress indicator
+- [x] **GUI progress indicator**
 
 ## Face detection
 
-The library is capable of detecting human faces prior resizing the images by using the Pigo (https://github.com/esimov/pigo) face detection library, which does not require to have OpenCV installed.
+The library is capable of detecting human faces prior resizing the images by using the lightweight Pigo (https://github.com/esimov/pigo) face detection library. The library does not require to already have OpenCV installed.
 
 The image below illustrates the application capabilities for human face detection prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
 
@@ -94,6 +91,7 @@ The following flags are supported:
 | `out` | - | Output file |
 | `width` | n/a | New width |
 | `height` | n/a | New height |
+| `preview` | true | Show process preview window |
 | `perc` | false | Reduce image by percentage |
 | `square` | false | Reduce image to square dimensions |
 | `blur` | 1 | Blur radius |
@@ -102,8 +100,13 @@ The following flags are supported:
 | `face` | false | Use face detection |
 | `angle` | float | Plane rotated faces angle |
 
+### GUI process preview window
+A GUI window is also supported for showing the resizing process. For the GUI part i've opted of using the Gio library for it's robustness and modern architecture. But in order to use it you have to install all of its dependencies. So please check the installation section here: https://gioui.org/#installation. 
+
+By default the preview window is activated but you can disable it with the `-preview` flag. When the images are processed concurrently from a directory the preview mode is disabled.
+
 #### Use the face detection option to avoid face deformation
-To detect faces prior rescaling use the `-face` flag. There is no need to provide a face classification cascade file, since it's already embedded into the generated binary file. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
+In order to detect faces prior rescaling use the `-face` flag. There is no need to provide a face classification cascade file, since it's already embedded into the generated binary file. The sample code below will rescale the provided image with 20% but will run the face detection prior rescaling in order tot avoid face deformations.
 
 For face detection related settings please check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
@@ -111,8 +114,8 @@ For face detection related settings please check the Pigo [documentation](https:
 $ caire -in input.jpg -out output.jpg -face=1 -perc=1 -width=20
 ```
 
-#### Support for multiple image type output
-The application detects the output type automatically by the provided output file extension and encodes the image to that specific type. The **Gif** output type is also supported. In this case the generated Gif file presents interactively the resizing process.
+#### Support for multiple output image type
+There is no need to define the output file type. The library is capable of detecting the output image type directly by the file extension and encodes the image to that specific type. You can export the resized image even to a **Gif** file, in which case the generated file shows the resizing process interactively.
 
 #### Other options
 In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
