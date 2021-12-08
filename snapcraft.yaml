@@ -1,5 +1,5 @@
 name: caire
-version: '1.3.3'
+version: '1.4.0'
 summary: Content aware image resize library
 description: |
   Content aware image resize library
@@ -13,6 +13,17 @@ parts:
     go-importpath: github.com/esimov/caire
     build-packages:
       - build-essential
+      - gcc
+      - pkg-config
+      - libwayland-dev
+      - libx11-dev
+      - libx11-xcb-dev
+      - libxkbcommon-x11-dev
+      - libgles2-mesa-dev
+      - libegl1-mesa-dev
+      - libffi-dev
+      - libxcursor-dev
+      - libvulkan-dev
 apps:
   caire:
     command: bin/caire
