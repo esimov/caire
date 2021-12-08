@@ -68,7 +68,8 @@ type Processor struct {
 	FaceAngle        float64
 	PigoFaceDetector *pigo.Pigo
 
-	vRes bool
+	seams []Seam
+	vRes  bool
 }
 
 var (
@@ -489,6 +490,20 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	}
 	seams := c.FindLowestEnergySeams()
 	img = c.RemoveSeam(img, seams, p.Debug)
+
+	if p.Debug {
+		if len(p.seams) > 0 {
+			for _, s := range p.seams {
+				img.Set(s.X, s.Y, s.Pix)
+				img.Set(s.X-1, s.Y, img.At(s.X, s.Y))
+			}
+		}
+		// Copy c.Seams to p.seams starting from the second iteration.
+		// This will override the seam color with the pixel color saved on previous iteration.
+		p.seams = c.Seams
+	}
+
+	//c.Seams = c.Seams[:0]
 
 	if isGif {
 		p.encodeImgToGif(c, img, g)

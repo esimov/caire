@@ -22,6 +22,7 @@ type Carver struct {
 	Width  int
 	Height int
 	Points []float64
+	Seams  []Seam
 }
 
 // UsedSeams contains the already generated seams.
@@ -37,8 +38,9 @@ type ActiveSeam struct {
 
 // Seam struct contains the seam pixel coordinates.
 type Seam struct {
-	X int
-	Y int
+	X   int
+	Y   int
+	Pix color.Color
 }
 
 // NewCarver returns an initialized Carver structure.
@@ -47,6 +49,7 @@ func NewCarver(width, height int) *Carver {
 		width,
 		height,
 		make([]float64, width*height),
+		nil,
 	}
 }
 
@@ -234,6 +237,11 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
 				if debug {
+					c.Seams = append(c.Seams, Seam{
+						X:   x - 1,
+						Y:   y,
+						Pix: img.At(x-1, y),
+					})
 					dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
 				}
 				continue
@@ -300,7 +308,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				// to the corresponding pixels in the energy map.
 				// We will increase the seams weight by duplicating the pixel value.
 				currentSeam = append(currentSeam,
-					ActiveSeam{Seam{x + 1, y},
+					ActiveSeam{Seam{x + 1, y, nil},
 						color.RGBA{
 							R: uint8((avr + avr) >> 8),
 							G: uint8((avg + avg) >> 8),
