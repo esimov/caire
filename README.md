@@ -28,24 +28,22 @@
 ## Features
 Key features which differentiates this library from the other existing open source solutions:
 
+- [x] **GUI progress indicator**
 - [x] Customizable command line support
 - [x] Support for both shrinking or enlarging the image
 - [x] Resize image both vertically and horizontally
-- [x] Can process whole directories recursively and concurrently
-- [x] Does not require any third party library
-- [x] Use of sobel threshold for fine tuning
-- [x] Use of blur filter for increased edge detection
-- [x] Square the image with a single command
-- [x] Support for proportional scaling
 - [x] Face detection to avoid face deformation
 - [x] Support for multiple output image type (jpg, jpeg, png, bmp, gif)
-
-#### TODO
-- [ ] GUI progress indicator
+- [x] Support for `stdin` and `stdout` pipe commands
+- [x] Can process whole directories recursively and concurrently
+- [x] Use of sobel threshold for fine tuning
+- [x] Use of blur filter for increased edge detection
+- [x] Support for squaring the image with a single command
+- [x] Support for proportional scaling
 
 ## Face detection
 
-The library is capable of detecting human faces prior resizing the images by using the Pigo (https://github.com/esimov/pigo) face detection library, which does not require to have OpenCV installed.
+The library is capable of detecting human faces prior resizing the images by using the lightweight Pigo (https://github.com/esimov/pigo) face detection library. The library does not require to already have OpenCV installed.
 
 The image below illustrates the application capabilities for human face detection prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
 
@@ -94,6 +92,7 @@ The following flags are supported:
 | `out` | - | Output file |
 | `width` | n/a | New width |
 | `height` | n/a | New height |
+| `preview` | true | Show process preview window |
 | `perc` | false | Reduce image by percentage |
 | `square` | false | Reduce image to square dimensions |
 | `blur` | 1 | Blur radius |
@@ -102,8 +101,13 @@ The following flags are supported:
 | `face` | false | Use face detection |
 | `angle` | float | Plane rotated faces angle |
 
-#### Use the face detection option to avoid face deformation
-To detect faces prior rescaling use the `-face` flag. There is no need to provide a face classification cascade file, since it's already embedded into the generated binary file. The sample code below will rescale the provided image with 20% but will search for human faces prior rescaling.
+### GUI progress indicator
+A GUI preview window is also integrated into the library for showing the resizing process. For the GUI part I've opted of using the Gio library for its robustness and modern architecture. But in order to use it you have to install all of its dependencies. So please check the installation section here: https://gioui.org/#installation. 
+
+The preview window is activated by default but you can disable it with by setting the `-preview` flag as false. When the images are processed concurrently from a directory the preview mode is disabled.
+
+### Face detection to avoid face deformation
+In order to detect faces prior rescaling use the `-face` flag. There is no need to provide a face classification cascade file, since it's already embedded into the generated binary file. The sample code below will rescale the provided image with 20%, but will run the face detection prior rescaling in order tot avoid face deformations.
 
 For face detection related settings please check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
@@ -111,26 +115,7 @@ For face detection related settings please check the Pigo [documentation](https:
 $ caire -in input.jpg -out output.jpg -face=1 -perc=1 -width=20
 ```
 
-#### Support for multiple image type output
-The application detects the output type automatically by the provided output file extension and encodes the image to that specific type. The **Gif** output type is also supported. In this case the generated Gif file presents interactively the resizing process.
-
-#### Other options
-In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
-
-```bash
-$ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
-```
-
-Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
-
-When an image is resized on both the X and Y axis, the algorithm first try to rescale it prior resizing, but also preserves the image aspect ratio. Afterwards the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
-
-The application can also process the images from the specified directory concurrently, significantly boosting up the processing speed.
-
-```bash
-$ caire -in ./input-directory -out ./output-directory
-```
-
+### Support for `stdin` and `stdout` pipe commands
 You can also use `stdin` and `stdout` with `-`:
 
 ```bash
@@ -143,6 +128,34 @@ $ cat input/source.jpg | caire -in - -out - >out.jpg
 $ cat input/source.jpg | caire >out.jpg
 $ caire -out out.jpg < input/source.jpg
 ```
+
+You can provide also an image URL for the `-in` flag or even use **cURL** as a pipe command in which case there is no need to use the `-in` flag.
+
+```bash
+$ caire -in <image_url> -out <output-folder>
+$ curl -s <image_url> | caire > out.jpg
+```
+
+### Process multiple images from a directory concurrently
+The library can also process multiple images from a directory **concurrently**. You only need to provide the source and the destination folder by using the `-in` and `-out` flags.
+
+```bash
+$ caire -in <input_folder> -out <output-folder>
+```
+
+### Support for multiple output image type
+There is no need to define the output file type. The library is capable of detecting the output image type directly by the file extension and encodes the image to that specific type. You can export the resized image even to a **Gif** file, in which case the generated file shows the resizing process interactively.
+
+### Other options
+In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
+
+```bash
+$ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=false
+```
+
+Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
+
+When an image is resized on both the X and Y axis, the algorithm first try to rescale it prior resizing, but also preserves the image aspect ratio. Afterwards the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
 
 ### Caire integrations
 - [x] Caire can be used as a serverless function via OpenFaaS: https://github.com/esimov/caire-openfaas
