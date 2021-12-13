@@ -30,7 +30,7 @@ Content aware image resize library.
 
 `
 
-// pipeName is the file name that indicates stdin/stdout is being used.
+// pipeName indicates that stdin/stdout is being used as file names.
 const pipeName = "-"
 
 // maxWorkers sets the maximum number of concurrently running workers.
@@ -43,9 +43,9 @@ type result struct {
 }
 
 var (
-	// imgurl holds the file being accessed be it normal file or pipe name.
-	imgurl *os.File
-	// spinner used to instantiate and call the progress indicator.
+	// imgfile holds the file being accessed, be it normal file or pipe name.
+	imgfile *os.File
+	// spinner is used to instantiate and call the progress indicator.
 	spinner *utils.Spinner
 )
 
@@ -109,7 +109,7 @@ func main() {
 	} else {
 		if *preview {
 			// When the preview mode is activated we need to execute the resizing process
-			// in a separate goroutine in order to not block the main Gio thread,
+			// in a separate goroutine in order to not block the Gio thread,
 			// which needs to be run on the main OS thread on operating systems like MacOS.
 			go execute(proc)
 			app.Main()
@@ -156,7 +156,7 @@ func execute(proc *caire.Processor) {
 				utils.DecorateText(err.Error(), utils.DefaultMessage),
 			)
 		}
-		imgurl = img
+		imgfile = img
 	} else {
 		// Check if the source is a pipe name or a regular file.
 		if *source == pipeName {
@@ -244,7 +244,6 @@ func execute(proc *caire.Processor) {
 
 // walkDir starts a goroutine to walk the specified directory tree in recursive manner
 // and send the path of each regular file on the string channel.
-// It sends the result of the walk on the error channel.
 // It terminates in case done channel is closed.
 func walkDir(
 	done <-chan interface{},
@@ -289,9 +288,7 @@ func walkDir(
 	return pathChan, errChan
 }
 
-// consumer reads the path names from the paths channel and
-// calls the resizing processor against the source image
-// then sends the results on a new channel.
+// consumer reads the path names from the paths channel and calls the resizing processor against the source image.
 func consumer(
 	done <-chan interface{},
 	paths <-chan string,
@@ -314,8 +311,7 @@ func consumer(
 	}
 }
 
-// processor calls the resizer method over the source image and
-// returns the error in case exists, otherwise nil.
+// processor calls the resizer method over the source image and returns the error in case exists.
 func processor(in, out string, proc *caire.Processor) error {
 	var (
 		successMsg string
@@ -342,7 +338,7 @@ func processor(in, out string, proc *caire.Processor) error {
 		return err
 	}
 
-	// Capture CTRL-C signal and restore the cursor visibility back.
+	// Capture CTRL-C signal and restores back the cursor visibility.
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -385,7 +381,7 @@ func pathToFile(in, out string) (io.Reader, io.Writer, error) {
 	)
 	// Check if the source path is a local image or URL.
 	if utils.IsValidUrl(in) {
-		src = imgurl
+		src = imgfile
 	} else {
 		// Check if the source is a pipe name or a regular file.
 		if in == pipeName {
