@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"gioui.org/app"
 	"github.com/esimov/caire"
 	"github.com/esimov/caire/utils"
 	"golang.org/x/term"
@@ -101,128 +102,131 @@ func main() {
 
 	spinner = utils.NewSpinner(defaultMsg, time.Millisecond*80)
 
-	if *newWidth > 0 || *newHeight > 0 || *percentage || *square {
-		// Supported files
-		validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
-
-		// Check if source path is a local image or URL.
-		if utils.IsValidUrl(*source) {
-			src, err := utils.DownloadImage(*source)
-			if src != nil {
-				defer os.Remove(src.Name())
-			}
-			defer src.Close()
-			if err != nil {
-				log.Fatalf(
-					utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
-					utils.DecorateText(err.Error(), utils.DefaultMessage),
-				)
-			}
-			fs, err = src.Stat()
-			if err != nil {
-				log.Fatalf(
-					utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
-					utils.DecorateText(err.Error(), utils.DefaultMessage),
-				)
-			}
-			img, err := os.Open(src.Name())
-			if err != nil {
-				log.Fatalf(
-					utils.DecorateText("Unable to open the temporary image file: %v", utils.ErrorMessage),
-					utils.DecorateText(err.Error(), utils.DefaultMessage),
-				)
-			}
-			imgurl = img
-		} else {
-			// Check if the source is a pipe name or a regular file.
-			if *source == pipeName {
-				fs, err = os.Stdin.Stat()
-			} else {
-				fs, err = os.Stat(*source)
-			}
-			if err != nil {
-				log.Fatalf(
-					utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
-					utils.DecorateText(err.Error(), utils.DefaultMessage),
-				)
-			}
-		}
-
-		now := time.Now()
-
-		switch mode := fs.Mode(); {
-		case mode.IsDir():
-			var wg sync.WaitGroup
-			// Read destination file or directory.
-			_, err := os.Stat(*destination)
-			if err != nil {
-				err = os.Mkdir(*destination, 0755)
-				if err != nil {
-					log.Fatalf(
-						utils.DecorateText("Unable to get dir stats: %v\n", utils.ErrorMessage),
-						utils.DecorateText(err.Error(), utils.DefaultMessage),
-					)
-				}
-			}
-			proc.Preview = false
-
-			// Limit the concurrently running workers to maxWorkers.
-			if *workers <= 0 || *workers > maxWorkers {
-				*workers = runtime.NumCPU()
-			}
-
-			// Process recursively the image files from the specified directory concurrently.
-			ch := make(chan result)
-			done := make(chan interface{})
-			defer close(done)
-
-			paths, errc := walkDir(done, *source, validExtensions)
-
-			wg.Add(*workers)
-			for i := 0; i < *workers; i++ {
-				go func() {
-					defer wg.Done()
-					consumer(done, paths, *destination, proc, ch)
-				}()
-			}
-
-			// Close the channel after the values are consumed.
-			go func() {
-				defer close(ch)
-				wg.Wait()
-			}()
-
-			// Consume the channel values.
-			for res := range ch {
-				if res.err != nil {
-					err = res.err
-				}
-				printStatus(res.path, res.err)
-			}
-
-			if err = <-errc; err != nil {
-				fmt.Fprintf(os.Stderr, utils.DecorateText(err.Error(), utils.ErrorMessage))
-			}
-
-		case mode.IsRegular() || mode&os.ModeNamedPipe != 0: // check for regular files or pipe names
-			ext := filepath.Ext(*destination)
-			if !isValidExtension(ext, validExtensions) && *destination != pipeName {
-				log.Fatalf(utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
-			}
-
-			err = processor(*source, *destination, proc)
-			printStatus(*destination, err)
-		}
-		if err == nil {
-			fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(fmt.Sprintf("%s", utils.FormatTime(time.Since(now))), utils.SuccessMessage))
-		}
-	} else {
+	if !(*newWidth > 0 || *newHeight > 0 || *percentage || *square) {
 		flag.Usage()
 		log.Fatal(fmt.Sprintf("%s%s",
 			utils.DecorateText("\nPlease provide a width, height or percentage for image rescaling!", utils.ErrorMessage),
 			utils.DefaultColor,
 		))
+	} else {
+		go func() {
+			// Supported files
+			validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
+
+			// Check if source path is a local image or URL.
+			if utils.IsValidUrl(*source) {
+				src, err := utils.DownloadImage(*source)
+				if src != nil {
+					defer os.Remove(src.Name())
+				}
+				defer src.Close()
+				if err != nil {
+					log.Fatalf(
+						utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
+						utils.DecorateText(err.Error(), utils.DefaultMessage),
+					)
+				}
+				fs, err = src.Stat()
+				if err != nil {
+					log.Fatalf(
+						utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
+						utils.DecorateText(err.Error(), utils.DefaultMessage),
+					)
+				}
+				img, err := os.Open(src.Name())
+				if err != nil {
+					log.Fatalf(
+						utils.DecorateText("Unable to open the temporary image file: %v", utils.ErrorMessage),
+						utils.DecorateText(err.Error(), utils.DefaultMessage),
+					)
+				}
+				imgurl = img
+			} else {
+				// Check if the source is a pipe name or a regular file.
+				if *source == pipeName {
+					fs, err = os.Stdin.Stat()
+				} else {
+					fs, err = os.Stat(*source)
+				}
+				if err != nil {
+					log.Fatalf(
+						utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
+						utils.DecorateText(err.Error(), utils.DefaultMessage),
+					)
+				}
+			}
+
+			now := time.Now()
+
+			switch mode := fs.Mode(); {
+			case mode.IsDir():
+				var wg sync.WaitGroup
+				// Read destination file or directory.
+				_, err := os.Stat(*destination)
+				if err != nil {
+					err = os.Mkdir(*destination, 0755)
+					if err != nil {
+						log.Fatalf(
+							utils.DecorateText("Unable to get dir stats: %v\n", utils.ErrorMessage),
+							utils.DecorateText(err.Error(), utils.DefaultMessage),
+						)
+					}
+				}
+				proc.Preview = false
+
+				// Limit the concurrently running workers to maxWorkers.
+				if *workers <= 0 || *workers > maxWorkers {
+					*workers = runtime.NumCPU()
+				}
+
+				// Process recursively the image files from the specified directory concurrently.
+				ch := make(chan result)
+				done := make(chan interface{})
+				defer close(done)
+
+				paths, errc := walkDir(done, *source, validExtensions)
+
+				wg.Add(*workers)
+				for i := 0; i < *workers; i++ {
+					go func() {
+						defer wg.Done()
+						consumer(done, paths, *destination, proc, ch)
+					}()
+				}
+
+				// Close the channel after the values are consumed.
+				go func() {
+					defer close(ch)
+					wg.Wait()
+				}()
+
+				// Consume the channel values.
+				for res := range ch {
+					if res.err != nil {
+						err = res.err
+					}
+					printStatus(res.path, res.err)
+				}
+
+				if err = <-errc; err != nil {
+					fmt.Fprintf(os.Stderr, utils.DecorateText(err.Error(), utils.ErrorMessage))
+				}
+
+			case mode.IsRegular() || mode&os.ModeNamedPipe != 0: // check for regular files or pipe names
+				ext := filepath.Ext(*destination)
+				if !isValidExtension(ext, validExtensions) && *destination != pipeName {
+					log.Fatalf(utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
+				}
+
+				err = processor(*source, *destination, proc)
+				printStatus(*destination, err)
+			}
+			if err == nil {
+				fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(fmt.Sprintf("%s", utils.FormatTime(time.Since(now))), utils.SuccessMessage))
+			}
+		}()
 	}
+	app.Main()
 }
 
 // walkDir starts a goroutine to walk the specified directory tree in recursive manner
