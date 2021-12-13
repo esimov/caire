@@ -3,6 +3,7 @@ package caire
 import (
 	"image"
 	"math"
+	"os"
 
 	"gioui.org/app"
 	"gioui.org/io/key"
@@ -49,56 +50,59 @@ func (p *Processor) showPreview(
 		app.Size(unit.Px(float32(newWidth)), unit.Px(float32(newHeight))),
 	)
 
-	for err := range p.run(w, workerChan) {
-		errChan <- err
-	}
+	// Run the Gio GUI app in a seperate goroutine
+	go func() {
+		if err := p.run(w, workerChan); err != nil {
+			errChan <- err
+		}
+		// It's important to call os.Exit(0) in order to terminate
+		// the execution of the GUI app when pressing ESC key.
+		os.Exit(0)
+	}()
 }
 
 // run the Gio main thread until a DestroyEvent or an ESC key event is captured.
-func (p *Processor) run(w *app.Window, workerChan <-chan worker) chan error {
+func (p *Processor) run(w *app.Window, workerChan <-chan worker) error {
 	var (
 		ops op.Ops
 		img image.Image
 	)
-	err := make(chan error)
-	go func() {
-		for {
-			select {
-			case e := <-w.Events():
-				switch e := e.(type) {
-				case system.FrameEvent:
-					gtx := layout.NewContext(&ops, e)
-					w.Invalidate()
 
-					if img != nil {
-						src := paint.NewImageOp(img)
-						src.Add(gtx.Ops)
-
-						imgWidget := widget.Image{
-							Src:   src,
-							Scale: 1 / float32(gtx.Px(unit.Dp(1))),
-							Fit:   widget.Contain,
-						}
-						imgWidget.Layout(gtx)
-					}
-					e.Frame(gtx.Ops)
-				case key.Event:
-					switch e.Name {
-					case key.NameEscape:
-						w.Close()
-					}
-				case system.DestroyEvent:
-					err <- e.Err
-					break
-				}
-			case worker := <-workerChan:
-				img = worker.img
-				if p.vRes {
-					img = worker.carver.RotateImage270(img.(*image.NRGBA))
-				}
+	for {
+		select {
+		case e := <-w.Events():
+			switch e := e.(type) {
+			case system.FrameEvent:
+				gtx := layout.NewContext(&ops, e)
 				w.Invalidate()
+
+				if img != nil {
+					src := paint.NewImageOp(img)
+					src.Add(gtx.Ops)
+
+					imgWidget := widget.Image{
+						Src:   src,
+						Scale: 1 / float32(gtx.Px(unit.Dp(1))),
+						Fit:   widget.Contain,
+					}
+					imgWidget.Layout(gtx)
+				}
+				e.Frame(gtx.Ops)
+			case key.Event:
+				switch e.Name {
+				case key.NameEscape:
+					p.Spinner.RestoreCursor()
+					w.Close()
+				}
+			case system.DestroyEvent:
+				return e.Err
 			}
+		case worker := <-workerChan:
+			img = worker.img
+			if p.vRes {
+				img = worker.carver.RotateImage270(img.(*image.NRGBA))
+			}
+			w.Invalidate()
 		}
-	}()
-	return err
+	}
 }
