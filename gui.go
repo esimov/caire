@@ -35,6 +35,8 @@ type Gui struct {
 	cfg struct {
 		x      interval
 		y      interval
+		trX    func(v float64) float64 // translate from user- to system coords
+		trY    func(v float64) float64 // translate from user- to system coords
 		window struct {
 			w     float64
 			h     float64
@@ -90,13 +92,13 @@ func (g *Gui) getWindowSize() (float64, float64) {
 
 	// Resize the image but retain the aspect ratio in case the
 	// image width and height is greater than the predefined window.
-	if w > maxScreenX && h > maxScreenY {
+	if w > maxScreenX || h > maxScreenY {
 		wr := float64(maxScreenX) / float64(w) // width ratio
 		hr := float64(maxScreenY) / float64(h) // height ratio
 		ratio := math.Min(wr, hr)
 
 		w = float64(w) * ratio
-		w = float64(h) * ratio
+		h = float64(h) * ratio
 	}
 	return w, h
 }
@@ -159,7 +161,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 
 		if g.cp.Debug {
 			for _, s := range g.proc.seams {
-				g.DrawSeam(line, float64(s.X), float64(s.Y), 1)
+				g.DrawSeam(line, float64(s.X), float64(s.Y), 2)
 			}
 		}
 	}
