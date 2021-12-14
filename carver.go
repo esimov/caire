@@ -25,6 +25,12 @@ type Carver struct {
 	Seams  []Seam
 }
 
+// Seam struct contains the seam pixel coordinates.
+type Seam struct {
+	X int
+	Y int
+}
+
 // UsedSeams contains the already generated seams.
 type UsedSeams struct {
 	ActiveSeam []ActiveSeam
@@ -33,13 +39,6 @@ type UsedSeams struct {
 // ActiveSeam contains the current seam position and color.
 type ActiveSeam struct {
 	Seam
-	Pix color.Color
-}
-
-// Seam struct contains the seam pixel coordinates.
-type Seam struct {
-	X   int
-	Y   int
 	Pix color.Color
 }
 
@@ -237,14 +236,8 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
 				if debug {
-					c.Seams = append(c.Seams, Seam{
-						X:   x - 1,
-						Y:   y,
-						Pix: img.At(x-1, y),
-					})
-					dst.Set(x-1, y, color.RGBA{255, 0, 0, 255})
+					c.Seams = append(c.Seams, Seam{X: seam.X, Y: y})
 				}
-				continue
 			} else if seam.X < x {
 				dst.Set(x-1, y, img.At(x, y))
 			} else {
@@ -272,8 +265,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
 				if debug {
-					dst.Set(x, y, color.RGBA{255, 0, 0, 255})
-					continue
+					c.Seams = append(c.Seams, Seam{X: seam.X, Y: y})
 				}
 				// Calculate the current seam pixel color by averaging the neighboring pixels color.
 				if y > 0 {
@@ -308,7 +300,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				// to the corresponding pixels in the energy map.
 				// We will increase the seams weight by duplicating the pixel value.
 				currentSeam = append(currentSeam,
-					ActiveSeam{Seam{x + 1, y, nil},
+					ActiveSeam{Seam{x + 1, y},
 						color.RGBA{
 							R: uint8((avr + avr) >> 8),
 							G: uint8((avg + avg) >> 8),
