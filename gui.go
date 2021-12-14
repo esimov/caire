@@ -104,40 +104,36 @@ func (g *Gui) getWindowSize() (float64, float64) {
 // Run is the core method of the Gio GUI application.
 // This updates the window with the resized image obtained from a channel
 // and terminates when the image resizing operation completes.
-func (g *Gui) Run() chan error {
+func (g *Gui) Run() error {
 	w := app.NewWindow(app.Title(g.cfg.window.title), app.Size(
 		unit.Px(float32(g.cfg.window.w)),
 		unit.Px(float32(g.cfg.window.h)),
 	))
-	err := make(chan error)
 
-	go func() {
-		for {
-			select {
-			case e := <-w.Events():
-				switch e := e.(type) {
-				case system.FrameEvent:
-					g.draw(w, e)
-				case key.Event:
-					switch e.Name {
-					case key.NameEscape:
-						w.Close()
-					}
-				case system.DestroyEvent:
-					err <- e.Err
-					break
+	for {
+		select {
+		case e := <-w.Events():
+			switch e := e.(type) {
+			case system.FrameEvent:
+				g.draw(w, e)
+			case key.Event:
+				switch e.Name {
+				case key.NameEscape:
+					g.cp.Spinner.RestoreCursor()
+					w.Close()
 				}
-			case res := <-g.proc.wrk:
-				g.proc.img = res.img
-				g.proc.seams = res.carver.Seams
-				if g.cp.vRes {
-					g.proc.img = res.carver.RotateImage270(g.proc.img.(*image.NRGBA))
-				}
-				w.Invalidate()
+			case system.DestroyEvent:
+				return e.Err
 			}
+		case res := <-g.proc.wrk:
+			g.proc.img = res.img
+			g.proc.seams = res.carver.Seams
+			if g.cp.vRes {
+				g.proc.img = res.carver.RotateImage270(g.proc.img.(*image.NRGBA))
+			}
+			w.Invalidate()
 		}
-	}()
-	return err
+	}
 }
 
 // draw display the resized image received from a channel

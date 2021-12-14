@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
+	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 	"golang.org/x/image/bmp"
 )
@@ -67,6 +68,7 @@ type Processor struct {
 	FaceDetect       bool
 	FaceAngle        float64
 	PigoFaceDetector *pigo.Pigo
+	Spinner          *utils.Spinner
 
 	seams []Seam
 	vRes  bool
@@ -478,7 +480,6 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		}
 		return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 	}
-	return nil
 }
 
 // shrink reduces the image dimension either horizontally or vertically.

@@ -1,5 +1,9 @@
 package caire
 
+import (
+	"os"
+)
+
 // showPreview spawns a new Gio GUI window and updates its content with the resized image received from a channel.
 func (p *Processor) showPreview(
 	imgWorker <-chan worker,
@@ -13,7 +17,13 @@ func (p *Processor) showPreview(
 	gui.cp = p
 	gui.proc.wrk = imgWorker
 
-	for err := range gui.Run() {
-		errChan <- err
-	}
+	// Run the Gio GUI app in a seperate goroutine
+	go func() {
+		if err := gui.Run(); err != nil {
+			errChan <- err
+		}
+		// It's important to call os.Exit(0) in order to terminate
+		// the execution of the GUI app when pressing ESC key.
+		os.Exit(0)
+	}()
 }
