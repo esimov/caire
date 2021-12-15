@@ -1,12 +1,15 @@
 package caire
 
 import (
+	"image"
 	"image/color"
 	"math"
 
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
+	"gioui.org/widget"
 )
 
 type shapeType int
@@ -25,6 +28,25 @@ func (g *Gui) DrawSeam(shape shapeType, x, y, s float64) {
 	case line:
 		g.drawCircle(x, y, s)
 	}
+}
+
+// EncodeSeamToImg draws the seams into an image widget.
+func (g *Gui) EncodeSeamToImg() {
+	g.setFillColor(color.White)
+
+	img := image.NewNRGBA(image.Rect(0, 0, int(g.cfg.window.w), int(g.cfg.window.h)))
+	for _, s := range g.proc.seams {
+		img.Set(s.X, s.Y, g.getFillColor())
+	}
+
+	src := paint.NewImageOp(img)
+	src.Add(g.ctx.Ops)
+
+	widget.Image{
+		Src:   src,
+		Scale: 1 / float32(g.ctx.Px(unit.Dp(1))),
+		Fit:   widget.Contain,
+	}.Layout(g.ctx)
 }
 
 // drawCircle draws a circle at the seam (x,y) coordinate with the provided size.

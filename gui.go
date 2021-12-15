@@ -10,6 +10,7 @@ import (
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -142,26 +143,38 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 	g.ctx = layout.NewContext(g.ctx.Ops, e)
 	win.Invalidate()
 
-	color := g.setColor(g.cfg.color.background)
-	paint.Fill(g.ctx.Ops, color)
+	c := g.setColor(g.cfg.color.background)
+	paint.Fill(g.ctx.Ops, c)
 
 	if g.proc.img != nil {
 		src := paint.NewImageOp(g.proc.img)
 		src.Add(g.ctx.Ops)
 
-		imgWidget := widget.Image{
-			Src:   src,
-			Scale: 1 / float32(g.ctx.Px(unit.Dp(1))),
-			Fit:   widget.Contain,
-		}
+		layout.Flex{
+			Axis: layout.Horizontal,
+		}.Layout(g.ctx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				paint.FillShape(gtx.Ops, c,
+					clip.Rect{Max: g.ctx.Constraints.Max}.Op(),
+				)
+				return layout.UniformInset(unit.Px(0)).Layout(gtx,
+					func(gtx layout.Context) layout.Dimensions {
+						widget.Image{
+							Src:   src,
+							Scale: 1 / float32(g.ctx.Px(unit.Dp(1))),
+							Fit:   widget.Contain,
+						}.Layout(gtx)
 
-		imgWidget.Layout(g.ctx)
+						if g.cp.Debug {
+							for _, s := range g.proc.seams {
+								g.DrawSeam(circle, float64(s.X), float64(s.Y), 2)
+							}
+						}
+						return layout.Dimensions{Size: gtx.Constraints.Max}
+					})
+			}),
+		)
 
-		if g.cp.Debug {
-			for _, s := range g.proc.seams {
-				g.DrawSeam(line, float64(s.X), float64(s.Y), 1)
-			}
-		}
 	}
 	e.Frame(g.ctx.Ops)
 }
