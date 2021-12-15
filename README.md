@@ -103,7 +103,7 @@ The following flags are supported:
 
 ### GUI progress indicator
 
-<p align="center"><img alt="content_aware_resize" title="Content aware image resize" src="https://github.com/esimov/caire/raw/master/preview.gif"></p>
+<p align="center"><img alt="GUI preview" title="GUI preview" src="https://user-images.githubusercontent.com/883386/146201119-9fa7f1be-4540-42b5-96f7-1969a2a0c0ec.gif"></p>
 
 A GUI preview window is also supported for showing the resizing process. For the GUI part I've opted of using the Gio library for its robustness and modern architecture. But in order to use it you have to install all of its dependencies. So please check the installation section here: https://gioui.org/#installation. 
 
