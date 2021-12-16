@@ -22,21 +22,26 @@ const (
 // DrawSeam visualizes the seam carver in action when the preview mode is activated.
 // It receives as parameters the shape type, the seam (x,y) coordinate and a size.
 func (g *Gui) DrawSeam(shape shapeType, x, y, s float64) {
+	r := getRatio(g.cfg.window.w, g.cfg.window.h)
 	switch shape {
 	case circle:
-		g.drawCircle(x, y, s)
+		g.drawCircle(x*r, y*r, s)
 	case line:
-		g.drawCircle(x, y, s)
+		g.drawCircle(x*r, y*r, s)
 	}
 }
 
 // EncodeSeamToImg draws the seams into an image widget.
 func (g *Gui) EncodeSeamToImg() {
-	g.setFillColor(color.White)
+	g.setFillColor(color.RGBA{R: 0xff, A: 0xff})
 
 	img := image.NewNRGBA(image.Rect(0, 0, int(g.cfg.window.w), int(g.cfg.window.h)))
+	r := getRatio(g.cfg.window.w, g.cfg.window.h)
+
 	for _, s := range g.proc.seams {
-		img.Set(s.X, s.Y, g.getFillColor())
+		x := int(float64(s.X) * r)
+		y := int(float64(s.Y) * r)
+		img.Set(x, y, g.getFillColor())
 	}
 
 	src := paint.NewImageOp(img)
@@ -122,4 +127,16 @@ func (g *Gui) setFillColor(c color.Color) {
 // getFillColor retrieve the paint fill color.
 func (g *Gui) getFillColor() color.Color {
 	return g.cfg.color.fill
+}
+
+// getRatio resizes the image but retain the aspect ratio in case the
+// image width and height is greater than the predefined window.
+func getRatio(w, h float64) float64 {
+	var r float64 = 1
+	if w > maxScreenX && h > maxScreenY {
+		wr := float64(maxScreenX) / float64(w) // width ratio
+		hr := float64(maxScreenY) / float64(h) // height ratio
+		r = math.Min(wr, hr)
+	}
+	return r
 }

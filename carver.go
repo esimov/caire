@@ -236,7 +236,7 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
 				if debug {
-					c.Seams = append(c.Seams, Seam{X: seam.X, Y: y})
+					c.Seams = append(c.Seams, Seam{X: x, Y: y})
 				}
 			} else if seam.X < x {
 				dst.Set(x-1, y, img.At(x, y))
@@ -265,7 +265,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 		for x := 0; x < bounds.Max.X; x++ {
 			if seam.X == x {
 				if debug {
-					c.Seams = append(c.Seams, Seam{X: seam.X, Y: y})
+					c.Seams = append(c.Seams, Seam{X: x, Y: y})
 				}
 				// Calculate the current seam pixel color by averaging the neighboring pixels color.
 				if y > 0 {

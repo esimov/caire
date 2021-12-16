@@ -63,7 +63,7 @@ var (
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
-	preview        = flag.Bool("preview", true, "Show process preview window")
+	preview        = flag.Bool("preview", true, "Show GUI window")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Face rotation angle")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")

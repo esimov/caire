@@ -3,7 +3,6 @@ package caire
 import (
 	"image"
 	"image/color"
-	"math"
 
 	"gioui.org/app"
 	"gioui.org/io/key"
@@ -89,15 +88,10 @@ func (g *Gui) initWindow(w, h int) {
 func (g *Gui) getWindowSize() (float64, float64) {
 	w, h := g.cfg.window.w, g.cfg.window.h
 
-	// Resize the image but retain the aspect ratio in case the
-	// image width and height is greater than the predefined window.
-	if w > maxScreenX || h > maxScreenY {
-		wr := float64(maxScreenX) / float64(w) // width ratio
-		hr := float64(maxScreenY) / float64(h) // height ratio
-		ratio := math.Min(wr, hr)
-
-		w = float64(w) * ratio
-		h = float64(h) * ratio
+	r := getRatio(w, h)
+	if w > maxScreenX && h > maxScreenY {
+		w = float64(w) * r
+		h = float64(h) * r
 	}
 	return w, h
 }
@@ -167,7 +161,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 
 						if g.cp.Debug {
 							for _, s := range g.proc.seams {
-								g.DrawSeam(circle, float64(s.X), float64(s.Y), 2)
+								g.DrawSeam(circle, float64(s.X), float64(s.Y), 1)
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}
