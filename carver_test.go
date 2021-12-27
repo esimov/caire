@@ -36,7 +36,7 @@ func TestCarver_EnergySeamShouldNotBeDetected(t *testing.T) {
 	for x := 0; x < ImgWidth; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
-		c.ComputeSeams(img, p)
+		c.ComputeSeams(p, img)
 		les := c.FindLowestEnergySeams()
 		seams = append(seams, les)
 	}
@@ -74,7 +74,7 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 	for x := 0; x < ImgWidth; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
-		c.ComputeSeams(img, p)
+		c.ComputeSeams(p, img)
 		les := c.FindLowestEnergySeams()
 		seams = append(seams, les)
 	}
@@ -113,7 +113,7 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 	for x := 0; x < ImgHeight; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
-		c.ComputeSeams(img, p)
+		c.ComputeSeams(p, img)
 		les := c.FindLowestEnergySeams()
 		seams = append(seams, les)
 	}
@@ -145,7 +145,7 @@ func TestCarver_RemoveSeam(t *testing.T) {
 	}
 
 	c := NewCarver(dx, dy)
-	c.ComputeSeams(img, p)
+	c.ComputeSeams(p, img)
 	seams := c.FindLowestEnergySeams()
 	img = c.RemoveSeam(img, seams, false)
 
@@ -184,7 +184,7 @@ func TestCarver_AddSeam(t *testing.T) {
 	}
 
 	c := NewCarver(dx, dy)
-	c.ComputeSeams(img, p)
+	c.ComputeSeams(p, img)
 	seams := c.FindLowestEnergySeams()
 	img = c.AddSeam(img, seams, false)
 
@@ -224,7 +224,7 @@ func TestCarver_ComputeSeams(t *testing.T) {
 	}
 
 	c := NewCarver(dx, dy)
-	c.ComputeSeams(img, p)
+	c.ComputeSeams(p, img)
 
 	otherThenZero := findNonZeroValue(c.Points)
 	if !otherThenZero {
@@ -359,7 +359,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 			draw.Draw(sobel, rect, &image.Uniform{image.White}, image.ZP, draw.Src)
 		}
 	}
-	c.ComputeSeams(img, p)
+	c.ComputeSeams(p, img)
 	seams := c.FindLowestEnergySeams()
 
 	for _, seam := range seams {
