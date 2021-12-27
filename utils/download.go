@@ -36,7 +36,7 @@ func DownloadImage(url string) (*os.File, error) {
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("unable to copy the source URI into the destination file"))
 	}
-	ctype, err := detectContentType(tmpfile.Name())
+	ctype, err := DetectContentType(tmpfile.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +61,8 @@ func IsValidUrl(uri string) bool {
 	return true
 }
 
-// detectContentType detects the file type by reading MIME type information of the file content.
-func detectContentType(fname string) (interface{}, error) {
+// DetectContentType detects the file type by reading MIME type information of the file content.
+func DetectContentType(fname string) (interface{}, error) {
 	file, err := os.Open(fname)
 	if err != nil {
 		return nil, err

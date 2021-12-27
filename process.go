@@ -15,6 +15,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/disintegration/imaging"
 	"github.com/esimov/caire/utils"
@@ -66,6 +67,10 @@ type Processor struct {
 	Debug            bool
 	Preview          bool
 	FaceDetect       bool
+	MaskPath         string
+	RMaskPath        string
+	Mask             image.Image
+	RMask            image.Image
 	FaceAngle        float64
 	PigoFaceDetector *pigo.Pigo
 	Spinner          *utils.Spinner
@@ -81,9 +86,9 @@ var (
 	enlargeVertFn  enlargeFn
 )
 
-// Resize implements the Resize method of the Carver interface.
+// resize implements the Resize method of the Carver interface.
 // It returns the concrete resize operation method.
-func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
+func resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 	return s.Resize(img)
 }
 
@@ -418,6 +423,48 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	}
 	img := p.imgToNRGBA(src)
 
+	if len(p.MaskPath) > 0 {
+		mf, err := os.Open(p.MaskPath)
+		if err != nil {
+			return errors.New(fmt.Sprintf("could not open the mask file: %v", err))
+		}
+
+		ctype, err := utils.DetectContentType(mf.Name())
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(ctype.(string), "image") {
+			return errors.New("the mask should be an image file.")
+		}
+
+		mask, _, err := image.Decode(mf)
+		if err != nil {
+			return errors.New(fmt.Sprintf("could not decode the mask file: %v", err))
+		}
+		p.Mask = p.imgToNRGBA(mask)
+	}
+
+	if len(p.RMaskPath) > 0 {
+		rmf, err := os.Open(p.RMaskPath)
+		if err != nil {
+			return errors.New(fmt.Sprintf("could not open the mask file: %v", err))
+		}
+
+		ctype, err := utils.DetectContentType(rmf.Name())
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(ctype.(string), "image") {
+			return errors.New("the mask should be an image file.")
+		}
+
+		rmask, _, err := image.Decode(rmf)
+		if err != nil {
+			return errors.New(fmt.Sprintf("could not decode the mask file: %v", err))
+		}
+		p.RMask = p.imgToNRGBA(rmask)
+	}
+
 	if p.Preview {
 		guiWidth := img.Bounds().Max.X
 		guiHeight := img.Bounds().Max.Y
@@ -445,19 +492,19 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		ext := filepath.Ext(w.(*os.File).Name())
 		switch ext {
 		case "", ".jpg", ".jpeg":
-			res, err := Resize(p, img)
+			res, err := resize(p, img)
 			if err != nil {
 				return err
 			}
 			return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
 		case ".png":
-			res, err := Resize(p, img)
+			res, err := resize(p, img)
 			if err != nil {
 				return err
 			}
 			return png.Encode(w, res)
 		case ".bmp":
-			res, err := Resize(p, img)
+			res, err := resize(p, img)
 			if err != nil {
 				return err
 			}
@@ -465,7 +512,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		case ".gif":
 			g = new(gif.GIF)
 			isGif = true
-			_, err := Resize(p, img)
+			_, err := resize(p, img)
 			if err != nil {
 				return err
 			}
@@ -474,7 +521,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			return errors.New("unsupported image format")
 		}
 	default:
-		res, err := Resize(p, img)
+		res, err := resize(p, img)
 		if err != nil {
 			return err
 		}
@@ -486,11 +533,18 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	c = NewCarver(width, height)
-	if err := c.ComputeSeams(img, p); err != nil {
+	if err := c.ComputeSeams(p, img); err != nil {
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams()
 	img = c.RemoveSeam(img, seams, p.Debug)
+
+	if len(p.MaskPath) > 0 {
+		p.Mask = c.RemoveSeam(p.Mask.(*image.NRGBA), seams, false)
+	}
+	if len(p.RMaskPath) > 0 {
+		p.RMask = c.RemoveSeam(p.RMask.(*image.NRGBA), seams, false)
+	}
 
 	if isGif {
 		p.encodeImgToGif(c, img, g)
@@ -513,7 +567,7 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	c = NewCarver(width, height)
-	if err := c.ComputeSeams(img, p); err != nil {
+	if err := c.ComputeSeams(p, img); err != nil {
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams()

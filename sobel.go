@@ -82,7 +82,7 @@ func (c *Carver) SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA
 		dst.Pix[idx] = uint8(edges[idx])
 		dst.Pix[idx+1] = uint8(edges[idx+1])
 		dst.Pix[idx+2] = uint8(edges[idx+2])
-		dst.Pix[idx+3] = 255
+		dst.Pix[idx+3] = 0xff
 	}
 	return dst
 }

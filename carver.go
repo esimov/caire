@@ -13,8 +13,8 @@ import (
 const maxFaceDetAttempts = 20
 
 var (
-	faceDetAttempts int
-	usedSeams       []UsedSeams
+	usedSeams   []UsedSeams
+	detAttempts int
 )
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
@@ -71,13 +71,13 @@ func (c *Carver) set(x, y int, px float64) {
 //
 //	- the minimum energy level is calculated by summing up the current pixel value
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
-func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
+func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 	var srcImg *image.NRGBA
 
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
 
-	if p.FaceDetect && faceDetAttempts < maxFaceDetAttempts {
+	if p.FaceDetect && detAttempts < maxFaceDetAttempts {
 		var ratio float64
 
 		if width < height {
@@ -115,11 +115,11 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 
 		if len(faces) == 0 {
 			// Retry detecting faces for a certain amount of time.
-			if faceDetAttempts < maxFaceDetAttempts {
-				faceDetAttempts++
+			if detAttempts < maxFaceDetAttempts {
+				detAttempts++
 			}
 		} else {
-			faceDetAttempts = 0
+			detAttempts = 0
 		}
 
 		// Range over all the detected faces and draw a white rectangle mask over each of them.
@@ -137,11 +137,63 @@ func (c *Carver) ComputeSeams(img *image.NRGBA, p *Processor) error {
 		}
 	}
 
+	// Traverse the pixel data of the binary file used for protecting the regions
+	// which we do not want to be altered by the seam carver,
+	// obtain the white patches and apply it to the sobel image.
+	if len(p.MaskPath) > 0 && p.Mask != nil {
+		for x := 0; x < width; x++ {
+			for y := 0; y < height; y++ {
+				r, g, b, a := p.Mask.At(x, y).RGBA()
+				if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
+					sobel.Set(x, y, color.RGBA{
+						R: uint8(r >> 8),
+						G: uint8(g >> 8),
+						B: uint8(b >> 8),
+						A: uint8(a >> 8),
+					})
+				}
+			}
+		}
+	}
+
+	// Traverse the pixel data of the binary file used for protecting the regions
+	// we do not want to be altered by the seam carver, obtain the white patches,
+	// but this time inverse the colors to black and merge it back to the sobel image.
+	if len(p.RMaskPath) > 0 && p.RMask != nil {
+		dx, dy := p.RMask.Bounds().Max.X, p.RMask.Bounds().Max.Y
+		for x := 0; x < dx; x++ {
+			for y := 0; y < dy; y++ {
+				r, g, b, a := p.RMask.At(x, y).RGBA()
+				if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
+					sobel.Set(x, y, color.RGBA{
+						R: uint8(0x0 & r >> 8),
+						G: uint8(0x0 & g >> 8),
+						B: uint8(0x0 & b >> 8),
+						A: uint8(a >> 8),
+					})
+				} else {
+					sr, sg, sb, _ := sobel.At(x, y).RGBA()
+					r = uint32(min(int(sr>>8+sr>>8/2), 0xff))
+					g = uint32(min(int(sg>>8+sg>>8/2), 0xff))
+					b = uint32(min(int(sb>>8+sb>>8/2), 0xff))
+
+					sobel.Set(x, y, color.RGBA{
+						R: uint8(r),
+						G: uint8(g),
+						B: uint8(b),
+						A: uint8(a >> 8),
+					})
+				}
+			}
+		}
+	}
+
 	if p.BlurRadius > 0 {
 		srcImg = c.StackBlur(sobel, uint32(p.BlurRadius))
 	} else {
 		srcImg = sobel
 	}
+
 	for x := 0; x < c.Width; x++ {
 		for y := 0; y < c.Height; y++ {
 			r, _, _, a := srcImg.At(x, y).RGBA()

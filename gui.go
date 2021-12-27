@@ -88,6 +88,8 @@ func (g *Gui) initWindow(w, h int) {
 func (g *Gui) getWindowSize() (float64, float64) {
 	w, h := g.cfg.window.w, g.cfg.window.h
 
+	// retains the aspect ratio in case the image width and height
+	// is greater than the predefined window.
 	r := getRatio(w, h)
 	if w > maxScreenX && h > maxScreenY {
 		w = float64(w) * r

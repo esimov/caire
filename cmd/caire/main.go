@@ -64,6 +64,8 @@ var (
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
 	preview        = flag.Bool("preview", true, "Show GUI window")
+	maskPath       = flag.String("mask", "", "Mask file path")         // path to the binary file used for protecting the regions to not be removed.
+	rMaskPath      = flag.String("rmask", "", "Remove mask file path") // path to the binary file used for removing the unwanted regions.
 	faceDetect     = flag.Bool("face", false, "Use face detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Face rotation angle")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
@@ -91,6 +93,8 @@ func main() {
 		Preview:        *preview,
 		FaceDetect:     *faceDetect,
 		FaceAngle:      *faceAngle,
+		MaskPath:       *maskPath,
+		RMaskPath:      *rMaskPath,
 	}
 
 	defaultMsg := fmt.Sprintf("%s %s",
@@ -423,6 +427,7 @@ func printStatus(fname string, err error) {
 			utils.DecorateText("\nError resizing the image: %s", utils.ErrorMessage),
 			utils.DecorateText(fmt.Sprintf("\n\tReason: %v\n", err.Error()), utils.DefaultMessage),
 		)
+		os.Exit(0)
 	} else {
 		if fname != pipeName {
 			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe resized image has been saved as: %s %s\n\n",

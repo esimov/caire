@@ -23,6 +23,7 @@ const (
 // It receives as parameters the shape type, the seam (x,y) coordinate and a size.
 func (g *Gui) DrawSeam(shape shapeType, x, y, s float64) {
 	r := getRatio(g.cfg.window.w, g.cfg.window.h)
+
 	switch shape {
 	case circle:
 		g.drawCircle(x*r, y*r, s)
@@ -129,8 +130,7 @@ func (g *Gui) getFillColor() color.Color {
 	return g.cfg.color.fill
 }
 
-// getRatio resizes the image but retain the aspect ratio in case the
-// image width and height is greater than the predefined window.
+// getRatio returns the image aspect ratio.
 func getRatio(w, h float64) float64 {
 	var r float64 = 1
 	if w > maxScreenX && h > maxScreenY {
