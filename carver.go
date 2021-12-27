@@ -141,17 +141,18 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 	// which we do not want to be altered by the seam carver,
 	// obtain the white patches and apply it to the sobel image.
 	if len(p.MaskPath) > 0 && p.Mask != nil {
-		for x := 0; x < width; x++ {
-			for y := 0; y < height; y++ {
-				r, g, b, a := p.Mask.At(x, y).RGBA()
-				if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-					sobel.Set(x, y, color.RGBA{
-						R: uint8(r >> 8),
-						G: uint8(g >> 8),
-						B: uint8(b >> 8),
-						A: uint8(a >> 8),
-					})
-				}
+		for i := 0; i < width*height; i++ {
+			x := i % width
+			y := (i - x) / width
+
+			r, g, b, a := p.Mask.At(x, y).RGBA()
+			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
+				sobel.Set(x, y, color.RGBA{
+					R: uint8(r >> 8),
+					G: uint8(g >> 8),
+					B: uint8(b >> 8),
+					A: uint8(a >> 8),
+				})
 			}
 		}
 	}
@@ -160,30 +161,30 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 	// we do not want to be altered by the seam carver, obtain the white patches,
 	// but this time inverse the colors to black and merge it back to the sobel image.
 	if len(p.RMaskPath) > 0 && p.RMask != nil {
-		dx, dy := p.RMask.Bounds().Max.X, p.RMask.Bounds().Max.Y
-		for x := 0; x < dx; x++ {
-			for y := 0; y < dy; y++ {
-				r, g, b, a := p.RMask.At(x, y).RGBA()
-				if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-					sobel.Set(x, y, color.RGBA{
-						R: uint8(0x0 & r >> 8),
-						G: uint8(0x0 & g >> 8),
-						B: uint8(0x0 & b >> 8),
-						A: uint8(a >> 8),
-					})
-				} else {
-					sr, sg, sb, _ := sobel.At(x, y).RGBA()
-					r = uint32(min(int(sr>>8+sr>>8/2), 0xff))
-					g = uint32(min(int(sg>>8+sg>>8/2), 0xff))
-					b = uint32(min(int(sb>>8+sb>>8/2), 0xff))
+		for i := 0; i < width*height; i++ {
+			x := i % width
+			y := (i - x) / width
 
-					sobel.Set(x, y, color.RGBA{
-						R: uint8(r),
-						G: uint8(g),
-						B: uint8(b),
-						A: uint8(a >> 8),
-					})
-				}
+			r, g, b, a := p.RMask.At(x, y).RGBA()
+			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
+				sobel.Set(x, y, color.RGBA{
+					R: uint8(0x0 & r >> 8),
+					G: uint8(0x0 & g >> 8),
+					B: uint8(0x0 & b >> 8),
+					A: uint8(a >> 8),
+				})
+			} else {
+				sr, sg, sb, _ := sobel.At(x, y).RGBA()
+				r = uint32(min(int(sr>>8+sr>>8/2), 0xff))
+				g = uint32(min(int(sg>>8+sg>>8/2), 0xff))
+				b = uint32(min(int(sb>>8+sb>>8/2), 0xff))
+
+				sobel.Set(x, y, color.RGBA{
+					R: uint8(r),
+					G: uint8(g),
+					B: uint8(b),
+					A: uint8(a >> 8),
+				})
 			}
 		}
 	}
