@@ -102,6 +102,8 @@ The following flags are supported:
 | `debug` | false | Use debugger |
 | `face` | false | Use face detection |
 | `angle` | float | Plane rotated faces angle |
+| `mask` | string | Mask file path |
+| `rmask` | string | Remove mask file path |
 
 ### GUI progress indicator
 
