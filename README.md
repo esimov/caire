@@ -40,6 +40,8 @@ Key features which differentiates this library from the other existing open sour
 - [x] Use of blur filter for increased edge detection
 - [x] Support for squaring the image with a single command
 - [x] Support for proportional scaling
+- [x] Support for protective mask
+- [x] Support for removal mask
 
 ## Face detection
 
