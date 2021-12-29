@@ -3,8 +3,10 @@ package caire
 import (
 	"image"
 	"image/color"
+	"math"
 
 	"gioui.org/app"
+	"gioui.org/f32"
 	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
@@ -162,8 +164,23 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 						}.Layout(gtx)
 
 						if g.cp.Debug {
+							if g.cp.vRes {
+								w, h := float64(g.cfg.window.w), float64(g.cfg.window.h)
+								var r float32
+								if w > h {
+									r = float32(w / h)
+								} else {
+									r = float32(h / w)
+								}
+
+								tr := f32.Affine2D{}
+								angle := float32(270 * math.Pi / 180)
+								tr = tr.Scale(f32.Pt(float32(w/2), float32(h/2)), f32.Pt(r, r))
+								tr = tr.Rotate(f32.Pt(float32(w/2), float32(h/2)), -angle)
+								op.Affine(tr).Add(gtx.Ops)
+							}
 							for _, s := range g.proc.seams {
-								g.DrawSeam(circle, float64(s.X), float64(s.Y), 1)
+								g.DrawSeam(g.cp.ShapeType, float64(s.X), float64(s.Y), 1)
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}

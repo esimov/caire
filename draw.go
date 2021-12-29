@@ -28,7 +28,7 @@ func (g *Gui) DrawSeam(shape shapeType, x, y, s float64) {
 	case circle:
 		g.drawCircle(x*r, y*r, s)
 	case line:
-		g.drawCircle(x*r, y*r, s)
+		g.drawLine(x*r, y*r, s)
 	}
 }
 
