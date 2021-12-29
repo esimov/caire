@@ -132,7 +132,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 					face.Col+face.Scale/2,
 					face.Row+face.Scale/2,
 				)
-				draw.Draw(sobel, rect, &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
+				draw.Draw(sobel, rect, &image.Uniform{color.White}, image.ZP, draw.Src)
 			}
 		}
 	}

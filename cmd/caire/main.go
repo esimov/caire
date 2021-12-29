@@ -63,9 +63,10 @@ var (
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
+	shapeType      = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
 	preview        = flag.Bool("preview", true, "Show GUI window")
-	maskPath       = flag.String("mask", "", "Mask file path")         // path to the binary file used for protecting the regions to not be removed.
-	rMaskPath      = flag.String("rmask", "", "Remove mask file path") // path to the binary file used for removing the unwanted regions.
+	maskPath       = flag.String("mask", "", "Mask file path for retaining area")
+	rMaskPath      = flag.String("rmask", "", "Mask file path for removing area")
 	faceDetect     = flag.Bool("face", false, "Use face detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Face rotation angle")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
@@ -95,6 +96,7 @@ func main() {
 		FaceAngle:      *faceAngle,
 		MaskPath:       *maskPath,
 		RMaskPath:      *rMaskPath,
+		ShapeType:      *shapeType,
 	}
 
 	defaultMsg := fmt.Sprintf("%s %s",

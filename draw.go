@@ -12,16 +12,14 @@ import (
 	"gioui.org/widget"
 )
 
-type shapeType int
-
 const (
-	circle shapeType = iota
-	line
+	circle = "circle"
+	line   = "line"
 )
 
 // DrawSeam visualizes the seam carver in action when the preview mode is activated.
 // It receives as parameters the shape type, the seam (x,y) coordinate and a size.
-func (g *Gui) DrawSeam(shape shapeType, x, y, s float64) {
+func (g *Gui) DrawSeam(shape string, x, y, s float64) {
 	r := getRatio(g.cfg.window.w, g.cfg.window.h)
 
 	switch shape {

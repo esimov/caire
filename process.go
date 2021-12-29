@@ -67,6 +67,7 @@ type Processor struct {
 	Debug            bool
 	Preview          bool
 	FaceDetect       bool
+	ShapeType        string
 	MaskPath         string
 	RMaskPath        string
 	Mask             image.Image
@@ -123,6 +124,14 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	}
 	if p.NewHeight == 0 {
 		newHeight = p.NewHeight
+	}
+
+	if p.NewHeight != 0 && len(p.MaskPath) > 0 {
+		p.Mask = c.RotateImage90(p.Mask.(*image.NRGBA))
+	}
+
+	if p.NewHeight != 0 && len(p.RMaskPath) > 0 {
+		p.RMask = c.RotateImage90(p.RMask.(*image.NRGBA))
 	}
 
 	// shrinkHorizFn calls itself recursively to shrink the image horizontally.
