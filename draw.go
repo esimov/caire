@@ -10,6 +10,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"github.com/esimov/caire/utils"
 )
 
 const (
@@ -32,7 +33,8 @@ func (g *Gui) DrawSeam(shape string, x, y, s float64) {
 
 // EncodeSeamToImg draws the seams into an image widget.
 func (g *Gui) EncodeSeamToImg() {
-	g.setFillColor(color.RGBA{R: 0xff, A: 0xff})
+	c := utils.HexToRGBA(g.cp.SeamColor)
+	g.setFillColor(c)
 
 	img := image.NewNRGBA(image.Rect(0, 0, int(g.cfg.window.w), int(g.cfg.window.h)))
 	r := getRatio(g.cfg.window.w, g.cfg.window.h)
@@ -66,7 +68,8 @@ func (g *Gui) drawCircle(x, y, s float64) {
 	p1 = g.point(x+sq, y).Sub(orig)
 	p2 = g.point(x-sq, y).Sub(orig)
 
-	g.setFillColor(color.RGBA{R: 0xff, A: 0xff})
+	col := utils.HexToRGBA(g.cp.SeamColor)
+	g.setFillColor(col)
 
 	var path clip.Path
 	path.Begin(g.ctx.Ops)
@@ -92,7 +95,8 @@ func (g *Gui) drawLine(x, y, s float64) {
 	path.Line(p2.Sub(path.Pos()))
 	path.Close()
 
-	g.setFillColor(color.RGBA{R: 0xff, A: 0xff})
+	col := utils.HexToRGBA(g.cp.SeamColor)
+	g.setFillColor(col)
 
 	defer clip.Stroke{Path: path.End(), Width: float32(s)}.Op().Push(g.ctx.Ops).Pop()
 	paint.ColorOp{Color: g.setColor(g.getFillColor())}.Add(g.ctx.Ops)
