@@ -167,18 +167,30 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 							var ratio float32
 							tr := f32.Affine2D{}
 							screen := layout.FPt(g.ctx.Constraints.Max)
-							if screen.X > screen.Y {
-								ratio = screen.X / screen.Y
-								tr = tr.Scale(f32.Pt(float32(screen.X/2), float32(screen.Y/2)), f32.Pt(1, ratio))
-							} else {
-								ratio = screen.Y / screen.X
-								tr = tr.Scale(f32.Pt(float32(screen.X/2), float32(screen.Y/2)), f32.Pt(ratio, 1))
+							width, height := float32(g.proc.img.Bounds().Dx()), float32(g.proc.img.Bounds().Dy())
+							sw, sh := float32(screen.X), float32(screen.Y)
+
+							if sw > width {
+								ratio = sw / width
+								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(1, ratio))
+							} else if sh > height {
+								ratio = sh / height
+								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(ratio, 1))
 							}
 
 							if g.cp.vRes {
 								angle := float32(270 * math.Pi / 180)
-								tr = tr.Rotate(f32.Pt(float32(screen.X/2), float32(screen.Y/2)), -angle)
-								tr = tr.Offset(f32.Pt(1, screen.Y/2))
+								half := float32(math.Round(float64(sh*0.5-height*0.5) * 0.5))
+
+								ox := math.Abs(float64(sw - (sw - (sw/2 - sh/2))))
+								oy := math.Abs(float64(sh - (sh - (sw/2 - height/2 + half))))
+								tr = tr.Rotate(f32.Pt(sw/2, sh/2), -angle)
+
+								if screen.X > screen.Y {
+									tr = tr.Offset(f32.Pt(float32(ox), float32(oy)))
+								} else {
+									tr = tr.Offset(f32.Pt(float32(-ox), float32(-oy)))
+								}
 							}
 							op.Affine(tr).Add(gtx.Ops)
 
