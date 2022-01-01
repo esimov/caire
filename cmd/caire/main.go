@@ -64,6 +64,7 @@ var (
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Use debugger")
 	shapeType      = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
+	seamColor      = flag.String("col", "#ff0000", "Seam color")
 	preview        = flag.Bool("preview", true, "Show GUI window")
 	maskPath       = flag.String("mask", "", "Mask file path for retaining area")
 	rMaskPath      = flag.String("rmask", "", "Mask file path for removing area")
@@ -97,6 +98,7 @@ func main() {
 		MaskPath:       *maskPath,
 		RMaskPath:      *rMaskPath,
 		ShapeType:      *shapeType,
+		SeamColor:      *seamColor,
 	}
 
 	defaultMsg := fmt.Sprintf("%s %s",

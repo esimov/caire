@@ -68,6 +68,7 @@ type Processor struct {
 	Preview          bool
 	FaceDetect       bool
 	ShapeType        string
+	SeamColor        string
 	MaskPath         string
 	RMaskPath        string
 	Mask             image.Image
