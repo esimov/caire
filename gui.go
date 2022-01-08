@@ -1,6 +1,7 @@
 package caire
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -172,24 +173,26 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 
 							if sw > width {
 								ratio = sw / width
-								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(1, ratio*1.1))
+								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(1, ratio))
 							} else if sh > height {
 								ratio = sh / height
-								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(ratio*1.1, 1))
+								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(ratio, 1))
 							}
 
 							if g.cp.vRes {
 								angle := float32(270 * math.Pi / 180)
-								tr = tr.Rotate(f32.Pt(sw/2, sh/2), -angle)
-							}
-							half := float32(math.Round(float64(sh*0.5-height*0.5) * 0.5))
-							ox := math.Abs(float64(sw - (sw - (sw/2 - sh/2))))
-							oy := math.Abs(float64(sh - (sh - (sw/2 - sh/2 + half))))
+								half := float32(math.Round(float64(sh*0.5-height*0.5) * 0.5))
 
-							if screen.X > screen.Y {
-								tr = tr.Offset(f32.Pt(float32(ox), float32(oy)))
-							} else {
-								tr = tr.Offset(f32.Pt(float32(-ox), float32(-oy)))
+								ox := math.Abs(float64(sw - (sw - (sw/2 - sh/2))))
+								oy := math.Abs(float64(sh - (sh - (sw/2 - height/2 + half))))
+								tr = tr.Rotate(f32.Pt(sw/2, sh/2), -angle)
+
+								if screen.X > screen.Y {
+									fmt.Println(ratio)
+									tr = tr.Offset(f32.Pt(float32(ox), float32(oy)))
+								} else {
+									tr = tr.Offset(f32.Pt(float32(-ox), float32(-oy)))
+								}
 							}
 							op.Affine(tr).Add(gtx.Ops)
 
