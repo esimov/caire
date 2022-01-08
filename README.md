@@ -166,6 +166,11 @@ Also the library supports the **`-square`** option. When this option is used the
 
 When an image is resized on both the X and Y axis, the algorithm first try to rescale it prior resizing, but also preserves the image aspect ratio. Afterwards the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
 
+#### Masks support:
+
+- `-mask`: The path to the protective mask. The mask should be in binary format and have the same size as the input image. White areas represent regions where no seams should be carved.
+- `-rmask`: The path to the removal mask. The mask should be in binary format and have the same size as the input image. White areas represent regions to be removed.
+
 ### Caire integrations
 - [x] Caire can be used as a serverless function via OpenFaaS: https://github.com/esimov/caire-openfaas
 - [x] Caire can also be used as a `snap` function (https://snapcraft.io/caire): `$ snap run caire --h`
