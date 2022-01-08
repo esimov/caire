@@ -3,8 +3,8 @@
 [![build](https://github.com/esimov/caire/actions/workflows/build.yml/badge.svg)](https://github.com/esimov/caire/actions/workflows/build.yml)
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.4.0-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.0)
-[![homebrew](https://img.shields.io/badge/homebrew-v1.3.3-orange.svg)](https://formulae.brew.sh/formula/caire)
+[![release](https://img.shields.io/badge/release-v1.4.1-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.1)
+[![homebrew](https://img.shields.io/badge/homebrew-v1.4.0-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![caire](https://snapcraft.io/caire/badge.svg)](https://snapcraft.io/caire)
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper.
@@ -104,6 +104,8 @@ The following flags are supported:
 | `angle` | float | Plane rotated faces angle |
 | `mask` | string | Mask file path |
 | `rmask` | string | Remove mask file path |
+| `col` | string | Seam color (default `#ff0000`) |
+| `shape` | string | Shape type used for debugging: `circle`,`line` (default `circle`) |
 
 ### GUI progress indicator
 
@@ -163,6 +165,11 @@ $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=
 Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
 
 When an image is resized on both the X and Y axis, the algorithm first try to rescale it prior resizing, but also preserves the image aspect ratio. Afterwards the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
+
+#### Masks support:
+
+- `-mask`: The path to the protective mask. The mask should be in binary format and have the same size as the input image. White areas represent regions where no seams should be carved.
+- `-rmask`: The path to the removal mask. The mask should be in binary format and have the same size as the input image. White areas represent regions to be removed.
 
 ### Caire integrations
 - [x] Caire can be used as a serverless function via OpenFaaS: https://github.com/esimov/caire-openfaas
