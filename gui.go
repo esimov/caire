@@ -1,7 +1,6 @@
 package caire
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -188,7 +187,6 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 								tr = tr.Rotate(f32.Pt(sw/2, sh/2), -angle)
 
 								if screen.X > screen.Y {
-									fmt.Println(ratio)
 									tr = tr.Offset(f32.Pt(float32(ox), float32(oy)))
 								} else {
 									tr = tr.Offset(f32.Pt(float32(-ox), float32(-oy)))
