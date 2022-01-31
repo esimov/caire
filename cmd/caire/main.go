@@ -56,8 +56,8 @@ var (
 	// Flags
 	source         = flag.String("in", pipeName, "Source")
 	destination    = flag.String("out", pipeName, "Destination")
-	blurRadius     = flag.Int("blur", 1, "Blur radius")
-	sobelThreshold = flag.Int("sobel", 10, "Sobel filter threshold")
+	blurRadius     = flag.Int("blur", 4, "Blur radius")
+	sobelThreshold = flag.Int("sobel", 2, "Sobel filter threshold")
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
