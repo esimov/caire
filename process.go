@@ -77,8 +77,7 @@ type Processor struct {
 	PigoFaceDetector *pigo.Pigo
 	Spinner          *utils.Spinner
 
-	seams []Seam
-	vRes  bool
+	vRes bool
 }
 
 var (
@@ -287,7 +286,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				newImg = p.calculateFitness(img, c)
 				if newImg != nil {
 					dst := image.NewNRGBA(newImg.Bounds())
-					draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
+					draw.Draw(dst, newImg.Bounds(), newImg, image.Point{}, draw.Src)
 					img = dst
 
 					nw, nh := img.Bounds().Dx(), img.Bounds().Dy()
@@ -344,7 +343,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// does not match with the requested image size.
 		if !((p.NewWidth == 0 && dx0 == dx1) || (p.NewHeight == 0 && dy0 == dy1)) {
 			dst := image.NewNRGBA(newImg.Bounds())
-			draw.Draw(dst, newImg.Bounds(), newImg, image.ZP, draw.Src)
+			draw.Draw(dst, newImg.Bounds(), newImg, image.Point{}, draw.Src)
 			img = dst
 		}
 	}
@@ -417,13 +416,13 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	if p.FaceDetect {
 		cascadeFile, err := classifier.ReadFile("data/facefinder")
 		if err != nil {
-			return errors.New(fmt.Sprintf("error reading the cascade file: %v", err))
+			return fmt.Errorf("error reading the cascade file: %v", err)
 		}
 		// Unpack the binary file. This will return the number of cascade trees,
 		// the tree depth, the threshold and the prediction from tree's leaf nodes.
 		p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
 		if err != nil {
-			return errors.New(fmt.Sprintf("error unpacking the cascade file: %v\n", err))
+			return fmt.Errorf("error unpacking the cascade file: %v", err)
 		}
 	}
 
@@ -436,7 +435,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	if len(p.MaskPath) > 0 {
 		mf, err := os.Open(p.MaskPath)
 		if err != nil {
-			return errors.New(fmt.Sprintf("could not open the mask file: %v", err))
+			return fmt.Errorf("could not open the mask file: %v", err)
 		}
 
 		ctype, err := utils.DetectContentType(mf.Name())
@@ -444,12 +443,12 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			return err
 		}
 		if !strings.Contains(ctype.(string), "image") {
-			return errors.New("the mask should be an image file.")
+			return fmt.Errorf("the mask should be an image file")
 		}
 
 		mask, _, err := image.Decode(mf)
 		if err != nil {
-			return errors.New(fmt.Sprintf("could not decode the mask file: %v", err))
+			return fmt.Errorf("could not decode the mask file: %v", err)
 		}
 		p.Mask = p.imgToNRGBA(mask)
 	}
@@ -457,7 +456,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	if len(p.RMaskPath) > 0 {
 		rmf, err := os.Open(p.RMaskPath)
 		if err != nil {
-			return errors.New(fmt.Sprintf("could not open the mask file: %v", err))
+			return fmt.Errorf("could not open the mask file: %v", err)
 		}
 
 		ctype, err := utils.DetectContentType(rmf.Name())
@@ -465,12 +464,12 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			return err
 		}
 		if !strings.Contains(ctype.(string), "image") {
-			return errors.New("the mask should be an image file.")
+			return fmt.Errorf("the mask should be an image file")
 		}
 
 		rmask, _, err := image.Decode(rmf)
 		if err != nil {
-			return errors.New(fmt.Sprintf("could not decode the mask file: %v", err))
+			return fmt.Errorf("could not decode the mask file: %v", err)
 		}
 		p.RMask = p.imgToNRGBA(rmask)
 	}
@@ -497,9 +496,9 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		go p.showPreview(imgWorker, errs, guiParams)
 	}
 
-	switch w.(type) {
+	switch w := w.(type) {
 	case *os.File:
-		ext := filepath.Ext(w.(*os.File).Name())
+		ext := filepath.Ext(w.Name())
 		switch ext {
 		case "", ".jpg", ".jpeg":
 			res, err := resize(p, img)
@@ -526,7 +525,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			if err != nil {
 				return err
 			}
-			return writeGifToFile(w.(*os.File).Name(), g)
+			return writeGifToFile(w.Name(), g)
 		default:
 			return errors.New("unsupported image format")
 		}
@@ -546,7 +545,7 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	if err := c.ComputeSeams(p, img); err != nil {
 		return nil, err
 	}
-	seams := c.FindLowestEnergySeams()
+	seams := c.FindLowestEnergySeams(p)
 	img = c.RemoveSeam(img, seams, p.Debug)
 
 	if len(p.MaskPath) > 0 {
@@ -580,7 +579,7 @@ func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	if err := c.ComputeSeams(p, img); err != nil {
 		return nil, err
 	}
-	seams := c.FindLowestEnergySeams()
+	seams := c.FindLowestEnergySeams(p)
 	img = c.AddSeam(img, seams, p.Debug)
 
 	if isGif {
