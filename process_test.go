@@ -17,7 +17,7 @@ func TestResize_ShrinkImageWidth(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		seams := c.FindLowestEnergySeams()
+		seams := c.FindLowestEnergySeams(p)
 		img = c.RemoveSeam(img, seams, p.Debug)
 	}
 	imgWidth := img.Bounds().Max.X
@@ -40,7 +40,7 @@ func TestResize_ShrinkImageHeight(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		seams := c.FindLowestEnergySeams()
+		seams := c.FindLowestEnergySeams(p)
 		img = c.RemoveSeam(img, seams, p.Debug)
 	}
 	img = c.RotateImage270(img)
@@ -64,7 +64,7 @@ func TestResize_EnlargeImageWidth(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		seams := c.FindLowestEnergySeams()
+		seams := c.FindLowestEnergySeams(p)
 		img = c.AddSeam(img, seams, p.Debug)
 	}
 	imgWidth := img.Bounds().Max.X - origImgWidth
@@ -88,7 +88,7 @@ func TestResize_EnlargeImageHeight(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		seams := c.FindLowestEnergySeams()
+		seams := c.FindLowestEnergySeams(p)
 		img = c.AddSeam(img, seams, p.Debug)
 	}
 	img = c.RotateImage270(img)

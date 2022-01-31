@@ -37,7 +37,7 @@ func TestCarver_EnergySeamShouldNotBeDetected(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		les := c.FindLowestEnergySeams()
+		les := c.FindLowestEnergySeams(p)
 		seams = append(seams, les)
 	}
 
@@ -56,7 +56,7 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 	var totalEnergySeams int
 
 	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
-	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.ZP, draw.Src)
+	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.Point{}, draw.Src)
 
 	// Replace the pixel colors in a single row from 0xff to 0xdd. 5 is an arbitrary value.
 	// The seam detector should recognize that line as being of low energy density
@@ -75,7 +75,7 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		les := c.FindLowestEnergySeams()
+		les := c.FindLowestEnergySeams(p)
 		seams = append(seams, les)
 	}
 
@@ -94,7 +94,7 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 	var totalEnergySeams int
 
 	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
-	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.ZP, draw.Src)
+	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.Point{}, draw.Src)
 
 	// Replace the pixel colors in a single column from 0xff to 0xdd. 5 is an arbitrary value.
 	// The seam detector should recognize that line as being of low energy density
@@ -114,7 +114,7 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		les := c.FindLowestEnergySeams()
+		les := c.FindLowestEnergySeams(p)
 		seams = append(seams, les)
 	}
 	img = c.RotateImage270(img)
@@ -135,7 +135,7 @@ func TestCarver_RemoveSeam(t *testing.T) {
 
 	// We choose to fill up the background with an uniform white color
 	// and afterwards we replace the colors in a single row with lower intensity ones.
-	draw.Draw(img, bounds, &image.Uniform{image.White}, image.ZP, draw.Src)
+	draw.Draw(img, bounds, &image.Uniform{image.White}, image.Point{}, draw.Src)
 	origImg := img
 
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
@@ -146,7 +146,7 @@ func TestCarver_RemoveSeam(t *testing.T) {
 
 	c := NewCarver(dx, dy)
 	c.ComputeSeams(p, img)
-	seams := c.FindLowestEnergySeams()
+	seams := c.FindLowestEnergySeams(p)
 	img = c.RemoveSeam(img, seams, false)
 
 	isEq := true
@@ -174,7 +174,7 @@ func TestCarver_AddSeam(t *testing.T) {
 
 	// We choose to fill up the background with an uniform white color
 	// Afterwards we'll replace the colors in a single row with lower intensity ones.
-	draw.Draw(img, bounds, &image.Uniform{image.White}, image.ZP, draw.Src)
+	draw.Draw(img, bounds, &image.Uniform{image.White}, image.Point{}, draw.Src)
 	origImg := img
 
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
@@ -185,7 +185,7 @@ func TestCarver_AddSeam(t *testing.T) {
 
 	c := NewCarver(dx, dy)
 	c.ComputeSeams(p, img)
-	seams := c.FindLowestEnergySeams()
+	seams := c.FindLowestEnergySeams(p)
 	img = c.AddSeam(img, seams, false)
 
 	dx, dy = img.Bounds().Dx(), img.Bounds().Dy()
@@ -212,8 +212,6 @@ func TestCarver_ComputeSeams(t *testing.T) {
 
 	// We choose to fill up the background with an uniform white color
 	// Afterwards we'll replace the colors in a single row with lower intensity ones.
-	//draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.ZP, draw.Src)
-
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 	// Replace the pixels in row 5 with lower intensity colors.
 	for x := 0; x < dx; x++ {
@@ -356,11 +354,11 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 				face.Col+face.Scale/2,
 				face.Row+face.Scale/2,
 			)
-			draw.Draw(sobel, rect, &image.Uniform{image.White}, image.ZP, draw.Src)
+			draw.Draw(sobel, rect, &image.Uniform{image.White}, image.Point{}, draw.Src)
 		}
 	}
 	c.ComputeSeams(p, img)
-	seams := c.FindLowestEnergySeams()
+	seams := c.FindLowestEnergySeams(p)
 
 	for _, seam := range seams {
 		if seam.X >= rect.Min.X && seam.X <= rect.Max.X {

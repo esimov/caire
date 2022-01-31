@@ -13,8 +13,9 @@ import (
 const maxFaceDetAttempts = 20
 
 var (
-	usedSeams   []UsedSeams
 	detAttempts int
+	sobel       *image.NRGBA
+	energySeams = make([][]Seam, 0)
 )
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
@@ -29,17 +30,6 @@ type Carver struct {
 type Seam struct {
 	X int
 	Y int
-}
-
-// UsedSeams contains the already generated seams.
-type UsedSeams struct {
-	ActiveSeam []ActiveSeam
-}
-
-// ActiveSeam contains the current seam position and color.
-type ActiveSeam struct {
-	Seam
-	Pix color.Color
 }
 
 // NewCarver returns an initialized Carver structure.
@@ -75,7 +65,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 	var srcImg *image.NRGBA
 
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
+	sobel = c.SobelDetector(img, float64(p.SobelThreshold))
 
 	if p.FaceDetect && detAttempts < maxFaceDetAttempts {
 		var ratio float64
@@ -132,7 +122,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 					face.Col+face.Scale/2,
 					face.Row+face.Scale/2,
 				)
-				draw.Draw(sobel, rect, &image.Uniform{color.White}, image.ZP, draw.Src)
+				draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 			}
 		}
 	}
@@ -189,6 +179,17 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 		}
 	}
 
+	// Increase the energy value for each of the selected seam from the seams table
+	// in order to avoid picking the same seam over and over again.
+	// We expand the energy level of the selected seams to have a better redistribution.
+	if len(energySeams) > 0 {
+		for i := 0; i < len(energySeams); i++ {
+			for _, seam := range energySeams[i] {
+				sobel.Set(seam.X, seam.Y, &image.Uniform{color.White})
+			}
+		}
+	}
+
 	if p.BlurRadius > 0 {
 		srcImg = c.StackBlur(sobel, uint32(p.BlurRadius))
 	} else {
@@ -226,7 +227,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 }
 
 // FindLowestEnergySeams find the lowest vertical energy seam.
-func (c *Carver) FindLowestEnergySeams() []Seam {
+func (c *Carver) FindLowestEnergySeams(p *Processor) []Seam {
 	// Find the lowest cost seam from the energy matrix starting from the last row.
 	var (
 		min = math.MaxFloat64
@@ -246,8 +247,8 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 	seams = append(seams, Seam{X: px, Y: c.Height - 1})
 	var left, middle, right float64
 
-	// Walk up in the matrix table, check the immediate three top pixel seam level
-	// and add the one which has the lowest cumulative energy.
+	// Walk up in the matrix table, check the immediate three top pixels seam level
+	// and add that one which has the lowest cumulative energy.
 	for y := c.Height - 2; y >= 0; y-- {
 		middle = c.get(px, y)
 		// Leftmost seam, no child to the left
@@ -274,6 +275,14 @@ func (c *Carver) FindLowestEnergySeams() []Seam {
 			}
 		}
 		seams = append(seams, Seam{X: px, Y: y})
+	}
+
+	// compare against c.Width and NOT c.Height, because the image is rotated.
+	if p.NewWidth > c.Width || (p.NewHeight > 0 && p.NewHeight > c.Width) {
+		// Include the currently processed energy seam into the seams table,
+		// but only when an image enlargement operation is commenced.
+		// We need to take this approach in order to avoid picking the same seam each time.
+		energySeams = append(energySeams, seams)
 	}
 	return seams
 }
@@ -304,10 +313,8 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 // AddSeam add a new seam.
 func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	var (
-		currentSeam []ActiveSeam
-		lr, lg, lb  uint32
-		rr, rg, rb  uint32
-		py          int
+		lr, lg, lb uint32
+		rr, rg, rb uint32
 	)
 
 	bounds := img.Bounds()
@@ -320,47 +327,22 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				if debug {
 					c.Seams = append(c.Seams, Seam{X: x, Y: y})
 				}
-				// Calculate the current seam pixel color by averaging the neighboring pixels color.
-				if y > 0 {
-					py = y - 1
-				} else {
-					py = y
-				}
-
-				if x > 0 {
-					lr, lg, lb, _ = img.At(x-1, py).RGBA()
+				if x > 0 && x != bounds.Max.X {
+					lr, lg, lb, _ = img.At(x-1, y).RGBA()
 				} else {
 					lr, lg, lb, _ = img.At(x, y).RGBA()
 				}
 
-				if y < bounds.Max.Y-1 {
-					py = y + 1
-				} else {
-					py = y
-				}
-
 				if x < bounds.Max.X-1 {
-					rr, rg, rb, _ = img.At(x+1, py).RGBA()
-				} else {
+					rr, rg, rb, _ = img.At(x+1, y).RGBA()
+				} else if x == bounds.Max.X {
 					rr, rg, rb, _ = img.At(x, y).RGBA()
 				}
-				avr, avg, avb := (lr+rr)/2, (lg+rg)/2, (lb+rb)/2
-				dst.Set(x, y, color.RGBA{uint8(avr >> 8), uint8(avg >> 8), uint8(avb >> 8), 255})
 
-				// Append the current seam position and color to the existing seams.
-				// To avoid picking the same optimal seam over and over again,
-				// each time we detect an optimal seam we assign a large positive value
-				// to the corresponding pixels in the energy map.
-				// We will increase the seams weight by duplicating the pixel value.
-				currentSeam = append(currentSeam,
-					ActiveSeam{Seam{x + 1, y},
-						color.RGBA{
-							R: uint8((avr + avr) >> 8),
-							G: uint8((avg + avg) >> 8),
-							B: uint8((avb + avb) >> 8),
-							A: 255,
-						},
-					})
+				// calculate the average color of the neighboring pixels
+				avr, avg, avb := (lr+rr)>>1, (lg+rg)>>1, (lb+rb)>>1
+				dst.Set(x, y, color.RGBA{uint8(avr >> 8), uint8(avg >> 8), uint8(avb >> 8), 0xff})
+				dst.Set(x+1, y, img.At(x, y))
 			} else if seam.X < x {
 				dst.Set(x, y, img.At(x-1, y))
 				dst.Set(x+1, y, img.At(x, y))
@@ -369,7 +351,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 			}
 		}
 	}
-	usedSeams = append(usedSeams, UsedSeams{currentSeam})
+
 	return dst
 }
 

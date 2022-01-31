@@ -29,7 +29,7 @@ func Benchmark_Carver(b *testing.B) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
-		seams := c.FindLowestEnergySeams()
+		seams := c.FindLowestEnergySeams(p)
 		img = c.RemoveSeam(img, seams, p.Debug)
 	}
 
