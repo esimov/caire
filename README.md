@@ -97,8 +97,8 @@ The following flags are supported:
 | `preview` | true | Show GUI window |
 | `perc` | false | Reduce image by percentage |
 | `square` | false | Reduce image to square dimensions |
-| `blur` | 1 | Blur radius |
-| `sobel` | 10 | Sobel filter threshold |
+| `blur` | 4 | Blur radius |
+| `sobel` | 2 | Sobel filter threshold |
 | `debug` | false | Use debugger |
 | `face` | false | Use face detection |
 | `angle` | float | Plane rotated faces angle |
