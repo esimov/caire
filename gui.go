@@ -7,6 +7,7 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/f32"
+	"gioui.org/font/gofont"
 	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
@@ -15,6 +16,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/widget/material"
 )
 
 const (
@@ -125,6 +127,9 @@ func (g *Gui) Run() error {
 				return e.Err
 			}
 		case res := <-g.proc.wrk:
+			if resizeBothSide {
+				continue
+			}
 			g.proc.img = res.img
 			g.proc.seams = res.carver.Seams
 			if g.cp.vRes {
@@ -144,6 +149,11 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 	c := g.setColor(g.cfg.color.background)
 	paint.Fill(g.ctx.Ops, c)
 
+	type (
+		C = layout.Context
+		D = layout.Dimensions
+	)
+
 	if g.proc.img != nil {
 		src := paint.NewImageOp(g.proc.img)
 		src.Add(g.ctx.Ops)
@@ -151,12 +161,12 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 		layout.Flex{
 			Axis: layout.Horizontal,
 		}.Layout(g.ctx,
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			layout.Flexed(1, func(gtx C) D {
 				paint.FillShape(gtx.Ops, c,
 					clip.Rect{Max: g.ctx.Constraints.Max}.Op(),
 				)
 				return layout.UniformInset(unit.Px(0)).Layout(gtx,
-					func(gtx layout.Context) layout.Dimensions {
+					func(gtx C) D {
 						widget.Image{
 							Src:   src,
 							Scale: 1 / float32(g.ctx.Px(unit.Dp(1))),
@@ -203,6 +213,18 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 			}),
 		)
 
+	}
+
+	if resizeBothSide {
+		msg := "Preview is not available when the image is resized horizontally and vertically at the same time!"
+
+		var th = material.NewTheme(gofont.Collection())
+		th.Palette.Fg = color.NRGBA{R: 0xFF, A: 0xFF}
+		layout.UniformInset(unit.Px(20)).Layout(g.ctx, func(gtx C) D {
+			return layout.Center.Layout(g.ctx, func(gtx C) D {
+				return material.Label(th, unit.Sp(40), msg).Layout(gtx)
+			})
+		})
 	}
 	e.Frame(g.ctx.Ops)
 }

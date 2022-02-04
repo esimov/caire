@@ -140,6 +140,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	// We are opting for this solution instead of resizing the image secventially,
 	// because this way the horizontal and vertical seams are merged together seamlessly.
 	shrinkHorizFn = func(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
+		p.vRes = false
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 		if dx > p.NewWidth {
 			img, err = p.shrink(c, img)
@@ -162,6 +163,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 	// enlargeHorizFn calls itself recursively to enlarge the image horizontally.
 	enlargeHorizFn = func(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
+		p.vRes = false
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 		if dx < p.NewWidth {
 			img, err = p.enlarge(c, img)
@@ -596,7 +598,6 @@ func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 			return
 		}
 	}()
-
 	return img, nil
 }
 
