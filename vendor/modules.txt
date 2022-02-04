@@ -5,6 +5,8 @@ gioui.org/app/internal/log
 gioui.org/app/internal/windows
 gioui.org/app/internal/xkb
 gioui.org/f32
+gioui.org/font/gofont
+gioui.org/font/opentype
 gioui.org/gesture
 gioui.org/gpu
 gioui.org/gpu/internal/d3d11
@@ -37,6 +39,7 @@ gioui.org/op/paint
 gioui.org/text
 gioui.org/unit
 gioui.org/widget
+gioui.org/widget/material
 # gioui.org/cpu v0.0.0-20210817075930-8d6a761490d2
 gioui.org/cpu
 # gioui.org/shader v1.0.6
@@ -49,16 +52,28 @@ github.com/disintegration/imaging
 # github.com/esimov/pigo v1.4.5
 ## explicit
 github.com/esimov/pigo/core
-# github.com/pkg/errors v0.9.1
-## explicit
-github.com/pkg/errors
 # golang.org/x/exp v0.0.0-20210722180016-6781d3edade3
 golang.org/x/exp/shiny/iconvg
 golang.org/x/exp/shiny/iconvg/internal/gradient
+golang.org/x/exp/shiny/materialdesign/icons
 # golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 ## explicit
 golang.org/x/image/bmp
 golang.org/x/image/ccitt
+golang.org/x/image/font
+golang.org/x/image/font/gofont/gobold
+golang.org/x/image/font/gofont/gobolditalic
+golang.org/x/image/font/gofont/goitalic
+golang.org/x/image/font/gofont/gomedium
+golang.org/x/image/font/gofont/gomediumitalic
+golang.org/x/image/font/gofont/gomono
+golang.org/x/image/font/gofont/gomonobold
+golang.org/x/image/font/gofont/gomonobolditalic
+golang.org/x/image/font/gofont/gomonoitalic
+golang.org/x/image/font/gofont/goregular
+golang.org/x/image/font/gofont/gosmallcaps
+golang.org/x/image/font/gofont/gosmallcapsitalic
+golang.org/x/image/font/sfnt
 golang.org/x/image/math/f32
 golang.org/x/image/math/f64
 golang.org/x/image/math/fixed
@@ -73,3 +88,9 @@ golang.org/x/sys/windows
 # golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 ## explicit
 golang.org/x/term
+# golang.org/x/text v0.3.6
+golang.org/x/text/encoding
+golang.org/x/text/encoding/charmap
+golang.org/x/text/encoding/internal
+golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/transform
