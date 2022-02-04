@@ -215,16 +215,24 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 
 	}
 
+	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.
 	if resizeBothSide {
 		msg := "Preview is not available when the image is resized horizontally and vertically at the same time!"
 
 		var th = material.NewTheme(gofont.Collection())
 		th.Palette.Fg = color.NRGBA{R: 0xFF, A: 0xFF}
-		layout.UniformInset(unit.Px(20)).Layout(g.ctx, func(gtx C) D {
-			return layout.Center.Layout(g.ctx, func(gtx C) D {
-				return material.Label(th, unit.Sp(40), msg).Layout(gtx)
-			})
-		})
+		layout.Flex{
+			Axis:      layout.Horizontal,
+			Alignment: layout.Middle,
+		}.Layout(g.ctx,
+			layout.Flexed(1, func(gtx C) D {
+				return layout.UniformInset(unit.Dp(4)).Layout(g.ctx, func(gtx C) D {
+					return layout.Center.Layout(g.ctx, func(gtx C) D {
+						return material.Label(th, unit.Sp(40), msg).Layout(gtx)
+					})
+				})
+			},
+			))
 	}
 	e.Frame(g.ctx.Ops)
 }
