@@ -11,8 +11,25 @@ parts:
     plugin: go
     source: https://github.com/esimov/caire.git
     go-importpath: github.com/esimov/caire
+    stage-packages:
+      - libegl1
+      - libglvnd0
+      - libwayland-client0
+      - libwayland-cursor0
+      - libwayland-egl1
+      - libx11-6
+      - libx11-xcb1
+      - libxau6
+      - libxcb-xkb1
+      - libxcb1
+      - libxcursor1
+      - libxdmcp6
+      - libxfixes3
+      - libxkbcommon-x11-0
+      - libxkbcommon0
+      - libxrender1
+
     build-packages:
-      - build-essential
       - gcc
       - pkg-config
       - libwayland-dev
@@ -24,6 +41,7 @@ parts:
       - libffi-dev
       - libxcursor-dev
       - libvulkan-dev
+
 apps:
   caire:
     command: bin/caire
