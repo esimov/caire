@@ -229,7 +229,7 @@ func execute(proc *caire.Processor) {
 			if res.err != nil {
 				err = res.err
 			}
-			printStatus(res.path, res.err)
+			printStatus(res.path, err)
 		}
 
 		if err = <-errc; err != nil {
@@ -400,9 +400,7 @@ func pathToFile(in, out string) (io.Reader, io.Writer, error) {
 		} else {
 			src, err = os.Open(in)
 			if err != nil {
-				return nil, nil, errors.New(
-					fmt.Sprintf("unable to open the source file: %v", err),
-				)
+				return nil, nil, fmt.Errorf("unable to open the source file: %v", err)
 			}
 		}
 	}
@@ -416,9 +414,7 @@ func pathToFile(in, out string) (io.Reader, io.Writer, error) {
 	} else {
 		dst, err = os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0755)
 		if err != nil {
-			return nil, nil, errors.New(
-				fmt.Sprintf("unable to create the destination file: %v", err),
-			)
+			return nil, nil, fmt.Errorf("unable to create the destination file: %v", err)
 		}
 	}
 	return src, dst, nil

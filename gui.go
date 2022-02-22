@@ -1,6 +1,8 @@
 package caire
 
 import (
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -17,6 +19,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/esimov/caire/utils"
 )
 
 const (
@@ -111,6 +114,16 @@ func (g *Gui) Run() error {
 		unit.Px(float32(g.cfg.window.h)),
 	))
 
+	abortFn := func() {
+		errorMsg := fmt.Sprintf("%s %s %s",
+			utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
+			utils.DecorateText("⇢ image resizing process aborted by the user...", utils.DefaultMessage),
+			utils.DecorateText("✘\n", utils.ErrorMessage),
+		)
+		g.cp.Spinner.StopMsg = errorMsg
+		g.cp.Spinner.Stop()
+	}
+
 	for {
 		select {
 		case e := <-w.Events():
@@ -120,10 +133,13 @@ func (g *Gui) Run() error {
 			case key.Event:
 				switch e.Name {
 				case key.NameEscape:
-					g.cp.Spinner.RestoreCursor()
+					abortFn()
 					w.Close()
+
+					return errors.New(g.cp.Spinner.StopMsg)
 				}
 			case system.DestroyEvent:
+				abortFn()
 				return e.Err
 			}
 		case res := <-g.proc.wrk:
@@ -218,7 +234,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.
 	if resizeBothSide {
 		var th = material.NewTheme(gofont.Collection())
-		th.Palette.Fg = color.NRGBA{R: 0x00, A: 0xFF}
+		th.Palette.Fg = color.NRGBA{R: 0, A: 0xFF}
 
 		layout.Flex{
 			Axis:      layout.Horizontal,
