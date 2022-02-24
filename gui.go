@@ -1,7 +1,6 @@
 package caire
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -115,13 +114,21 @@ func (g *Gui) Run() error {
 	))
 
 	abortFn := func() {
-		errorMsg := fmt.Sprintf("%s %s %s",
-			utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-			utils.DecorateText("⇢ image resizing process aborted by the user...", utils.DefaultMessage),
-			utils.DecorateText("✘\n", utils.ErrorMessage),
-		)
-		g.cp.Spinner.StopMsg = errorMsg
-		g.cp.Spinner.Stop()
+		bounds := g.proc.img.Bounds()
+		dx, dy := bounds.Max.X, bounds.Max.Y
+
+		if (g.cp.NewWidth > 0 && g.cp.NewWidth != dx) ||
+			(g.cp.NewHeight > 0 && g.cp.NewHeight != dy) {
+
+			errorMsg := fmt.Sprintf("%s %s %s",
+				utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
+				utils.DecorateText("⇢ image resizing process aborted by the user...", utils.DefaultMessage),
+				utils.DecorateText("✘\n", utils.ErrorMessage),
+			)
+			g.cp.Spinner.StopMsg = errorMsg
+			g.cp.Spinner.Stop()
+		}
+		g.cp.Spinner.RestoreCursor()
 	}
 
 	for {
@@ -133,10 +140,7 @@ func (g *Gui) Run() error {
 			case key.Event:
 				switch e.Name {
 				case key.NameEscape:
-					abortFn()
 					w.Close()
-
-					return errors.New(g.cp.Spinner.StopMsg)
 				}
 			case system.DestroyEvent:
 				abortFn()
@@ -228,7 +232,6 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 					})
 			}),
 		)
-
 	}
 
 	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.

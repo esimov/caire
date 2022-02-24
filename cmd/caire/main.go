@@ -430,10 +430,10 @@ func printStatus(fname string, err error) {
 		os.Exit(0)
 	} else {
 		if fname != pipeName {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("\nThe resized image has been saved as: %s %s\n\n",
+			fmt.Fprintf(os.Stderr, "\nThe image has been saved as: %s %s\n\n",
 				utils.DecorateText(filepath.Base(fname), utils.SuccessMessage),
 				utils.DefaultColor,
-			))
+			)
 		}
 	}
 }
