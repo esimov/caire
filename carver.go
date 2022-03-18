@@ -6,6 +6,7 @@ import (
 	"image/draw"
 	"math"
 
+	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 )
 
@@ -75,14 +76,14 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 		} else {
 			ratio = float64(height) / float64(width)
 		}
-		minSize := float64(min(width, height)) * ratio / 3
+		minSize := float64(utils.Min(width, height)) * ratio / 3
 
 		// Transform the image to pixel array.
 		pixels := c.rgbToGrayscale(img)
 
 		cParams := pigo.CascadeParams{
 			MinSize:     int(minSize),
-			MaxSize:     min(width, height),
+			MaxSize:     utils.Min(width, height),
 			ShiftFactor: 0.1,
 			ScaleFactor: 1.1,
 
@@ -165,9 +166,9 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 				})
 			} else {
 				sr, sg, sb, _ := sobel.At(x, y).RGBA()
-				r = uint32(min(int(sr>>8+sr>>8/2), 0xff))
-				g = uint32(min(int(sg>>8+sg>>8/2), 0xff))
-				b = uint32(min(int(sb>>8+sb>>8/2), 0xff))
+				r = uint32(utils.Min(int(sr>>8+sr>>8/2), 0xff))
+				g = uint32(utils.Min(int(sg>>8+sg>>8/2), 0xff))
+				b = uint32(utils.Min(int(sb>>8+sb>>8/2), 0xff))
 
 				sobel.Set(x, y, color.RGBA{
 					R: uint8(r),

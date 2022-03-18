@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+
+	"github.com/esimov/caire/utils"
 )
 
 func TestImage_ShouldGetSampleImage(t *testing.T) {
@@ -220,7 +222,7 @@ func compareBytes(a, b []uint8, delta int) bool {
 		return false
 	}
 	for i := 0; i < len(a); i++ {
-		if absint(int(a[i])-int(b[i])) > delta {
+		if utils.Abs(int(a[i])-int(b[i])) > delta {
 			return false
 		}
 	}

@@ -271,10 +271,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
-			p.NewWidth = absint(c.Width - pw)
-			p.NewHeight = absint(c.Height - ph)
+			p.NewWidth = utils.Abs(c.Width - pw)
+			p.NewHeight = utils.Abs(c.Height - ph)
 
-			resImgSize := min(p.NewWidth, p.NewHeight)
+			resImgSize := utils.Min(p.NewWidth, p.NewHeight)
 			return imaging.Resize(img, resImgSize, 0, imaging.Lanczos), nil
 		}
 
@@ -282,7 +282,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if p.Square {
 			// Calling the image rescale method only when both a new width and height is provided.
 			if p.NewWidth != 0 && p.NewHeight != 0 {
-				p.NewWidth = min(p.NewWidth, p.NewHeight)
+				p.NewWidth = utils.Min(p.NewWidth, p.NewHeight)
 				p.NewHeight = p.NewWidth
 
 				newImg = p.calculateFitness(img, c)
@@ -300,7 +300,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 						pw = 0
 					}
 
-					p.NewWidth = min(nw, nh)
+					p.NewWidth = utils.Min(nw, nh)
 					p.NewHeight = p.NewWidth
 				}
 			} else {
@@ -315,10 +315,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
 			if p.NewWidth != 0 {
-				p.NewWidth = absint(c.Width - pw)
+				p.NewWidth = utils.Abs(c.Width - pw)
 			}
 			if p.NewHeight != 0 {
-				p.NewHeight = absint(c.Height - ph)
+				p.NewHeight = utils.Abs(c.Height - ph)
 			}
 			if pw >= c.Width || ph >= c.Height {
 				return nil, errors.New("cannot use the percentage flag for image enlargement")
@@ -698,28 +698,4 @@ func writeGifToFile(path string, g *gif.GIF) error {
 	}
 	defer f.Close()
 	return gif.EncodeAll(f, g)
-}
-
-// absint returns the absolute value of i.
-func absint(i int) int {
-	if i < 0 {
-		return -i
-	}
-	return i
-}
-
-// max returns the maximum value of two numbers of type int.
-func max(v1, v2 int) int {
-	if v1 > v2 {
-		return v1
-	}
-	return v2
-}
-
-// min returns the minimum value of two numbers of type int.
-func min(v1, v2 int) int {
-	if v1 < v2 {
-		return v1
-	}
-	return v2
 }

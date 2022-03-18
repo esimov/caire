@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 )
 
@@ -263,7 +264,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
-		MaxSize:     max(dx, dy),
+		MaxSize:     utils.Max(dx, dy),
 		ShiftFactor: 0.1,
 		ScaleFactor: 1.1,
 
@@ -324,7 +325,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
-		MaxSize:     max(dx, dy),
+		MaxSize:     utils.Max(dx, dy),
 		ShiftFactor: 0.1,
 		ScaleFactor: 1.1,
 
