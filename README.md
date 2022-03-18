@@ -1,7 +1,7 @@
 <h1 align="center"><img alt="Caire Logo" src="https://user-images.githubusercontent.com/883386/51555990-a1762600-1e81-11e9-9a6a-0cd815870358.png" height="180"></h1>
 
 [![build](https://github.com/esimov/caire/actions/workflows/build.yml/badge.svg)](https://github.com/esimov/caire/actions/workflows/build.yml)
-[![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/esimov/caire)
+[![Go Reference](https://pkg.go.dev/badge/github.com/esimov/caire.svg)](https://pkg.go.dev/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
 [![release](https://img.shields.io/badge/release-v1.4.2-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.2)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.4.2-orange.svg)](https://formulae.brew.sh/formula/caire)
