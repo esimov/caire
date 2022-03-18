@@ -23,6 +23,7 @@ var (
 	errUnsupportedDrawingOpcode        = errors.New("iconvg: unsupported drawing opcode")
 	errUnsupportedMetadataIdentifier   = errors.New("iconvg: unsupported metadata identifier")
 	errUnsupportedStylingOpcode        = errors.New("iconvg: unsupported styling opcode")
+	errUnsupportedUpgrade              = errors.New("iconvg: unsupported upgrade")
 )
 
 var midDescriptions = [...]string{
@@ -100,6 +101,8 @@ func Decode(dst Destination, src []byte, opts *DecodeOptions) error {
 
 func decode(dst Destination, p printer, m *Metadata, metadataOnly bool, src buffer, opts *DecodeOptions) (err error) {
 	if !bytes.HasPrefix(src, magicBytes) {
+		// TODO: detect FFV 1 (File Format Version 1), as opposed to the FFV 0
+		// that this package implements, and delegate to a FFV 1 decoder.
 		return errInvalidMagicIdentifier
 	}
 	if p != nil {
@@ -652,6 +655,20 @@ func decodeNumber(p printer, src buffer, dnf decodeNumberFunc) (float32, buffer,
 func decodeCoordinates(coords []float32, p printer, src buffer) (src1 buffer, err error) {
 	for i := range coords {
 		coords[i], src, err = decodeNumber(p, src, buffer.decodeCoordinate)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return src, nil
+}
+
+func decodeCoordinatePairs(coords [][2]float32, p printer, src buffer) (src1 buffer, err error) {
+	for i := range coords {
+		coords[i][0], src, err = decodeNumber(p, src, buffer.decodeCoordinate)
+		if err != nil {
+			return nil, err
+		}
+		coords[i][1], src, err = decodeNumber(p, src, buffer.decodeCoordinate)
 		if err != nil {
 			return nil, err
 		}

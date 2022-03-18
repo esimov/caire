@@ -12,7 +12,7 @@ import (
 // buffer holds an encoded IconVG graphic.
 //
 // The decodeXxx methods return the decoded value and an integer n, the number
-// of bytes that value was encoded in. They return n == 0 if an error occured.
+// of bytes that value was encoded in. They return n == 0 if an error occurred.
 //
 // The encodeXxx methods append to the buffer, modifying the slice in place.
 type buffer []byte
@@ -26,6 +26,30 @@ func (b buffer) decodeNatural() (u uint32, n int) {
 		return uint32(x) >> 1, 1
 	}
 	if x&0x02 == 0 {
+		if len(b) >= 2 {
+			y := uint16(b[0]) | uint16(b[1])<<8
+			return uint32(y) >> 2, 2
+		}
+		return 0, 0
+	}
+	if len(b) >= 4 {
+		y := uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
+		return y >> 2, 4
+	}
+	return 0, 0
+}
+
+// decodeNaturalFFV1 is like decodeNatural but for File Format Version 1. See
+// https://github.com/google/iconvg/issues/33
+func (b buffer) decodeNaturalFFV1() (u uint32, n int) {
+	if len(b) < 1 {
+		return 0, 0
+	}
+	x := b[0]
+	if x&0x01 != 0 {
+		return uint32(x) >> 1, 1
+	}
+	if x&0x02 != 0 {
 		if len(b) >= 2 {
 			y := uint16(b[0]) | uint16(b[1])<<8
 			return uint32(y) >> 2, 2
@@ -143,6 +167,23 @@ func (b *buffer) encodeNatural(u uint32) {
 	*b = append(*b, uint8(u), uint8(u>>8), uint8(u>>16), uint8(u>>24))
 }
 
+// encodeNaturalFFV1 is like encodeNatural but for File Format Version 1. See
+// https://github.com/google/iconvg/issues/33
+func (b *buffer) encodeNaturalFFV1(u uint32) {
+	if u < 1<<7 {
+		u = (u << 1) | 0x01
+		*b = append(*b, uint8(u))
+		return
+	}
+	if u < 1<<14 {
+		u = (u << 2) | 0x02
+		*b = append(*b, uint8(u), uint8(u>>8))
+		return
+	}
+	u = (u << 2)
+	*b = append(*b, uint8(u), uint8(u>>8), uint8(u>>16), uint8(u>>24))
+}
+
 func (b *buffer) encodeReal(f float32) int {
 	if u := uint32(f); float32(u) == f && u < 1<<14 {
 		if u < 1<<7 {
@@ -174,6 +215,24 @@ func (b *buffer) encode4ByteReal(f float32) {
 	*b = append(*b, uint8(u), uint8(u>>8), uint8(u>>16), uint8(u>>24))
 }
 
+// encode4ByteRealFFV1 is like encode4ByteReal but for File Format Version 1.
+// See https://github.com/google/iconvg/issues/33
+func (b *buffer) encode4ByteRealFFV1(f float32) {
+	u := math.Float32bits(f)
+
+	// Round the fractional bits (the low 23 bits) to the nearest multiple of
+	// 4, being careful not to overflow into the upper bits.
+	v := u & 0x007fffff
+	if v < 0x007ffffe {
+		v += 2
+	}
+	u = (u & 0xff800000) | v
+
+	// A 4 byte encoding has the low two bits unset.
+	u &= 0xfffffffc
+	*b = append(*b, uint8(u), uint8(u>>8), uint8(u>>16), uint8(u>>24))
+}
+
 func (b *buffer) encodeCoordinate(f float32) int {
 	if i := int32(f); -64 <= i && i < +64 && float32(i) == f {
 		u := uint32(i + 64)
@@ -189,6 +248,31 @@ func (b *buffer) encodeCoordinate(f float32) int {
 	}
 	b.encode4ByteReal(f)
 	return 4
+}
+
+// encodeCoordinateFFV1 is like encodeCoordinate but for File Format Version 1.
+// See https://github.com/google/iconvg/issues/33
+func (b *buffer) encodeCoordinateFFV1(f float32) int {
+	if i := int32(f); -64 <= i && i < +64 && float32(i) == f {
+		u := uint32(i + 64)
+		u = (u << 1) | 0x01
+		*b = append(*b, uint8(u))
+		return 1
+	}
+	if i := int32(f * 64); -128*64 <= i && i < +128*64 && float32(i) == f*64 {
+		u := uint32(i + 128*64)
+		u = (u << 2) | 0x02
+		*b = append(*b, uint8(u), uint8(u>>8))
+		return 2
+	}
+	b.encode4ByteRealFFV1(f)
+	return 4
+}
+
+func (b *buffer) encodeCoordinatePairFFV1(f [2]float32) int {
+	n0 := b.encodeCoordinateFFV1(f[0])
+	n1 := b.encodeCoordinateFFV1(f[1])
+	return n0 + n1
 }
 
 func (b *buffer) encodeAngle(f float32) int {

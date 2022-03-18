@@ -25,8 +25,13 @@ func isNaNOrInfinity(f float32) bool {
 }
 
 const (
+	// File Format Version 0.
 	midViewBox          = 0
 	midSuggestedPalette = 1
+
+	// File Format Version 1.
+	ffv1MIDViewBox          = 8
+	ffv1MIDSuggestedPalette = 16
 )
 
 var gradientShapeNames = [2]string{
