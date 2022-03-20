@@ -3,7 +3,7 @@
 [![build](https://github.com/esimov/caire/actions/workflows/build.yml/badge.svg)](https://github.com/esimov/caire/actions/workflows/build.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/esimov/caire.svg)](https://pkg.go.dev/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.4.2-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.2)
+[![release](https://img.shields.io/badge/release-v1.4.3-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.3)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.4.2-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![caire](https://snapcraft.io/caire/badge.svg)](https://snapcraft.io/caire)
 
