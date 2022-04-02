@@ -94,8 +94,7 @@ func (g *Gui) initWindow(w, h int) {
 func (g *Gui) getWindowSize() (float64, float64) {
 	w, h := g.cfg.window.w, g.cfg.window.h
 
-	// retains the aspect ratio in case the image width and height
-	// is greater than the predefined window.
+	// retains the aspect ratio in case the image width and height is greater than the predefined window.
 	r := getRatio(w, h)
 	if w > maxScreenX && h > maxScreenY {
 		w = float64(w) * r
@@ -105,7 +104,7 @@ func (g *Gui) getWindowSize() (float64, float64) {
 }
 
 // Run is the core method of the Gio GUI application.
-// This updates the window with the resized image obtained from a channel
+// This updates the window with the resized image received from a channel
 // and terminates when the image resizing operation completes.
 func (g *Gui) Run() error {
 	w := app.NewWindow(app.Title(g.cfg.window.title), app.Size(
@@ -114,8 +113,11 @@ func (g *Gui) Run() error {
 	))
 
 	abortFn := func() {
-		bounds := g.proc.img.Bounds()
-		dx, dy := bounds.Max.X, bounds.Max.Y
+		var dx, dy int
+		if g.proc.img != nil {
+			bounds := g.proc.img.Bounds()
+			dx, dy = bounds.Max.X, bounds.Max.Y
+		}
 
 		if (g.cp.NewWidth > 0 && g.cp.NewWidth != dx) ||
 			(g.cp.NewHeight > 0 && g.cp.NewHeight != dy) {
@@ -160,8 +162,8 @@ func (g *Gui) Run() error {
 	}
 }
 
-// draw display the resized image received from a channel
-// and prints the seams in case the debug mode is activated.
+// draw draws the resized image in the GUI window (obtained from a channel)
+// and in case the debug mode is activated it prints out the seams.
 func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 	g.ctx = layout.NewContext(g.ctx.Ops, e)
 	win.Invalidate()
