@@ -1,7 +1,7 @@
 package caire
 
 import (
-	"embed"
+	_ "embed"
 	"errors"
 	"fmt"
 	"image"
@@ -24,7 +24,7 @@ import (
 )
 
 //go:embed data/facefinder
-var classifier embed.FS
+var cascadeFile []byte
 
 var (
 	g              *gif.GIF
@@ -416,10 +416,6 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	p.PigoFaceDetector = pigo.NewPigo()
 
 	if p.FaceDetect {
-		cascadeFile, err := classifier.ReadFile("data/facefinder")
-		if err != nil {
-			return fmt.Errorf("error reading the cascade file: %v", err)
-		}
 		// Unpack the binary file. This will return the number of cascade trees,
 		// the tree depth, the threshold and the prediction from tree's leaf nodes.
 		p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)

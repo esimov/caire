@@ -68,7 +68,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) error {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel = c.SobelDetector(img, float64(p.SobelThreshold))
 
-	if p.FaceDetect && detAttempts < maxFaceDetAttempts {
+	if p.PigoFaceDetector != nil && p.FaceDetect && detAttempts < maxFaceDetAttempts {
 		var ratio float64
 
 		if width < height {
