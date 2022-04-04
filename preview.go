@@ -13,7 +13,7 @@ func (p *Processor) showPreview(
 		height int
 	},
 ) {
-	var gui = newGui(guiParams.width, guiParams.height)
+	var gui = NewGUI(guiParams.width, guiParams.height)
 	gui.cp = p
 	gui.proc.wrk = imgWorker
 

@@ -21,6 +21,11 @@ import (
 	"github.com/esimov/caire/utils"
 )
 
+type (
+	C = layout.Context
+	D = layout.Dimensions
+)
+
 const (
 	maxScreenX = 1366
 	maxScreenY = 768
@@ -52,8 +57,9 @@ type Gui struct {
 		}
 	}
 	proc struct {
-		img   image.Image
-		seams []Seam
+		isDone bool
+		img    image.Image
+		seams  []Seam
 
 		wrk <-chan worker
 		err chan<- error
@@ -62,8 +68,8 @@ type Gui struct {
 	ctx layout.Context
 }
 
-// newGui initializes the Gio interface.
-func newGui(w, h int) *Gui {
+// NewGUI initializes the Gio interface.
+func NewGUI(w, h int) *Gui {
 	gui := &Gui{
 		ctx: layout.Context{
 			Ops: new(op.Ops),
@@ -94,7 +100,7 @@ func (g *Gui) initWindow(w, h int) {
 func (g *Gui) getWindowSize() (float64, float64) {
 	w, h := g.cfg.window.w, g.cfg.window.h
 
-	// retains the aspect ratio in case the image width and height is greater than the predefined window.
+	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
 	r := getRatio(w, h)
 	if w > maxScreenX && h > maxScreenY {
 		w = float64(w) * r
@@ -114,21 +120,23 @@ func (g *Gui) Run() error {
 
 	abortFn := func() {
 		var dx, dy int
+
 		if g.proc.img != nil {
 			bounds := g.proc.img.Bounds()
 			dx, dy = bounds.Max.X, bounds.Max.Y
 		}
+		if !g.proc.isDone {
+			if (g.cp.NewWidth > 0 && g.cp.NewWidth != dx) ||
+				(g.cp.NewHeight > 0 && g.cp.NewHeight != dy) {
 
-		if (g.cp.NewWidth > 0 && g.cp.NewWidth != dx) ||
-			(g.cp.NewHeight > 0 && g.cp.NewHeight != dy) {
-
-			errorMsg := fmt.Sprintf("%s %s %s",
-				utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-				utils.DecorateText("⇢ image resizing process aborted by the user...", utils.DefaultMessage),
-				utils.DecorateText("✘\n", utils.ErrorMessage),
-			)
-			g.cp.Spinner.StopMsg = errorMsg
-			g.cp.Spinner.Stop()
+				errorMsg := fmt.Sprintf("%s %s %s",
+					utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
+					utils.DecorateText("⇢ image resizing process aborted by the user...", utils.DefaultMessage),
+					utils.DecorateText("✘\n", utils.ErrorMessage),
+				)
+				g.cp.Spinner.StopMsg = errorMsg
+				g.cp.Spinner.Stop()
+			}
 		}
 		g.cp.Spinner.RestoreCursor()
 	}
@@ -149,6 +157,9 @@ func (g *Gui) Run() error {
 				return e.Err
 			}
 		case res := <-g.proc.wrk:
+			if res.done {
+				g.proc.isDone = true
+			}
 			if resizeBothSide {
 				continue
 			}
@@ -170,11 +181,6 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 
 	c := g.setColor(g.cfg.color.background)
 	paint.Fill(g.ctx.Ops, c)
-
-	type (
-		C = layout.Context
-		D = layout.Dimensions
-	)
 
 	if g.proc.img != nil {
 		src := paint.NewImageOp(g.proc.img)
@@ -238,22 +244,33 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 
 	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.
 	if resizeBothSide {
-		var th = material.NewTheme(gofont.Collection())
-		th.Palette.Fg = color.NRGBA{R: 0, A: 0xFF}
+		var msg string
 
-		layout.Flex{
-			Axis:      layout.Horizontal,
-			Alignment: layout.Middle,
-		}.Layout(g.ctx,
-			layout.Flexed(1, func(gtx C) D {
-				msg := "Preview is not available when the image is resized horizontally and vertically at the same time!"
-				return layout.UniformInset(unit.Dp(4)).Layout(g.ctx, func(gtx C) D {
-					return layout.Center.Layout(g.ctx, func(gtx C) D {
-						return material.Label(th, unit.Sp(40), msg).Layout(gtx)
-					})
-				})
-			},
-			))
+		if !g.proc.isDone {
+			msg = "Preview is not available while the image is resized both horizontally and vertically!"
+		} else {
+			msg = "Done, you might close this window!"
+		}
+		displayMessage(g.ctx, msg)
 	}
 	e.Frame(g.ctx.Ops)
+}
+
+// displayMessage show a static message when the image is resized both horizontally and vertically.
+func displayMessage(ctx layout.Context, msg string) {
+	var th = material.NewTheme(gofont.Collection())
+	th.Palette.Fg = color.NRGBA{R: 0, A: 0xFF}
+
+	layout.Flex{
+		Axis:      layout.Horizontal,
+		Alignment: layout.Middle,
+	}.Layout(ctx,
+		layout.Flexed(1, func(gtx C) D {
+			return layout.UniformInset(unit.Dp(4)).Layout(ctx, func(gtx C) D {
+				return layout.Center.Layout(ctx, func(gtx C) D {
+					return material.Label(th, unit.Sp(45), msg).Layout(gtx)
+				})
+			})
+		},
+		))
 }

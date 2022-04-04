@@ -27,13 +27,14 @@ import (
 var cascadeFile []byte
 
 var (
-	g              *gif.GIF
-	rCount         int
-	resizeBothSide = false // the image is resized both verticlaly and horizontally
-	isGif          = false
+	g      *gif.GIF
+	rCount int
 )
 
 var (
+	resizeBothSide = false // the image is resized both verticlaly and horizontally
+	isGif          = false
+
 	imgWorker = make(chan worker) // channel used to transfer the image to the GUI
 	errs      = make(chan error)
 )
@@ -42,6 +43,7 @@ var (
 type worker struct {
 	carver *Carver
 	img    *image.NRGBA
+	done   bool
 }
 
 // SeamCarver interface defines the Resize method.
@@ -373,6 +375,14 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			img = c.RotateImage270(img)
 		}
 	}
+	// Signal that the process is done and no more data is sent through the channel.
+	go func() {
+		imgWorker <- worker{
+			carver: nil,
+			img:    nil,
+			done:   true,
+		}
+	}()
 
 	return img, nil
 }
@@ -562,6 +572,7 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 		case imgWorker <- worker{
 			carver: c,
 			img:    img,
+			done:   false,
 		}:
 		case <-errs:
 			return
@@ -589,6 +600,7 @@ func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 		case imgWorker <- worker{
 			carver: c,
 			img:    img,
+			done:   false,
 		}:
 		case <-errs:
 			return
