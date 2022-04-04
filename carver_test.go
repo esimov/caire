@@ -241,11 +241,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	}
 	defer f.Close()
 
-	cf, err := classifier.ReadFile("data/facefinder")
-	if err != nil {
-		t.Fatalf("error reading the cascade file: %v", err)
-	}
-	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cf)
+	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
 	if err != nil {
 		t.Fatalf("error unpacking the cascade file: %v", err)
 	}
@@ -299,11 +295,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	}
 	defer f.Close()
 
-	cf, err := classifier.ReadFile("data/facefinder")
-	if err != nil {
-		t.Fatalf("error reading the cascade file: %v", err)
-	}
-	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cf)
+	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
 	if err != nil {
 		t.Fatalf("error unpacking the cascade file: %v", err)
 	}
