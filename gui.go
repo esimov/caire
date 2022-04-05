@@ -159,15 +159,18 @@ func (g *Gui) Run() error {
 		case res := <-g.proc.wrk:
 			if res.done {
 				g.proc.isDone = true
-			}
-			if resizeBothSide {
-				continue
+				break
 			}
 			g.proc.img = res.img
 			g.proc.seams = res.carver.Seams
 			if g.cp.vRes {
 				g.proc.img = res.carver.RotateImage270(g.proc.img.(*image.NRGBA))
 			}
+
+			if resizeBothSide {
+				continue
+			}
+
 			w.Invalidate()
 		}
 	}
@@ -244,22 +247,38 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent) {
 
 	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.
 	if resizeBothSide {
-		var msg string
+		var (
+			msg   string
+			fgcol color.NRGBA
+			bgcol color.NRGBA
+		)
 
 		if !g.proc.isDone {
 			msg = "Preview is not available while the image is resized both horizontally and vertically!"
+			bgcol = color.NRGBA{R: 245, G: 228, B: 215, A: 0xff}
+			fgcol = color.NRGBA{R: 3, G: 18, B: 14, A: 0xff}
 		} else {
-			msg = "Done, you might close this window!"
+			msg = "Done, you may close this window!"
+			bgcol = color.NRGBA{R: 15, G: 139, B: 141, A: 0xff}
+			fgcol = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+
 		}
-		displayMessage(g.ctx, msg)
+		displayMessage(e, g.ctx, bgcol, fgcol, msg)
 	}
 	e.Frame(g.ctx.Ops)
 }
 
 // displayMessage show a static message when the image is resized both horizontally and vertically.
-func displayMessage(ctx layout.Context, msg string) {
+func displayMessage(e system.FrameEvent, ctx layout.Context, bgcol, fgcol color.NRGBA, msg string) {
 	var th = material.NewTheme(gofont.Collection())
-	th.Palette.Fg = color.NRGBA{R: 0, A: 0xFF}
+	th.Palette.Fg = fgcol
+	paint.ColorOp{Color: bgcol}.Add(ctx.Ops)
+
+	rect := image.Rectangle{
+		Max: image.Point{X: e.Size.X, Y: e.Size.Y},
+	}
+	defer clip.Rect(rect).Push(ctx.Ops).Pop()
+	paint.PaintOp{}.Add(ctx.Ops)
 
 	layout.Flex{
 		Axis:      layout.Horizontal,
