@@ -23,16 +23,11 @@ import (
 	"github.com/esimov/caire/utils"
 )
 
-type (
-	C = layout.Context
-	D = layout.Dimensions
-)
-
 const (
 	maxScreenX = 1366
 	maxScreenY = 768
 
-	redStart   = 239
+	redStart   = 137
 	greenStart = 47
 	blueStart  = 54
 
@@ -56,6 +51,8 @@ type Gui struct {
 	cfg struct {
 		x      interval
 		y      interval
+		chrot  bool
+		angle  float32
 		window struct {
 			w     float64
 			h     float64
@@ -101,6 +98,8 @@ func NewGUI(w, h int) *Gui {
 // initWindow creates and initializes the GUI window.
 func (g *Gui) initWindow(w, h int) {
 	rand.NewSource(time.Now().UnixNano())
+
+	g.cfg.angle = 45
 
 	g.cfg.color.randR = uint8(random(1, 2))
 	g.cfg.color.randG = uint8(random(1, 2))
@@ -231,20 +230,26 @@ func (g *Gui) Run() error {
 				g.proc.isDone = true
 				break
 			}
+
+			if resizeBothSide {
+				continue
+			}
+
 			g.proc.img = res.img
 			g.proc.seams = res.carver.Seams
 			if g.cp.vRes {
 				g.proc.img = res.carver.RotateImage270(g.proc.img.(*image.NRGBA))
 			}
 
-			if resizeBothSide {
-				continue
-			}
-
 			w.Invalidate()
 		}
 	}
 }
+
+type (
+	C = layout.Context
+	D = layout.Dimensions
+)
 
 // draw draws the resized image in the GUI window (obtained from a channel)
 // and in case the debug mode is activated it prints out the seams.
@@ -343,14 +348,17 @@ func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol colo
 	defer clip.Rect(rect).Push(ctx.Ops).Pop()
 	paint.PaintOp{}.Add(ctx.Ops)
 
-	layout.Flex{
-		Axis:      layout.Horizontal,
-		Alignment: layout.Middle,
-	}.Layout(ctx,
-		layout.Flexed(1, func(gtx C) D {
+	layout.Stack{}.Layout(ctx,
+		layout.Stacked(func(gtx C) D {
 			return layout.UniformInset(unit.Dp(4)).Layout(ctx, func(gtx C) D {
 				if !g.proc.isDone {
+					gtx.Constraints.Min.Y = gtx.Px(unit.Dp(0))
+					tr := f32.Affine2D{}
 					dr := image.Rectangle{Max: gtx.Constraints.Min}
+
+					tr = tr.Rotate(f32.Pt(float32(e.Size.X/2), float32(e.Size.Y/2)), 0.005*-g.cfg.angle)
+					op.Affine(tr).Add(gtx.Ops)
+
 					since := time.Since(g.cfg.timeStamp)
 
 					if since.Seconds() > 5 {
@@ -367,14 +375,42 @@ func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol colo
 						Color2: color.NRGBA{R: bgCol.R * g.cfg.color.randR, G: 29, B: 54, A: 0xFF},
 					}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
+
+					if g.cfg.chrot {
+						g.cfg.angle--
+					} else {
+						g.cfg.angle++
+					}
+					if g.cfg.angle == -90 || g.cfg.angle == 90 {
+						g.cfg.chrot = !g.cfg.chrot
+					}
 				}
 
+				return layout.Dimensions{
+					Size: gtx.Constraints.Max,
+				}
+			})
+		}),
+		layout.Stacked(func(gtx C) D {
+			return layout.UniformInset(unit.Dp(4)).Layout(ctx, func(gtx C) D {
 				return layout.Center.Layout(ctx, func(gtx C) D {
 					return material.Label(th, unit.Sp(40), msg).Layout(gtx)
 				})
 			})
-		},
-		))
+		}),
+		layout.Stacked(func(gtx C) D {
+			info := "(You will be notified once the process is finished.)"
+			if g.proc.isDone {
+				return layout.Dimensions{}
+			}
+
+			return layout.Inset{Top: unit.Value{V: 80}}.Layout(ctx, func(gtx C) D {
+				return layout.Center.Layout(ctx, func(gtx C) D {
+					return material.Label(th, unit.Sp(13), info).Layout(gtx)
+				})
+			})
+		}),
+	)
 }
 
 // random generates a random number between two numbers.
