@@ -54,8 +54,8 @@ type Gui struct {
 		chrot  bool
 		angle  float32
 		window struct {
-			w     float64
-			h     float64
+			w     float32
+			h     float32
 			title string
 		}
 		color struct {
@@ -105,7 +105,7 @@ func (g *Gui) initWindow(w, h int) {
 	g.cfg.color.randG = uint8(random(1, 2))
 	g.cfg.color.randB = uint8(random(1, 2))
 
-	g.cfg.window.w, g.cfg.window.h = float64(w), float64(h)
+	g.cfg.window.w, g.cfg.window.h = float32(w), float32(h)
 	g.cfg.x = interval{min: 0, max: float64(w)}
 	g.cfg.y = interval{min: 0, max: float64(h)}
 
@@ -117,14 +117,14 @@ func (g *Gui) initWindow(w, h int) {
 }
 
 // getWindowSize returns the resized image dimmension.
-func (g *Gui) getWindowSize() (float64, float64) {
+func (g *Gui) getWindowSize() (float32, float32) {
 	w, h := g.cfg.window.w, g.cfg.window.h
 
 	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
 	r := getRatio(w, h)
 	if w > maxScreenX && h > maxScreenY {
-		w = float64(w) * r
-		h = float64(h) * r
+		w = w * r
+		h = h * r
 	}
 	return w, h
 }
@@ -142,8 +142,8 @@ func (g *Gui) Run() error {
 	)
 
 	w := app.NewWindow(app.Title(g.cfg.window.title), app.Size(
-		unit.Px(float32(g.cfg.window.w)),
-		unit.Px(float32(g.cfg.window.h)),
+		unit.Dp(g.cfg.window.w),
+		unit.Dp(g.cfg.window.h),
 	))
 	g.cfg.timeStamp = time.Now()
 
@@ -311,7 +311,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 							op.Affine(tr).Add(gtx.Ops)
 
 							for _, s := range g.proc.seams {
-								g.DrawSeam(g.cp.ShapeType, float64(s.X), float64(s.Y), 1)
+								g.DrawSeam(g.cp.ShapeType, float32(s.X), float32(s.Y), 1)
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}

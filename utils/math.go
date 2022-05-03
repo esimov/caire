@@ -2,20 +2,28 @@ package utils
 
 import "golang.org/x/exp/constraints"
 
-// Min returns the smaller value between two numbers.
-func Min[T constraints.Ordered](x, y T) T {
-	if x < y {
-		return x
+// Min returns the slowest value of the provided parameters.
+func Min[T constraints.Ordered](values ...T) T {
+	var acc T = values[0]
+
+	for _, v := range values {
+		if v < acc {
+			acc = v
+		}
 	}
-	return x
+	return acc
 }
 
-// Max returns the bigger value between two numbers.
-func Max[T constraints.Ordered](x, y T) T {
-	if x > y {
-		return x
+// Max returns the biggest value of the provided parameters.
+func Max[T constraints.Ordered](values ...T) T {
+	var acc T = values[0]
+
+	for _, v := range values {
+		if v > acc {
+			acc = v
+		}
 	}
-	return y
+	return acc
 }
 
 // Abs returns the absolut value of x.
