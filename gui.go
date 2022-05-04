@@ -402,7 +402,7 @@ func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol colo
 				return layout.Dimensions{}
 			}
 
-			return layout.Inset{Top: unit.Value{V: 120}}.Layout(ctx, func(gtx C) D {
+			return layout.Inset{Top: unit.Sp(70)}.Layout(ctx, func(gtx C) D {
 				return layout.Center.Layout(ctx, func(gtx C) D {
 					return material.Label(th, unit.Sp(13), info).Layout(gtx)
 				})
