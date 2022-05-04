@@ -19,15 +19,15 @@ const (
 )
 
 // DrawSeam visualizes the seam carver in action when the preview mode is activated.
-// It receives as parameters the shape type, the seam (x,y) coordinate and a size.
-func (g *Gui) DrawSeam(shape string, x, y, s float32) {
+// It receives as parameters the shape type, the seam (x,y) coordinates and a dimmension.
+func (g *Gui) DrawSeam(shape string, x, y, dim float32) {
 	r := getRatio(g.cfg.window.w, g.cfg.window.h)
 
 	switch shape {
 	case circle:
-		g.drawCircle(x*r, y*r, s)
+		g.drawCircle(x*r, y*r, dim)
 	case line:
-		g.drawLine(x*r, y*r, s)
+		g.drawLine(x*r, y*r, dim)
 	}
 }
 
@@ -83,7 +83,7 @@ func (g *Gui) drawCircle(x, y, s float32) {
 }
 
 // drawLine draws a line at the seam (x,y) coordinate with the provided line thickness.
-func (g *Gui) drawLine(x, y, s float32) {
+func (g *Gui) drawLine(x, y, thickness float32) {
 	var (
 		p1   = g.point(x, y)
 		p2   = g.point(x, y+1)
@@ -98,7 +98,7 @@ func (g *Gui) drawLine(x, y, s float32) {
 	col := utils.HexToRGBA(g.cp.SeamColor)
 	g.setFillColor(col)
 
-	defer clip.Stroke{Path: path.End(), Width: float32(s)}.Op().Push(g.ctx.Ops).Pop()
+	defer clip.Stroke{Path: path.End(), Width: float32(thickness)}.Op().Push(g.ctx.Ops).Pop()
 	paint.ColorOp{Color: g.setColor(g.getFillColor())}.Add(g.ctx.Ops)
 	paint.PaintOp{}.Add(g.ctx.Ops)
 }

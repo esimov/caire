@@ -24,10 +24,13 @@ import (
 )
 
 const (
+	// The starting colors for the linear gradient, used when the image is resized both horzontally and vertically.
+	// In this case the preview mode is deactivated and a dynamic gradient overlay is shown.
 	redStart   = 137
 	greenStart = 47
 	blueStart  = 54
 
+	// The ending colors for the linear gradient. The starting colors and ending colors are lerped.
 	redEnd   = 255
 	greenEnd = 112
 	blueEnd  = 105
@@ -214,7 +217,6 @@ func (g *Gui) Run() error {
 						descBlue = !descBlue
 					}
 				}
-
 				g.draw(w, e, color.NRGBA{R: rc, G: gc, B: bc})
 			case key.Event:
 				switch e.Name {
@@ -269,7 +271,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 				paint.FillShape(gtx.Ops, c,
 					clip.Rect{Max: g.ctx.Constraints.Max}.Op(),
 				)
-				return layout.UniformInset(unit.Px(0)).Layout(gtx,
+				return layout.UniformInset(unit.Dp(0)).Layout(gtx,
 					func(gtx C) D {
 						widget.Image{
 							Src:   src,
@@ -309,7 +311,11 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 							op.Affine(tr).Add(gtx.Ops)
 
 							for _, s := range g.proc.seams {
-								g.DrawSeam(g.cp.ShapeType, float32(s.X), float32(s.Y), 1)
+								dpx := unit.Dp(float32(s.X))
+								dpy := unit.Dp(float32(s.Y))
+								// Convert px unit to dp.
+								px := float32(g.cfg.window.h) * (float32(0.5) / float32(160))
+								g.DrawSeam(g.cp.ShapeType, dpx.V, dpy.Scale(px).V, 1)
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}
