@@ -32,8 +32,8 @@ var (
 )
 
 var (
-	resizeBothSide = false // the image is resized both verticlaly and horizontally
-	isGif          = false
+	resizeXY = false // the image is resized both verticlaly and horizontally
+	isGif    = false
 
 	imgWorker = make(chan worker) // channel used to transfer the image to the GUI
 	errs      = make(chan error)
@@ -194,7 +194,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// If the image is resized both horizontally and vertically we need
 		// to rotate the image each time we are invoking the shrink function.
 		// Otherwise we rotate the image only once, right before calling this function.
-		if resizeBothSide {
+		if resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = c.RotateImage90(img)
 		}
@@ -203,7 +203,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if err != nil {
 				return nil, err
 			}
-			if resizeBothSide {
+			if resizeXY {
 				img = c.RotateImage270(img)
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
@@ -216,7 +216,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				img, _ = shrinkVertFn(c, img)
 			}
 		} else {
-			if resizeBothSide {
+			if resizeXY {
 				img = c.RotateImage270(img)
 			}
 		}
@@ -229,7 +229,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		p.vRes = true
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 
-		if resizeBothSide {
+		if resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = c.RotateImage90(img)
 		}
@@ -238,7 +238,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if err != nil {
 				return nil, err
 			}
-			if resizeBothSide {
+			if resizeXY {
 				img = c.RotateImage270(img)
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
@@ -251,16 +251,12 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				img, _ = enlargeVertFn(c, img)
 			}
 		} else {
-			if resizeBothSide {
+			if resizeXY {
 				img = c.RotateImage270(img)
 			}
 		}
 		rCount++
 		return img, nil
-	}
-
-	if p.NewWidth != 0 && p.NewHeight != 0 {
-		resizeBothSide = true
 	}
 
 	if p.Percentage || p.Square {
@@ -328,7 +324,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 	}
 
-	// Rescale the image when it's resized both horizontally and vertically.
+	// Rescale the image when it is resized both horizontally and vertically.
 	// First the image is scaled down or up by preserving the image aspect ratio,
 	// then the seam carving algorithm is applied only to the remaining pixels.
 
@@ -342,9 +338,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		dx0, dy0 := img.Bounds().Max.X, img.Bounds().Max.Y
 		dx1, dy1 := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
 
-		// Rescale the image when the new image width or height are preserved,
-		// otherwise it might happen, that the generated image size
-		// does not match with the requested image size.
+		// Rescale the image when the new image width or height are preserved, otherwise
+		// it might happen, that the generated image size does not match with the requested image size.
 		if !((p.NewWidth == 0 && dx0 == dx1) || (p.NewHeight == 0 && dy0 == dy1)) {
 			dst := image.NewNRGBA(newImg.Bounds())
 			draw.Draw(dst, newImg.Bounds(), newImg, image.Point{}, draw.Src)
@@ -363,7 +358,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 	// Run the carver function if the desired image height is not identical with the rescaled image height.
 	if newHeight > 0 && p.NewHeight != c.Height {
-		if !resizeBothSide {
+		if !resizeXY {
 			img = c.RotateImage90(img)
 		}
 		if p.NewHeight > c.Height {
@@ -371,7 +366,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		} else {
 			img, _ = shrinkVertFn(c, img)
 		}
-		if !resizeBothSide {
+		if !resizeXY {
 			img = c.RotateImage270(img)
 		}
 	}
@@ -440,6 +435,10 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	}
 	img := p.imgToNRGBA(src)
 
+	if p.NewWidth != 0 && p.NewHeight != 0 {
+		resizeXY = true
+	}
+
 	if len(p.MaskPath) > 0 {
 		mf, err := os.Open(p.MaskPath)
 		if err != nil {
@@ -491,6 +490,10 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		}
 		if p.NewHeight > guiHeight {
 			guiHeight = p.NewHeight
+		}
+		if resizeXY {
+			guiWidth = 1024
+			guiHeight = 640
 		}
 
 		guiParams := struct {

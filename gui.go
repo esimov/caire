@@ -24,9 +24,6 @@ import (
 )
 
 const (
-	maxScreenX = 1366
-	maxScreenY = 768
-
 	redStart   = 137
 	greenStart = 47
 	blueStart  = 54
@@ -37,6 +34,9 @@ const (
 )
 
 var (
+	maxScreenX = unit.Dp(800)
+	maxScreenY = unit.Dp(600)
+
 	defaultBkgColor  = color.Transparent
 	defaultFillColor = color.Black
 )
@@ -100,7 +100,6 @@ func (g *Gui) initWindow(w, h int) {
 	rand.NewSource(time.Now().UnixNano())
 
 	g.cfg.angle = 45
-
 	g.cfg.color.randR = uint8(random(1, 2))
 	g.cfg.color.randG = uint8(random(1, 2))
 	g.cfg.color.randB = uint8(random(1, 2))
@@ -112,17 +111,18 @@ func (g *Gui) initWindow(w, h int) {
 	g.cfg.color.background = defaultBkgColor
 	g.cfg.color.fill = defaultFillColor
 
-	g.cfg.window.w, g.cfg.window.h = g.getWindowSize()
+	if !resizeXY {
+		g.cfg.window.w, g.cfg.window.h = g.getWindowSize()
+	}
 	g.cfg.window.title = "Preview"
 }
 
 // getWindowSize returns the resized image dimmension.
 func (g *Gui) getWindowSize() (float32, float32) {
 	w, h := g.cfg.window.w, g.cfg.window.h
-
 	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
 	r := getRatio(w, h)
-	if w > maxScreenX && h > maxScreenY {
+	if w > maxScreenX.V && h > maxScreenY.V {
 		w = w * r
 		h = h * r
 	}
@@ -230,11 +230,9 @@ func (g *Gui) Run() error {
 				g.proc.isDone = true
 				break
 			}
-
-			if resizeBothSide {
+			if resizeXY {
 				continue
 			}
-
 			g.proc.img = res.img
 			g.proc.seams = res.carver.Seams
 			if g.cp.vRes {
@@ -321,7 +319,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 	}
 
 	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.
-	if resizeBothSide {
+	if resizeXY {
 		var msg string
 
 		if !g.proc.isDone {
@@ -404,7 +402,7 @@ func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol colo
 				return layout.Dimensions{}
 			}
 
-			return layout.Inset{Top: unit.Value{V: 80}}.Layout(ctx, func(gtx C) D {
+			return layout.Inset{Top: unit.Value{V: 120}}.Layout(ctx, func(gtx C) D {
 				return layout.Center.Layout(ctx, func(gtx C) D {
 					return material.Label(th, unit.Sp(13), info).Layout(gtx)
 				})
