@@ -37,8 +37,8 @@ const (
 )
 
 var (
-	maxScreenX = unit.Dp(800)
-	maxScreenY = unit.Dp(600)
+	maxScreenX = unit.Dp(1024)
+	maxScreenY = unit.Dp(768)
 
 	defaultBkgColor  = color.Transparent
 	defaultFillColor = color.Black
@@ -143,7 +143,6 @@ func (g *Gui) Run() error {
 
 		descRed, descGreen, descBlue bool
 	)
-
 	w := app.NewWindow(app.Title(g.cfg.window.title), app.Size(
 		unit.Dp(g.cfg.window.w),
 		unit.Dp(g.cfg.window.h),
@@ -311,11 +310,15 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 							op.Affine(tr).Add(gtx.Ops)
 
 							for _, s := range g.proc.seams {
+								var dpi float32 = 1
 								dpx := unit.Dp(float32(s.X))
 								dpy := unit.Dp(float32(s.Y))
 
-								// Convert from pixel to dpi.
-								dpi := float32(g.cfg.window.h) * 0.5 / float32(160)
+								if int(screen.Y) > len(g.proc.seams) {
+									// Apply the pixel to dpi conversion formula in case
+									// the screen height is greather than the image height.
+									dpi = float32(g.cfg.window.h) * 0.4 / float32(160)
+								}
 								g.DrawSeam(g.cp.ShapeType, dpx.V, dpy.Scale(dpi).V, 1)
 							}
 						}
