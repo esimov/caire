@@ -280,7 +280,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 						}.Layout(gtx)
 
 						if g.cp.Debug {
-							var ratio float32
+							var ratio float32 = 1
 							tr := f32.Affine2D{}
 							screen := layout.FPt(g.ctx.Constraints.Max)
 							width, height := float32(g.proc.img.Bounds().Dx()), float32(g.proc.img.Bounds().Dy())
@@ -313,9 +313,10 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 							for _, s := range g.proc.seams {
 								dpx := unit.Dp(float32(s.X))
 								dpy := unit.Dp(float32(s.Y))
-								// Convert px unit to dp.
-								px := float32(g.cfg.window.h) * (float32(0.5) / float32(160))
-								g.DrawSeam(g.cp.ShapeType, dpx.V, dpy.Scale(px).V, 1)
+
+								// Convert from pixel to dpi.
+								dpi := float32(g.cfg.window.h) * 0.5 / float32(160)
+								g.DrawSeam(g.cp.ShapeType, dpx.V, dpy.Scale(dpi).V, 1)
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}
