@@ -59,14 +59,7 @@ The image below illustrates the application capabilities for human face detectio
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
 
 ```bash
-$ export GOPATH="$HOME/go"
-$ export PATH="$PATH:$GOPATH/bin"
-```
-Next download the project and build the binary file.
-
-```bash
-$ go get -u -f github.com/esimov/caire/cmd/caire
-$ go install
+$ go install github.com/esimov/caire/cmd/caire@latest 
 ```
 
 ## MacOS (Brew) install
