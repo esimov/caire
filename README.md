@@ -104,12 +104,11 @@ The following flags are supported:
 
 <p align="center"><img alt="GUI preview" title="GUI preview" src="https://github.com/esimov/caire/raw/master/gui_preview.gif"></p>
 
-A GUI preview window is also supported for showing the resizing process. For the GUI part I've opted of using the Gio library for its robustness and modern architecture. But in order to use it you have to install all of its dependencies. So please check the installation section here: https://gioui.org/#installation. 
-
-The preview window is activated by default but you can disable it with by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is disabled.
+A GUI preview window is also incorporated for in time process visualization. The Gio GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) . 
+The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivat.
 
 ### Face detection to avoid face deformation
-In order to detect faces prior rescaling use the `-face` flag. There is no need to provide a face classification cascade file, since it's already embedded into the generated binary file. The sample code below will rescale the provided image with 20%, but will run the face detection prior rescaling in order tot avoid face deformations.
+In order to detect faces prior rescaling, use the `-face` flag. There is no need to provide a face classification file, since it's already embedded into the generated binary file. The sample code below will resize the provided image with 20%, but before run the face detector in order tot avoid face deformations.
 
 For face detection related settings please check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
