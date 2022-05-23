@@ -43,18 +43,6 @@ Key features which differentiates this library from the other existing open sour
 - [x] Support for protective mask
 - [x] Support for removal mask
 
-## Face detection
-
-The library is capable of detecting human faces prior resizing the images by using the lightweight Pigo (https://github.com/esimov/pigo) face detection library. The library does not require to already have OpenCV installed.
-
-The image below illustrates the application capabilities for human face detection prior resizing. It's clearly visible from the image that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
-
-| Original image | With face detection | Without face detection
-|:--:|:--:|:--:|
-| ![Original](https://user-images.githubusercontent.com/883386/37569642-0c5f49e8-2aee-11e8-8ac1-d096c0387ca0.jpg) | ![With Face Detection](https://user-images.githubusercontent.com/883386/41292871-6ca43280-6e5c-11e8-9d72-5b9a138228b6.jpg) | ![Without Face Detection](https://user-images.githubusercontent.com/883386/41292872-6cc90e8e-6e5c-11e8-8b41-5b4eb5042381.jpg) |
-
-[Sample image source](http://www.lens-rumors.com/wp-content/uploads/2014/12/EF-M-55-200mm-f4.5-6.3-IS-STM-sample.jpg)
-
 ## Install
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
 
@@ -100,15 +88,28 @@ The following flags are supported:
 | `col` | string | Seam color (default `#ff0000`) |
 | `shape` | string | Shape type used for debugging: `circle`,`line` (default `circle`) |
 
+## Face detection
+
+The library is capable of detecting human faces prior resizing the images by using the lightweight Pigo (https://github.com/esimov/pigo) face detection library.
+
+The image below illustrates the application capabilities for human face detection prior resizing. It's clearly visible that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
+
+| Original image | With face detection | Without face detection
+|:--:|:--:|:--:|
+| ![Original](https://user-images.githubusercontent.com/883386/37569642-0c5f49e8-2aee-11e8-8ac1-d096c0387ca0.jpg) | ![With Face Detection](https://user-images.githubusercontent.com/883386/41292871-6ca43280-6e5c-11e8-9d72-5b9a138228b6.jpg) | ![Without Face Detection](https://user-images.githubusercontent.com/883386/41292872-6cc90e8e-6e5c-11e8-8b41-5b4eb5042381.jpg) |
+
+[Sample image source](http://www.lens-rumors.com/wp-content/uploads/2014/12/EF-M-55-200mm-f4.5-6.3-IS-STM-sample.jpg)
+
 ### GUI progress indicator
 
 <p align="center"><img alt="GUI preview" title="GUI preview" src="https://github.com/esimov/caire/raw/master/gui_preview.gif"></p>
 
-A GUI preview window is also incorporated for in time process visualization. The Gio GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) . 
-The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivat.
+A GUI preview mode is also incorporated into the library for in time process visualization. The Gio GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) .
+
+The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivated.
 
 ### Face detection to avoid face deformation
-In order to detect faces prior rescaling, use the `-face` flag. There is no need to provide a face classification file, since it's already embedded into the generated binary file. The sample code below will resize the provided image with 20%, but before run the face detector in order tot avoid face deformations.
+In order to detect faces prior rescaling, use the `-face` flag. There is no need to provide a face classification file, since it's already embedded into the generated binary file. The sample code below will resize the provided image with 20%, but checks for human faces in order tot avoid face deformations.
 
 For face detection related settings please check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
@@ -130,7 +131,7 @@ $ cat input/source.jpg | caire >out.jpg
 $ caire -out out.jpg < input/source.jpg
 ```
 
-You can provide also an image URL for the `-in` flag or even use **cURL** as a pipe command in which case there is no need to use the `-in` flag.
+You can provide also an image URL for the `-in` flag or even use **curl** or **wget** as a pipe command in which case there is no need to use the `-in` flag.
 
 ```bash
 $ caire -in <image_url> -out <output-folder>
@@ -138,14 +139,14 @@ $ curl -s <image_url> | caire > out.jpg
 ```
 
 ### Process multiple images from a directory concurrently
-The library can also process multiple images from a directory **concurrently**. You only need to provide the source and the destination folder by using the `-in` and `-out` flags.
+The library can also process multiple images from a directory **concurrently**. You have to provide only the source and the destination folder and the new width or height in this case.
 
 ```bash
 $ caire -in <input_folder> -out <output-folder>
 ```
 
 ### Support for multiple output image type
-There is no need to define the output file type. The library is capable of detecting the output image type directly by the file extension and encodes the image to that specific type. You can export the resized image even to a **Gif** file, in which case the generated file shows the resizing process interactively.
+There is no need to define the output file type, just use the correct extension and the library will encode the image to that specific type. You can export the resized image even to a **Gif** file, in which case the generated file shows the resizing process interactively.
 
 ### Other options
 In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:
@@ -156,7 +157,7 @@ $ caire -in input/source.jpg -out ./out.jpg -perc=1 -width=20 -height=20 -debug=
 
 Also the library supports the **`-square`** option. When this option is used the image will be resized to a square, based on the shortest edge.
 
-When an image is resized on both the X and Y axis, the algorithm first try to rescale it prior resizing, but also preserves the image aspect ratio. Afterwards the seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
+When an image is resized on both the X and Y axis, the algorithm will first try to rescale it prior resizing, but also will preserve the image aspect ratio. The seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
 
 #### Masks support:
 
