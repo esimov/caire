@@ -36,6 +36,8 @@ type VulkanRenderTarget struct {
 	WaitSem uint64
 	// SignalSem is a VkSemaphore that signal access to Framebuffer is complete.
 	SignalSem uint64
+	// Fence is a VkFence that is set when all commands to Framebuffer has completed.
+	Fence uint64
 	// Image is the VkImage to render into.
 	Image uint64
 	// Framebuffer is a VkFramebuffer for Image.

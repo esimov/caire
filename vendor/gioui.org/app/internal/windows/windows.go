@@ -9,10 +9,24 @@ import (
 	"fmt"
 	"runtime"
 	"time"
+	"unicode/utf16"
 	"unsafe"
 
 	syscall "golang.org/x/sys/windows"
 )
+
+type CompositionForm struct {
+	dwStyle      uint32
+	ptCurrentPos Point
+	rcArea       Rect
+}
+
+type CandidateForm struct {
+	dwIndex      uint32
+	dwStyle      uint32
+	ptCurrentPos Point
+	rcArea       Rect
+}
 
 type Rect struct {
 	Left, Top, Right, Bottom int32
@@ -75,24 +89,55 @@ type MonitorInfo struct {
 const (
 	TRUE = 1
 
-	CS_HREDRAW = 0x0002
-	CS_VREDRAW = 0x0001
-	CS_OWNDC   = 0x0020
+	CPS_CANCEL = 0x0004
+
+	CS_HREDRAW     = 0x0002
+	CS_INSERTCHAR  = 0x2000
+	CS_NOMOVECARET = 0x4000
+	CS_VREDRAW     = 0x0001
+	CS_OWNDC       = 0x0020
 
 	CW_USEDEFAULT = -2147483648
 
-	GWL_STYLE    = ^(uint32(16) - 1) // -16
-	HWND_TOPMOST = ^(uint32(1) - 1)  // -1
+	GWL_STYLE = ^(uintptr(16) - 1) // -16
 
-	HTCLIENT = 1
+	GCS_COMPSTR       = 0x0008
+	GCS_COMPREADSTR   = 0x0001
+	GCS_CURSORPOS     = 0x0080
+	GCS_DELTASTART    = 0x0100
+	GCS_RESULTREADSTR = 0x0200
+	GCS_RESULTSTR     = 0x0800
 
-	IDC_ARROW   = 32512
-	IDC_IBEAM   = 32513
-	IDC_HAND    = 32649
-	IDC_CROSS   = 32515
-	IDC_SIZENS  = 32645
-	IDC_SIZEWE  = 32644
-	IDC_SIZEALL = 32646
+	CFS_POINT        = 0x0002
+	CFS_CANDIDATEPOS = 0x0040
+
+	HWND_TOPMOST = ^(uint32(1) - 1) // -1
+
+	HTCAPTION     = 2
+	HTCLIENT      = 1
+	HTLEFT        = 10
+	HTRIGHT       = 11
+	HTTOP         = 12
+	HTTOPLEFT     = 13
+	HTTOPRIGHT    = 14
+	HTBOTTOM      = 15
+	HTBOTTOMLEFT  = 16
+	HTBOTTOMRIGHT = 17
+
+	IDC_APPSTARTING = 32650 // Standard arrow and small hourglass
+	IDC_ARROW       = 32512 // Standard arrow
+	IDC_CROSS       = 32515 // Crosshair
+	IDC_HAND        = 32649 // Hand
+	IDC_HELP        = 32651 // Arrow and question mark
+	IDC_IBEAM       = 32513 // I-beam
+	IDC_NO          = 32648 // Slashed circle
+	IDC_SIZEALL     = 32646 // Four-pointed arrow pointing north, south, east, and west
+	IDC_SIZENESW    = 32643 // Double-pointed arrow pointing northeast and southwest
+	IDC_SIZENS      = 32645 // Double-pointed arrow pointing north and south
+	IDC_SIZENWSE    = 32642 // Double-pointed arrow pointing northwest and southeast
+	IDC_SIZEWE      = 32644 // Double-pointed arrow pointing west and east
+	IDC_UPARROW     = 32516 // Vertical arrow
+	IDC_WAIT        = 32514 // Hour
 
 	INFINITE = 0xFFFFFFFF
 
@@ -102,11 +147,22 @@ const (
 
 	MONITOR_DEFAULTTOPRIMARY = 1
 
+	NI_COMPOSITIONSTR = 0x0015
+
 	SIZE_MAXIMIZED = 2
 	SIZE_MINIMIZED = 1
 	SIZE_RESTORED  = 0
 
-	SW_SHOWDEFAULT = 10
+	SCS_SETSTR = GCS_COMPREADSTR | GCS_COMPSTR
+
+	SM_CXSIZEFRAME = 32
+	SM_CYSIZEFRAME = 33
+
+	SW_SHOWDEFAULT   = 10
+	SW_SHOWMINIMIZED = 2
+	SW_SHOWMAXIMIZED = 3
+	SW_SHOWNORMAL    = 1
+	SW_SHOW          = 5
 
 	SWP_FRAMECHANGED  = 0x0020
 	SWP_NOMOVE        = 0x0002
@@ -166,41 +222,47 @@ const (
 
 	UNICODE_NOCHAR = 65535
 
-	WM_CANCELMODE    = 0x001F
-	WM_CHAR          = 0x0102
-	WM_CREATE        = 0x0001
-	WM_DPICHANGED    = 0x02E0
-	WM_DESTROY       = 0x0002
-	WM_ERASEBKGND    = 0x0014
-	WM_KEYDOWN       = 0x0100
-	WM_KEYUP         = 0x0101
-	WM_LBUTTONDOWN   = 0x0201
-	WM_LBUTTONUP     = 0x0202
-	WM_MBUTTONDOWN   = 0x0207
-	WM_MBUTTONUP     = 0x0208
-	WM_MOUSEMOVE     = 0x0200
-	WM_MOUSEWHEEL    = 0x020A
-	WM_MOUSEHWHEEL   = 0x020E
-	WM_PAINT         = 0x000F
-	WM_CLOSE         = 0x0010
-	WM_QUIT          = 0x0012
-	WM_SETCURSOR     = 0x0020
-	WM_SETFOCUS      = 0x0007
-	WM_KILLFOCUS     = 0x0008
-	WM_SHOWWINDOW    = 0x0018
-	WM_SIZE          = 0x0005
-	WM_SYSKEYDOWN    = 0x0104
-	WM_SYSKEYUP      = 0x0105
-	WM_RBUTTONDOWN   = 0x0204
-	WM_RBUTTONUP     = 0x0205
-	WM_TIMER         = 0x0113
-	WM_UNICHAR       = 0x0109
-	WM_USER          = 0x0400
-	WM_GETMINMAXINFO = 0x0024
+	WM_CANCELMODE           = 0x001F
+	WM_CHAR                 = 0x0102
+	WM_CLOSE                = 0x0010
+	WM_CREATE               = 0x0001
+	WM_DPICHANGED           = 0x02E0
+	WM_DESTROY              = 0x0002
+	WM_ERASEBKGND           = 0x0014
+	WM_GETMINMAXINFO        = 0x0024
+	WM_IME_COMPOSITION      = 0x010F
+	WM_IME_ENDCOMPOSITION   = 0x010E
+	WM_IME_STARTCOMPOSITION = 0x010D
+	WM_KEYDOWN              = 0x0100
+	WM_KEYUP                = 0x0101
+	WM_KILLFOCUS            = 0x0008
+	WM_LBUTTONDOWN          = 0x0201
+	WM_LBUTTONUP            = 0x0202
+	WM_MBUTTONDOWN          = 0x0207
+	WM_MBUTTONUP            = 0x0208
+	WM_MOUSEMOVE            = 0x0200
+	WM_MOUSEWHEEL           = 0x020A
+	WM_MOUSEHWHEEL          = 0x020E
+	WM_NCHITTEST            = 0x0084
+	WM_PAINT                = 0x000F
+	WM_QUIT                 = 0x0012
+	WM_SETCURSOR            = 0x0020
+	WM_SETFOCUS             = 0x0007
+	WM_SHOWWINDOW           = 0x0018
+	WM_SIZE                 = 0x0005
+	WM_SYSKEYDOWN           = 0x0104
+	WM_SYSKEYUP             = 0x0105
+	WM_RBUTTONDOWN          = 0x0204
+	WM_RBUTTONUP            = 0x0205
+	WM_TIMER                = 0x0113
+	WM_UNICHAR              = 0x0109
+	WM_USER                 = 0x0400
+	WM_WINDOWPOSCHANGED     = 0x0047
 
-	WS_CLIPCHILDREN     = 0x00010000
+	WS_CLIPCHILDREN     = 0x02000000
 	WS_CLIPSIBLINGS     = 0x04000000
 	WS_MAXIMIZE         = 0x01000000
+	WS_ICONIC           = 0x20000000
 	WS_VISIBLE          = 0x10000000
 	WS_OVERLAPPED       = 0x00000000
 	WS_OVERLAPPEDWINDOW = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME |
@@ -259,7 +321,7 @@ var (
 	_DestroyWindow               = user32.NewProc("DestroyWindow")
 	_DispatchMessage             = user32.NewProc("DispatchMessageW")
 	_EmptyClipboard              = user32.NewProc("EmptyClipboard")
-	_GetClientRect               = user32.NewProc("GetClientRect")
+	_GetWindowRect               = user32.NewProc("GetWindowRect")
 	_GetClipboardData            = user32.NewProc("GetClipboardData")
 	_GetDC                       = user32.NewProc("GetDC")
 	_GetDpiForWindow             = user32.NewProc("GetDpiForWindow")
@@ -267,7 +329,9 @@ var (
 	_GetMessage                  = user32.NewProc("GetMessageW")
 	_GetMessageTime              = user32.NewProc("GetMessageTime")
 	_GetMonitorInfo              = user32.NewProc("GetMonitorInfoW")
+	_GetSystemMetrics            = user32.NewProc("GetSystemMetrics")
 	_GetWindowLong               = user32.NewProc("GetWindowLongPtrW")
+	_GetWindowLong32             = user32.NewProc("GetWindowLongW")
 	_GetWindowPlacement          = user32.NewProc("GetWindowPlacement")
 	_KillTimer                   = user32.NewProc("KillTimer")
 	_LoadCursor                  = user32.NewProc("LoadCursorW")
@@ -293,6 +357,7 @@ var (
 	_SetProcessDPIAware          = user32.NewProc("SetProcessDPIAware")
 	_SetTimer                    = user32.NewProc("SetTimer")
 	_SetWindowLong               = user32.NewProc("SetWindowLongPtrW")
+	_SetWindowLong32             = user32.NewProc("SetWindowLongW")
 	_SetWindowPlacement          = user32.NewProc("SetWindowPlacement")
 	_SetWindowPos                = user32.NewProc("SetWindowPos")
 	_SetWindowText               = user32.NewProc("SetWindowTextW")
@@ -305,16 +370,22 @@ var (
 
 	gdi32          = syscall.NewLazySystemDLL("gdi32")
 	_GetDeviceCaps = gdi32.NewProc("GetDeviceCaps")
+
+	imm32                    = syscall.NewLazySystemDLL("imm32")
+	_ImmGetContext           = imm32.NewProc("ImmGetContext")
+	_ImmGetCompositionString = imm32.NewProc("ImmGetCompositionStringW")
+	_ImmNotifyIME            = imm32.NewProc("ImmNotifyIME")
+	_ImmReleaseContext       = imm32.NewProc("ImmReleaseContext")
+	_ImmSetCandidateWindow   = imm32.NewProc("ImmSetCandidateWindow")
+	_ImmSetCompositionWindow = imm32.NewProc("ImmSetCompositionWindow")
 )
 
 func AdjustWindowRectEx(r *Rect, dwStyle uint32, bMenu int, dwExStyle uint32) {
 	_AdjustWindowRectEx.Call(uintptr(unsafe.Pointer(r)), uintptr(dwStyle), uintptr(bMenu), uintptr(dwExStyle))
-	issue34474KeepAlive(r)
 }
 
 func CallMsgFilter(m *Msg, nCode uintptr) bool {
 	r, _, _ := _CallMsgFilter.Call(uintptr(unsafe.Pointer(m)), nCode)
-	issue34474KeepAlive(m)
 	return r != 0
 }
 
@@ -339,7 +410,6 @@ func CreateWindowEx(dwExStyle uint32, lpClassName uint16, lpWindowName string, d
 		uintptr(hMenu),
 		uintptr(hInstance),
 		uintptr(lpParam))
-	issue34474KeepAlive(wname)
 	if hwnd == 0 {
 		return 0, fmt.Errorf("CreateWindowEx failed: %v", err)
 	}
@@ -357,7 +427,6 @@ func DestroyWindow(hwnd syscall.Handle) {
 
 func DispatchMessage(m *Msg) {
 	_DispatchMessage.Call(uintptr(unsafe.Pointer(m)))
-	issue34474KeepAlive(m)
 }
 
 func EmptyClipboard() error {
@@ -368,9 +437,10 @@ func EmptyClipboard() error {
 	return nil
 }
 
-func GetClientRect(hwnd syscall.Handle, r *Rect) {
-	_GetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(r)))
-	issue34474KeepAlive(r)
+func GetWindowRect(hwnd syscall.Handle) Rect {
+	var r Rect
+	_GetWindowRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&r)))
+	return r
 }
 
 func GetClipboardData(format uint32) (syscall.Handle, error) {
@@ -435,13 +505,17 @@ func GetMessage(m *Msg, hwnd syscall.Handle, wMsgFilterMin, wMsgFilterMax uint32
 		uintptr(hwnd),
 		uintptr(wMsgFilterMin),
 		uintptr(wMsgFilterMax))
-	issue34474KeepAlive(m)
 	return int32(r)
 }
 
 func GetMessageTime() time.Duration {
 	r, _, _ := _GetMessageTime.Call()
 	return time.Duration(r) * time.Millisecond
+}
+
+func GetSystemMetrics(nIndex int) int {
+	r, _, _ := _GetSystemMetrics.Call(uintptr(nIndex))
+	return int(r)
 }
 
 // GetWindowDPI returns the effective DPI of the window.
@@ -470,13 +544,69 @@ func GetMonitorInfo(hwnd syscall.Handle) MonitorInfo {
 	return mi
 }
 
-func GetWindowLong(hwnd syscall.Handle) (style uintptr) {
-	style, _, _ = _GetWindowLong.Call(uintptr(hwnd), uintptr(GWL_STYLE))
+func GetWindowLong(hwnd syscall.Handle, index uintptr) (val uintptr) {
+	if runtime.GOARCH == "386" {
+		val, _, _ = _GetWindowLong32.Call(uintptr(hwnd), index)
+	} else {
+		val, _, _ = _GetWindowLong.Call(uintptr(hwnd), index)
+	}
 	return
 }
 
-func SetWindowLong(hwnd syscall.Handle, idx uint32, style uintptr) {
-	_SetWindowLong.Call(uintptr(hwnd), uintptr(idx), style)
+func ImmGetContext(hwnd syscall.Handle) syscall.Handle {
+	h, _, _ := _ImmGetContext.Call(uintptr(hwnd))
+	return syscall.Handle(h)
+}
+
+func ImmReleaseContext(hwnd, imc syscall.Handle) {
+	_ImmReleaseContext.Call(uintptr(hwnd), uintptr(imc))
+}
+
+func ImmNotifyIME(imc syscall.Handle, action, index, value int) {
+	_ImmNotifyIME.Call(uintptr(imc), uintptr(action), uintptr(index), uintptr(value))
+}
+
+func ImmGetCompositionString(imc syscall.Handle, key int) string {
+	size, _, _ := _ImmGetCompositionString.Call(uintptr(imc), uintptr(key), 0, 0)
+	if int32(size) <= 0 {
+		return ""
+	}
+	u16 := make([]uint16, size/unsafe.Sizeof(uint16(0)))
+	_ImmGetCompositionString.Call(uintptr(imc), uintptr(key), uintptr(unsafe.Pointer(&u16[0])), size)
+	return string(utf16.Decode(u16))
+}
+
+func ImmGetCompositionValue(imc syscall.Handle, key int) int {
+	val, _, _ := _ImmGetCompositionString.Call(uintptr(imc), uintptr(key), 0, 0)
+	return int(int32(val))
+}
+
+func ImmSetCompositionWindow(imc syscall.Handle, x, y int) {
+	f := CompositionForm{
+		dwStyle: CFS_POINT,
+		ptCurrentPos: Point{
+			X: int32(x), Y: int32(y),
+		},
+	}
+	_ImmSetCompositionWindow.Call(uintptr(imc), uintptr(unsafe.Pointer(&f)))
+}
+
+func ImmSetCandidateWindow(imc syscall.Handle, x, y int) {
+	f := CandidateForm{
+		dwStyle: CFS_CANDIDATEPOS,
+		ptCurrentPos: Point{
+			X: int32(x), Y: int32(y),
+		},
+	}
+	_ImmSetCandidateWindow.Call(uintptr(imc), uintptr(unsafe.Pointer(&f)))
+}
+
+func SetWindowLong(hwnd syscall.Handle, idx uintptr, style uintptr) {
+	if runtime.GOARCH == "386" {
+		_SetWindowLong32.Call(uintptr(hwnd), idx, style)
+	} else {
+		_SetWindowLong.Call(uintptr(hwnd), idx, style)
+	}
 }
 
 func SetWindowPlacement(hwnd syscall.Handle, wp *WindowPlacement) {
@@ -508,12 +638,12 @@ func GlobalFree(h syscall.Handle) {
 	_GlobalFree.Call(uintptr(h))
 }
 
-func GlobalLock(h syscall.Handle) (uintptr, error) {
+func GlobalLock(h syscall.Handle) (unsafe.Pointer, error) {
 	r, _, err := _GlobalLock.Call(uintptr(h))
 	if r == 0 {
-		return 0, fmt.Errorf("GlobalLock: %v", err)
+		return nil, fmt.Errorf("GlobalLock: %v", err)
 	}
-	return r, nil
+	return unsafe.Pointer(r), nil
 }
 
 func GlobalUnlock(h syscall.Handle) {
@@ -576,7 +706,6 @@ func OpenClipboard(hwnd syscall.Handle) error {
 
 func PeekMessage(m *Msg, hwnd syscall.Handle, wMsgFilterMin, wMsgFilterMax, wRemoveMsg uint32) bool {
 	r, _, _ := _PeekMessage.Call(uintptr(unsafe.Pointer(m)), uintptr(hwnd), uintptr(wMsgFilterMin), uintptr(wMsgFilterMax), uintptr(wRemoveMsg))
-	issue34474KeepAlive(m)
 	return r != 0
 }
 
@@ -599,7 +728,6 @@ func ReleaseCapture() bool {
 
 func RegisterClassEx(cls *WndClassEx) (uint16, error) {
 	a, _, err := _RegisterClassExW.Call(uintptr(unsafe.Pointer(cls)))
-	issue34474KeepAlive(cls)
 	if a == 0 {
 		return 0, fmt.Errorf("RegisterClassExW failed: %v", err)
 	}
@@ -649,7 +777,6 @@ func SetTimer(hwnd syscall.Handle, nIDEvent uintptr, uElapse uint32, timerProc u
 
 func ScreenToClient(hwnd syscall.Handle, p *Point) {
 	_ScreenToClient.Call(uintptr(hwnd), uintptr(unsafe.Pointer(p)))
-	issue34474KeepAlive(p)
 }
 
 func ShowWindow(hwnd syscall.Handle, nCmdShow int32) {
@@ -658,7 +785,6 @@ func ShowWindow(hwnd syscall.Handle, nCmdShow int32) {
 
 func TranslateMessage(m *Msg) {
 	_TranslateMessage.Call(uintptr(unsafe.Pointer(m)))
-	issue34474KeepAlive(m)
 }
 
 func UnregisterClass(cls uint16, hInst syscall.Handle) {
@@ -669,8 +795,21 @@ func UpdateWindow(hwnd syscall.Handle) {
 	_UpdateWindow.Call(uintptr(hwnd))
 }
 
-// issue34474KeepAlive calls runtime.KeepAlive as a
-// workaround for golang.org/issue/34474.
-func issue34474KeepAlive(v interface{}) {
-	runtime.KeepAlive(v)
+func (p WindowPlacement) Rect() Rect {
+	return p.rcNormalPosition
+}
+
+func (p WindowPlacement) IsMinimized() bool {
+	return p.showCmd == SW_SHOWMINIMIZED
+}
+
+func (p WindowPlacement) IsMaximized() bool {
+	return p.showCmd == SW_SHOWMAXIMIZED
+}
+
+func (p *WindowPlacement) Set(Left, Top, Right, Bottom int) {
+	p.rcNormalPosition.Left = int32(Left)
+	p.rcNormalPosition.Top = int32(Top)
+	p.rcNormalPosition.Right = int32(Right)
+	p.rcNormalPosition.Bottom = int32(Bottom)
 }

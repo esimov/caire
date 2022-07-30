@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"gioui.org/app"
 	"gioui.org/f32"
 	"gioui.org/font/gofont"
-	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -37,8 +37,8 @@ const (
 )
 
 var (
-	maxScreenX = unit.Dp(1024)
-	maxScreenY = unit.Dp(768)
+	maxScreenX float32 = 1024
+	maxScreenY float32 = 768
 
 	defaultBkgColor  = color.Transparent
 	defaultFillColor = color.Black
@@ -125,7 +125,7 @@ func (g *Gui) getWindowSize() (float32, float32) {
 	w, h := g.cfg.window.w, g.cfg.window.h
 	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
 	r := getRatio(w, h)
-	if w > maxScreenX.V && h > maxScreenY.V {
+	if w > maxScreenX && h > maxScreenY {
 		w = w * r
 		h = h * r
 	}
@@ -177,6 +177,14 @@ func (g *Gui) Run() error {
 		case e := <-w.Events():
 			switch e := e.(type) {
 			case system.FrameEvent:
+				gtx := layout.NewContext(g.ctx.Ops, e)
+
+				// Gather and print all events captured by our input area since the previous frame.
+				for _, event := range gtx.Events(w) {
+					// Perform event handling here instead of in the outer type switch.
+					log.Printf("%#+v", event)
+				}
+
 				{ // red
 					if descRed {
 						rc--
@@ -217,11 +225,6 @@ func (g *Gui) Run() error {
 					}
 				}
 				g.draw(w, e, color.NRGBA{R: rc, G: gc, B: bc})
-			case key.Event:
-				switch e.Name {
-				case key.NameEscape:
-					w.Close()
-				}
 			case system.DestroyEvent:
 				abortFn()
 				return e.Err
@@ -274,7 +277,7 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 					func(gtx C) D {
 						widget.Image{
 							Src:   src,
-							Scale: 1 / float32(g.ctx.Px(unit.Dp(1))),
+							Scale: 1 / float32(unit.Dp(1)),
 							Fit:   widget.Contain,
 						}.Layout(gtx)
 
@@ -310,16 +313,17 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 							op.Affine(tr).Add(gtx.Ops)
 
 							for _, s := range g.proc.seams {
-								var dpi float32 = 1
-								dpx := unit.Dp(float32(s.X))
-								dpy := unit.Dp(float32(s.Y))
+								var dpi unit.Dp
+								dpx := unit.Dp(s.X)
+								dpy := unit.Dp(s.Y)
 
 								if int(screen.Y) > len(g.proc.seams) {
 									// Apply the pixel to dpi conversion formula in case
 									// the screen height is greather than the image height.
-									dpi = float32(g.cfg.window.h) * 0.4 / float32(160)
+									dpi = unit.Dp(float32(g.cfg.window.h) * 0.4 / float32(160))
+
 								}
-								g.DrawSeam(g.cp.ShapeType, dpx.V, dpy.Scale(dpi).V, 1)
+								g.DrawSeam(g.cp.ShapeType, float32(dpx), float32(dpy*dpi), 1)
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}
@@ -360,7 +364,7 @@ func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol colo
 		layout.Stacked(func(gtx C) D {
 			return layout.UniformInset(unit.Dp(4)).Layout(ctx, func(gtx C) D {
 				if !g.proc.isDone {
-					gtx.Constraints.Min.Y = gtx.Px(unit.Dp(0))
+					gtx.Constraints.Min.Y = 0
 					tr := f32.Affine2D{}
 					dr := image.Rectangle{Max: gtx.Constraints.Min}
 
@@ -412,7 +416,7 @@ func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol colo
 				return layout.Dimensions{}
 			}
 
-			return layout.Inset{Top: unit.Sp(70)}.Layout(ctx, func(gtx C) D {
+			return layout.Inset{Top: 70}.Layout(ctx, func(gtx C) D {
 				return layout.Center.Layout(ctx, func(gtx C) D {
 					return material.Label(th, unit.Sp(13), info).Layout(gtx)
 				})

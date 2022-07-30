@@ -7,11 +7,9 @@ import (
 	"image/color"
 	"math"
 
-	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
-	"gioui.org/unit"
 )
 
 type ProgressCircleStyle struct {
@@ -32,13 +30,13 @@ func (p ProgressCircleStyle) Layout(gtx layout.Context) layout.Dimensions {
 		diam = minY
 	}
 	if diam == 0 {
-		diam = gtx.Px(unit.Dp(24))
+		diam = gtx.Dp(24)
 	}
 	sz := gtx.Constraints.Constrain(image.Pt(diam, diam))
-	radius := float32(sz.X) * .5
-	defer op.Offset(f32.Pt(radius, radius)).Push(gtx.Ops).Pop()
+	radius := sz.X / 2
+	defer op.Offset(image.Pt(radius, radius)).Push(gtx.Ops).Pop()
 
-	defer clipLoader(gtx.Ops, -math.Pi/2, -math.Pi/2+math.Pi*2*p.Progress, radius).Push(gtx.Ops).Pop()
+	defer clipLoader(gtx.Ops, -math.Pi/2, -math.Pi/2+math.Pi*2*p.Progress, float32(radius)).Push(gtx.Ops).Pop()
 	paint.ColorOp{
 		Color: p.Color,
 	}.Add(gtx.Ops)

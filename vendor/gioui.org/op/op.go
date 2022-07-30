@@ -67,6 +67,7 @@ package op
 
 import (
 	"encoding/binary"
+	"image"
 	"math"
 	"time"
 
@@ -92,8 +93,9 @@ type MacroOp struct {
 // CallOp invokes the operations recorded by Record.
 type CallOp struct {
 	// Ops is the list of operations to invoke.
-	ops *ops.Ops
-	pc  ops.PC
+	ops   *ops.Ops
+	start ops.PC
+	end   ops.PC
 }
 
 // InvalidateOp requests a redraw at the given time. Use
@@ -153,8 +155,8 @@ func Record(o *Ops) MacroOp {
 		pc:  ops.PCFor(&o.Internal),
 	}
 	// Reserve room for a macro definition. Updated in Stop.
-	ops.Write(m.ops, ops.TypeMacroLen)
-	m.fill()
+	data := ops.Write(m.ops, ops.TypeMacroLen)
+	data[0] = byte(ops.TypeMacro)
 	return m
 }
 
@@ -162,15 +164,13 @@ func Record(o *Ops) MacroOp {
 // operation for replaying it.
 func (m MacroOp) Stop() CallOp {
 	ops.PopMacro(m.ops, m.id)
-	m.fill()
+	ops.FillMacro(m.ops, m.pc)
 	return CallOp{
 		ops: m.ops,
-		pc:  m.pc,
+		// Skip macro header.
+		start: m.pc.Add(ops.TypeMacro),
+		end:   ops.PCFor(m.ops),
 	}
-}
-
-func (m MacroOp) fill() {
-	ops.FillMacro(m.ops, m.pc)
 }
 
 // Add the recorded list of operations. Add
@@ -180,7 +180,7 @@ func (c CallOp) Add(o *Ops) {
 	if c.ops == nil {
 		return
 	}
-	ops.AddCall(&o.Internal, c.ops, c.pc)
+	ops.AddCall(&o.Internal, c.ops, c.start, c.end)
 }
 
 func (r InvalidateOp) Add(o *Ops) {
@@ -196,9 +196,10 @@ func (r InvalidateOp) Add(o *Ops) {
 	}
 }
 
-// Offset creates a TransformOp with the offset o.
-func Offset(o f32.Point) TransformOp {
-	return TransformOp{t: f32.Affine2D{}.Offset(o)}
+// Offset converts an offset to a TransformOp.
+func Offset(off image.Point) TransformOp {
+	offf := f32.Pt(float32(off.X), float32(off.Y))
+	return Affine(f32.Affine2D{}.Offset(offf))
 }
 
 // Affine creates a TransformOp representing the transformation a.

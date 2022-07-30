@@ -5,12 +5,16 @@ package gpu
 import (
 	"fmt"
 
-	"gioui.org/f32"
+	"gioui.org/internal/f32"
 )
 
 type resourceCache struct {
-	res    map[interface{}]resource
-	newRes map[interface{}]resource
+	res map[interface{}]resourceCacheValue
+}
+
+type resourceCacheValue struct {
+	used     bool
+	resource resource
 }
 
 // opCache is like a resourceCache but using concrete types and a
@@ -35,46 +39,48 @@ type opCacheValue struct {
 
 func newResourceCache() *resourceCache {
 	return &resourceCache{
-		res:    make(map[interface{}]resource),
-		newRes: make(map[interface{}]resource),
+		res: make(map[interface{}]resourceCacheValue),
 	}
 }
 
 func (r *resourceCache) get(key interface{}) (resource, bool) {
 	v, exists := r.res[key]
-	if exists {
-		r.newRes[key] = v
+	if !exists {
+		return nil, false
 	}
-	return v, exists
+	if !v.used {
+		v.used = true
+		r.res[key] = v
+	}
+	return v.resource, exists
 }
 
 func (r *resourceCache) put(key interface{}, val resource) {
-	if _, exists := r.newRes[key]; exists {
+	v, exists := r.res[key]
+	if exists && v.used {
 		panic(fmt.Errorf("key exists, %p", key))
 	}
-	r.res[key] = val
-	r.newRes[key] = val
+	v.used = true
+	v.resource = val
+	r.res[key] = v
 }
 
 func (r *resourceCache) frame() {
 	for k, v := range r.res {
-		if _, exists := r.newRes[k]; !exists {
+		if v.used {
+			v.used = false
+			r.res[k] = v
+		} else {
 			delete(r.res, k)
-			v.release()
+			v.resource.release()
 		}
-	}
-	for k, v := range r.newRes {
-		delete(r.newRes, k)
-		r.res[k] = v
 	}
 }
 
 func (r *resourceCache) release() {
-	r.frame()
 	for _, v := range r.res {
-		v.release()
+		v.resource.release()
 	}
-	r.newRes = nil
 	r.res = nil
 }
 

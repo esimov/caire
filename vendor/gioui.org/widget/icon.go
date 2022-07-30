@@ -24,7 +24,7 @@ type Icon struct {
 	imgColor color.NRGBA
 }
 
-var defaultIconSize = unit.Dp(24)
+const defaultIconSize = unit.Dp(24)
 
 // NewIcon returns a new Icon from IconVG data.
 func NewIcon(data []byte) (*Icon, error) {
@@ -39,7 +39,7 @@ func NewIcon(data []byte) (*Icon, error) {
 func (ic *Icon) Layout(gtx layout.Context, color color.NRGBA) layout.Dimensions {
 	sz := gtx.Constraints.Min.X
 	if sz == 0 {
-		sz = gtx.Metric.Px(defaultIconSize)
+		sz = gtx.Dp(defaultIconSize)
 	}
 	size := gtx.Constraints.Constrain(image.Pt(sz, sz))
 	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()

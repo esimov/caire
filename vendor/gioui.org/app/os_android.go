@@ -64,6 +64,10 @@ static void jni_CallVoidMethodA(JNIEnv *env, jobject obj, jmethodID methodID, co
 	(*env)->CallVoidMethodA(env, obj, methodID, args);
 }
 
+static jboolean jni_CallBooleanMethodA(JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args) {
+	return (*env)->CallBooleanMethodA(env, obj, methodID, args);
+}
+
 static jbyte *jni_GetByteArrayElements(JNIEnv *env, jbyteArray arr) {
 	return (*env)->GetByteArrayElements(env, arr, NULL);
 }
@@ -103,6 +107,14 @@ static jobject jni_CallObjectMethodA(JNIEnv *env, jobject obj, jmethodID method,
 static jobject jni_CallStaticObjectMethodA(JNIEnv *env, jclass cls, jmethodID method, jvalue *args) {
 	return (*env)->CallStaticObjectMethodA(env, cls, method, args);
 }
+
+static jclass jni_FindClass(JNIEnv *env, char *name) {
+	return (*env)->FindClass(env, name);
+}
+
+static jobject jni_NewObjectA(JNIEnv *env, jclass cls, jmethodID cons, jvalue *args) {
+	return (*env)->NewObjectA(env, cls, cons, args);
+}
 */
 import "C"
 
@@ -111,10 +123,11 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
+	"runtime/cgo"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -127,6 +140,8 @@ import (
 	"gioui.org/io/clipboard"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
+	"gioui.org/io/router"
+	"gioui.org/io/semantic"
 	"gioui.org/io/system"
 	"gioui.org/unit"
 )
@@ -134,11 +149,12 @@ import (
 type window struct {
 	callbacks *callbacks
 
-	view C.jobject
+	view   C.jobject
+	handle cgo.Handle
 
 	dpi       int
 	fontScale float32
-	insets    system.Insets
+	insets    image.Rectangle
 
 	stage     system.Stage
 	started   bool
@@ -146,6 +162,13 @@ type window struct {
 
 	win    *C.ANativeWindow
 	config Config
+
+	semantic struct {
+		hoverID router.SemanticID
+		rootID  router.SemanticID
+		focusID router.SemanticID
+		diffs   []router.SemanticID
+	}
 }
 
 // gioView hold cached JNI methods for GioView.
@@ -156,7 +179,7 @@ var gioView struct {
 	showTextInput      C.jmethodID
 	hideTextInput      C.jmethodID
 	setInputHint       C.jmethodID
-	postInvalidate     C.jmethodID // requests draw, called from non-UI thread
+	postFrameCallback  C.jmethodID
 	invalidate         C.jmethodID // requests draw, called from UI thread
 	setCursor          C.jmethodID
 	setOrientation     C.jmethodID
@@ -164,6 +187,12 @@ var gioView struct {
 	setStatusColor     C.jmethodID
 	setFullscreen      C.jmethodID
 	unregister         C.jmethodID
+	sendA11yEvent      C.jmethodID
+	sendA11yChange     C.jmethodID
+	isA11yActive       C.jmethodID
+	restartInput       C.jmethodID
+	updateSelection    C.jmethodID
+	updateCaret        C.jmethodID
 }
 
 // ViewEvent is sent whenever the Window's underlying Android view
@@ -195,10 +224,58 @@ var android struct {
 	mwriteClipboard   C.jmethodID
 	mreadClipboard    C.jmethodID
 	mwakeupMainThread C.jmethodID
-}
 
-// view maps from GioView JNI refenreces to windows.
-var views = make(map[C.jlong]*window)
+	// android.view.accessibility.AccessibilityNodeInfo class.
+	accessibilityNodeInfo struct {
+		cls C.jclass
+		// addChild(View, int)
+		addChild C.jmethodID
+		// setBoundsInScreen(Rect)
+		setBoundsInScreen C.jmethodID
+		// setText(CharSequence)
+		setText C.jmethodID
+		// setContentDescription(CharSequence)
+		setContentDescription C.jmethodID
+		// setParent(View, int)
+		setParent C.jmethodID
+		// addAction(int)
+		addAction C.jmethodID
+		// setClassName(CharSequence)
+		setClassName C.jmethodID
+		// setCheckable(boolean)
+		setCheckable C.jmethodID
+		// setSelected(boolean)
+		setSelected C.jmethodID
+		// setChecked(boolean)
+		setChecked C.jmethodID
+		// setEnabled(boolean)
+		setEnabled C.jmethodID
+		// setAccessibilityFocused(boolean)
+		setAccessibilityFocused C.jmethodID
+	}
+
+	// android.graphics.Rect class.
+	rect struct {
+		cls C.jclass
+		// (int, int, int, int) constructor.
+		cons C.jmethodID
+	}
+
+	strings struct {
+		// "android.view.View"
+		androidViewView C.jstring
+		// "android.widget.Button"
+		androidWidgetButton C.jstring
+		// "android.widget.CheckBox"
+		androidWidgetCheckBox C.jstring
+		// "android.widget.EditText"
+		androidWidgetEditText C.jstring
+		// "android.widget.RadioButton"
+		androidWidgetRadioButton C.jstring
+		// "android.widget.Switch"
+		androidWidgetSwitch C.jstring
+	}
+}
 
 var windows = make(map[*callbacks]*window)
 
@@ -214,6 +291,22 @@ var (
 var (
 	newAndroidVulkanContext func(w *window) (context, error)
 	newAndroidGLESContext   func(w *window) (context, error)
+)
+
+// AccessibilityNodeProvider.HOST_VIEW_ID.
+const HOST_VIEW_ID = -1
+
+const (
+	// AccessibilityEvent constants.
+	TYPE_VIEW_HOVER_ENTER = 128
+	TYPE_VIEW_HOVER_EXIT  = 256
+)
+
+const (
+	// AccessibilityNodeInfo constants.
+	ACTION_ACCESSIBILITY_FOCUS       = 64
+	ACTION_CLEAR_ACCESSIBILITY_FOCUS = 128
+	ACTION_CLICK                     = 16
 )
 
 func (w *window) NewContext() (context, error) {
@@ -306,9 +399,39 @@ func initJVM(env *C.JNIEnv, gio C.jclass, ctx C.jobject) {
 	}
 	android.appCtx = C.jni_NewGlobalRef(env, ctx)
 	android.gioCls = C.jclass(C.jni_NewGlobalRef(env, C.jobject(gio)))
+
+	cls := findClass(env, "android/view/accessibility/AccessibilityNodeInfo")
+	android.accessibilityNodeInfo.cls = C.jclass(C.jni_NewGlobalRef(env, C.jobject(cls)))
+	android.accessibilityNodeInfo.addChild = getMethodID(env, cls, "addChild", "(Landroid/view/View;I)V")
+	android.accessibilityNodeInfo.setBoundsInScreen = getMethodID(env, cls, "setBoundsInScreen", "(Landroid/graphics/Rect;)V")
+	android.accessibilityNodeInfo.setText = getMethodID(env, cls, "setText", "(Ljava/lang/CharSequence;)V")
+	android.accessibilityNodeInfo.setContentDescription = getMethodID(env, cls, "setContentDescription", "(Ljava/lang/CharSequence;)V")
+	android.accessibilityNodeInfo.setParent = getMethodID(env, cls, "setParent", "(Landroid/view/View;I)V")
+	android.accessibilityNodeInfo.addAction = getMethodID(env, cls, "addAction", "(I)V")
+	android.accessibilityNodeInfo.setClassName = getMethodID(env, cls, "setClassName", "(Ljava/lang/CharSequence;)V")
+	android.accessibilityNodeInfo.setCheckable = getMethodID(env, cls, "setCheckable", "(Z)V")
+	android.accessibilityNodeInfo.setSelected = getMethodID(env, cls, "setSelected", "(Z)V")
+	android.accessibilityNodeInfo.setChecked = getMethodID(env, cls, "setChecked", "(Z)V")
+	android.accessibilityNodeInfo.setEnabled = getMethodID(env, cls, "setEnabled", "(Z)V")
+	android.accessibilityNodeInfo.setAccessibilityFocused = getMethodID(env, cls, "setAccessibilityFocused", "(Z)V")
+
+	cls = findClass(env, "android/graphics/Rect")
+	android.rect.cls = C.jclass(C.jni_NewGlobalRef(env, C.jobject(cls)))
+	android.rect.cons = getMethodID(env, cls, "<init>", "(IIII)V")
 	android.mwriteClipboard = getStaticMethodID(env, gio, "writeClipboard", "(Landroid/content/Context;Ljava/lang/String;)V")
 	android.mreadClipboard = getStaticMethodID(env, gio, "readClipboard", "(Landroid/content/Context;)Ljava/lang/String;")
 	android.mwakeupMainThread = getStaticMethodID(env, gio, "wakeupMainThread", "()V")
+
+	intern := func(s string) C.jstring {
+		ref := C.jni_NewGlobalRef(env, C.jobject(javaString(env, s)))
+		return C.jstring(ref)
+	}
+	android.strings.androidViewView = intern("android.view.View")
+	android.strings.androidWidgetButton = intern("android.widget.Button")
+	android.strings.androidWidgetCheckBox = intern("android.widget.CheckBox")
+	android.strings.androidWidgetEditText = intern("android.widget.EditText")
+	android.strings.androidWidgetRadioButton = intern("android.widget.RadioButton")
+	android.strings.androidWidgetSwitch = intern("android.widget.Switch")
 }
 
 // JavaVM returns the global JNI JavaVM.
@@ -339,7 +462,7 @@ func Java_org_gioui_GioView_onCreateView(env *C.JNIEnv, class C.jclass, view C.j
 		m.showTextInput = getMethodID(env, class, "showTextInput", "()V")
 		m.hideTextInput = getMethodID(env, class, "hideTextInput", "()V")
 		m.setInputHint = getMethodID(env, class, "setInputHint", "(I)V")
-		m.postInvalidate = getMethodID(env, class, "postInvalidate", "()V")
+		m.postFrameCallback = getMethodID(env, class, "postFrameCallback", "()V")
 		m.invalidate = getMethodID(env, class, "invalidate", "()V")
 		m.setCursor = getMethodID(env, class, "setCursor", "(I)V")
 		m.setOrientation = getMethodID(env, class, "setOrientation", "(II)V")
@@ -347,6 +470,12 @@ func Java_org_gioui_GioView_onCreateView(env *C.JNIEnv, class C.jclass, view C.j
 		m.setStatusColor = getMethodID(env, class, "setStatusColor", "(II)V")
 		m.setFullscreen = getMethodID(env, class, "setFullscreen", "(Z)V")
 		m.unregister = getMethodID(env, class, "unregister", "()V")
+		m.sendA11yEvent = getMethodID(env, class, "sendA11yEvent", "(II)V")
+		m.sendA11yChange = getMethodID(env, class, "sendA11yChange", "(I)V")
+		m.isA11yActive = getMethodID(env, class, "isA11yActive", "()Z")
+		m.restartInput = getMethodID(env, class, "restartInput", "()V")
+		m.updateSelection = getMethodID(env, class, "updateSelection", "()V")
+		m.updateCaret = getMethodID(env, class, "updateCaret", "(FFFFFFFFFF)V")
 	})
 	view = C.jni_NewGlobalRef(env, view)
 	wopts := <-mainWindow.out
@@ -361,51 +490,51 @@ func Java_org_gioui_GioView_onCreateView(env *C.JNIEnv, class C.jclass, view C.j
 		w.detach(env)
 	}
 	w.view = view
+	w.handle = cgo.NewHandle(w)
 	w.callbacks.SetDriver(w)
-	handle := C.jlong(view)
-	views[handle] = w
 	w.loadConfig(env, class)
 	w.Configure(wopts.options)
+	w.SetInputHint(key.HintAny)
 	w.setStage(system.StagePaused)
 	w.callbacks.Event(ViewEvent{View: uintptr(view)})
-	return handle
+	return C.jlong(w.handle)
 }
 
 //export Java_org_gioui_GioView_onDestroyView
 func Java_org_gioui_GioView_onDestroyView(env *C.JNIEnv, class C.jclass, handle C.jlong) {
-	w := views[handle]
+	w := cgo.Handle(handle).Value().(*window)
 	w.detach(env)
 }
 
 //export Java_org_gioui_GioView_onStopView
 func Java_org_gioui_GioView_onStopView(env *C.JNIEnv, class C.jclass, handle C.jlong) {
-	w := views[handle]
+	w := cgo.Handle(handle).Value().(*window)
 	w.started = false
 	w.setStage(system.StagePaused)
 }
 
 //export Java_org_gioui_GioView_onStartView
 func Java_org_gioui_GioView_onStartView(env *C.JNIEnv, class C.jclass, handle C.jlong) {
-	w := views[handle]
+	w := cgo.Handle(handle).Value().(*window)
 	w.started = true
 	if w.win != nil {
-		w.setVisible()
+		w.setVisible(env)
 	}
 }
 
 //export Java_org_gioui_GioView_onSurfaceDestroyed
 func Java_org_gioui_GioView_onSurfaceDestroyed(env *C.JNIEnv, class C.jclass, handle C.jlong) {
-	w := views[handle]
+	w := cgo.Handle(handle).Value().(*window)
 	w.win = nil
 	w.setStage(system.StagePaused)
 }
 
 //export Java_org_gioui_GioView_onSurfaceChanged
 func Java_org_gioui_GioView_onSurfaceChanged(env *C.JNIEnv, class C.jclass, handle C.jlong, surf C.jobject) {
-	w := views[handle]
+	w := cgo.Handle(handle).Value().(*window)
 	w.win = C.ANativeWindow_fromSurface(env, surf)
 	if w.started {
-		w.setVisible()
+		w.setVisible(env)
 	}
 }
 
@@ -417,16 +546,16 @@ func Java_org_gioui_GioView_onLowMemory(env *C.JNIEnv, class C.jclass) {
 
 //export Java_org_gioui_GioView_onConfigurationChanged
 func Java_org_gioui_GioView_onConfigurationChanged(env *C.JNIEnv, class C.jclass, view C.jlong) {
-	w := views[view]
+	w := cgo.Handle(view).Value().(*window)
 	w.loadConfig(env, class)
 	if w.stage >= system.StageRunning {
-		w.draw(true)
+		w.draw(env, true)
 	}
 }
 
 //export Java_org_gioui_GioView_onFrameCallback
 func Java_org_gioui_GioView_onFrameCallback(env *C.JNIEnv, class C.jclass, view C.jlong) {
-	w, exist := views[view]
+	w, exist := cgo.Handle(view).Value().(*window)
 	if !exist {
 		return
 	}
@@ -434,19 +563,15 @@ func Java_org_gioui_GioView_onFrameCallback(env *C.JNIEnv, class C.jclass, view 
 		return
 	}
 	if w.animating {
-		w.draw(false)
-		// Schedule the next draw immediately after this one. Since onFrameCallback runs
-		// on the UI thread, View.invalidate can be used here instead of postInvalidate.
-		callVoidMethod(env, w.view, gioView.invalidate)
+		w.draw(env, false)
+		callVoidMethod(env, w.view, gioView.postFrameCallback)
 	}
 }
 
 //export Java_org_gioui_GioView_onBack
 func Java_org_gioui_GioView_onBack(env *C.JNIEnv, class C.jclass, view C.jlong) C.jboolean {
-	w := views[view]
-	ev := &system.CommandEvent{Type: system.CommandBack}
-	w.callbacks.Event(ev)
-	if ev.Cancel {
+	w := cgo.Handle(view).Value().(*window)
+	if w.callbacks.Event(key.Event{Name: key.NameBack}) {
 		return C.JNI_TRUE
 	}
 	return C.JNI_FALSE
@@ -454,40 +579,196 @@ func Java_org_gioui_GioView_onBack(env *C.JNIEnv, class C.jclass, view C.jlong) 
 
 //export Java_org_gioui_GioView_onFocusChange
 func Java_org_gioui_GioView_onFocusChange(env *C.JNIEnv, class C.jclass, view C.jlong, focus C.jboolean) {
-	w := views[view]
+	w := cgo.Handle(view).Value().(*window)
 	w.callbacks.Event(key.FocusEvent{Focus: focus == C.JNI_TRUE})
 }
 
 //export Java_org_gioui_GioView_onWindowInsets
 func Java_org_gioui_GioView_onWindowInsets(env *C.JNIEnv, class C.jclass, view C.jlong, top, right, bottom, left C.jint) {
-	w := views[view]
-	w.insets = system.Insets{
-		Top:    unit.Px(float32(top)),
-		Right:  unit.Px(float32(right)),
-		Bottom: unit.Px(float32(bottom)),
-		Left:   unit.Px(float32(left)),
-	}
+	w := cgo.Handle(view).Value().(*window)
+	w.insets = image.Rect(int(left), int(top), int(right), int(bottom))
 	if w.stage >= system.StageRunning {
-		w.draw(true)
+		w.draw(env, true)
 	}
+}
+
+//export Java_org_gioui_GioView_initializeAccessibilityNodeInfo
+func Java_org_gioui_GioView_initializeAccessibilityNodeInfo(env *C.JNIEnv, class C.jclass, view C.jlong, virtID, screenX, screenY C.jint, info C.jobject) C.jobject {
+	w := cgo.Handle(view).Value().(*window)
+	semID := w.semIDFor(virtID)
+	sem, found := w.callbacks.LookupSemantic(semID)
+	if found {
+		off := image.Pt(int(screenX), int(screenY))
+		if err := w.initAccessibilityNodeInfo(env, sem, off, info); err != nil {
+			panic(err)
+		}
+	}
+	return info
+}
+
+//export Java_org_gioui_GioView_onTouchExploration
+func Java_org_gioui_GioView_onTouchExploration(env *C.JNIEnv, class C.jclass, view C.jlong, x, y C.jfloat) {
+	w := cgo.Handle(view).Value().(*window)
+	semID, _ := w.callbacks.SemanticAt(f32.Pt(float32(x), float32(y)))
+	if w.semantic.hoverID == semID {
+		return
+	}
+	// Android expects ENTER before EXIT.
+	if semID != 0 {
+		callVoidMethod(env, w.view, gioView.sendA11yEvent, TYPE_VIEW_HOVER_ENTER, jvalue(w.virtualIDFor(semID)))
+	}
+	if prevID := w.semantic.hoverID; prevID != 0 {
+		callVoidMethod(env, w.view, gioView.sendA11yEvent, TYPE_VIEW_HOVER_EXIT, jvalue(w.virtualIDFor(prevID)))
+	}
+	w.semantic.hoverID = semID
+}
+
+//export Java_org_gioui_GioView_onExitTouchExploration
+func Java_org_gioui_GioView_onExitTouchExploration(env *C.JNIEnv, class C.jclass, view C.jlong) {
+	w := cgo.Handle(view).Value().(*window)
+	if w.semantic.hoverID != 0 {
+		callVoidMethod(env, w.view, gioView.sendA11yEvent, TYPE_VIEW_HOVER_EXIT, jvalue(w.virtualIDFor(w.semantic.hoverID)))
+		w.semantic.hoverID = 0
+	}
+}
+
+//export Java_org_gioui_GioView_onA11yFocus
+func Java_org_gioui_GioView_onA11yFocus(env *C.JNIEnv, class C.jclass, view C.jlong, virtID C.jint) {
+	w := cgo.Handle(view).Value().(*window)
+	if semID := w.semIDFor(virtID); semID != w.semantic.focusID {
+		w.semantic.focusID = semID
+		// Android needs invalidate to refresh the TalkBack focus indicator.
+		callVoidMethod(env, w.view, gioView.invalidate)
+	}
+}
+
+//export Java_org_gioui_GioView_onClearA11yFocus
+func Java_org_gioui_GioView_onClearA11yFocus(env *C.JNIEnv, class C.jclass, view C.jlong, virtID C.jint) {
+	w := cgo.Handle(view).Value().(*window)
+	if w.semantic.focusID == w.semIDFor(virtID) {
+		w.semantic.focusID = 0
+	}
+}
+
+func (w *window) initAccessibilityNodeInfo(env *C.JNIEnv, sem router.SemanticNode, off image.Point, info C.jobject) error {
+	for _, ch := range sem.Children {
+		err := callVoidMethod(env, info, android.accessibilityNodeInfo.addChild, jvalue(w.view), jvalue(w.virtualIDFor(ch.ID)))
+		if err != nil {
+			return err
+		}
+	}
+	if sem.ParentID != 0 {
+		if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setParent, jvalue(w.view), jvalue(w.virtualIDFor(sem.ParentID))); err != nil {
+			return err
+		}
+		b := sem.Desc.Bounds.Add(off)
+		rect, err := newObject(env, android.rect.cls, android.rect.cons,
+			jvalue(b.Min.X),
+			jvalue(b.Min.Y),
+			jvalue(b.Max.X),
+			jvalue(b.Max.Y),
+		)
+		if err != nil {
+			return err
+		}
+		if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setBoundsInScreen, jvalue(rect)); err != nil {
+			return err
+		}
+	}
+	d := sem.Desc
+	if l := d.Label; l != "" {
+		jlbl := javaString(env, l)
+		if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setText, jvalue(jlbl)); err != nil {
+			return err
+		}
+	}
+	if d.Description != "" {
+		jd := javaString(env, d.Description)
+		if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setContentDescription, jvalue(jd)); err != nil {
+			return err
+		}
+	}
+	addAction := func(act C.jint) {
+		if err := callVoidMethod(env, info, android.accessibilityNodeInfo.addAction, jvalue(act)); err != nil {
+			panic(err)
+		}
+	}
+	if d.Gestures&router.ClickGesture != 0 {
+		addAction(ACTION_CLICK)
+	}
+	clsName := android.strings.androidViewView
+	selectMethod := android.accessibilityNodeInfo.setChecked
+	checkable := false
+	switch d.Class {
+	case semantic.Button:
+		clsName = android.strings.androidWidgetButton
+	case semantic.CheckBox:
+		checkable = true
+		clsName = android.strings.androidWidgetCheckBox
+	case semantic.Editor:
+		clsName = android.strings.androidWidgetEditText
+	case semantic.RadioButton:
+		selectMethod = android.accessibilityNodeInfo.setSelected
+		clsName = android.strings.androidWidgetRadioButton
+	case semantic.Switch:
+		checkable = true
+		clsName = android.strings.androidWidgetSwitch
+	}
+	if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setClassName, jvalue(clsName)); err != nil {
+		panic(err)
+	}
+	if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setCheckable, jvalue(javaBool(checkable))); err != nil {
+		panic(err)
+	}
+	if err := callVoidMethod(env, info, selectMethod, jvalue(javaBool(d.Selected))); err != nil {
+		panic(err)
+	}
+	if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setEnabled, jvalue(javaBool(!d.Disabled))); err != nil {
+		panic(err)
+	}
+	isFocus := w.semantic.focusID == sem.ID
+	if err := callVoidMethod(env, info, android.accessibilityNodeInfo.setAccessibilityFocused, jvalue(javaBool(isFocus))); err != nil {
+		panic(err)
+	}
+	if isFocus {
+		addAction(ACTION_CLEAR_ACCESSIBILITY_FOCUS)
+	} else {
+		addAction(ACTION_ACCESSIBILITY_FOCUS)
+	}
+	return nil
+}
+
+func (w *window) virtualIDFor(id router.SemanticID) C.jint {
+	// TODO: Android virtual IDs are 32-bit Java integers, but childID is a int64.
+	if id == w.semantic.rootID {
+		return HOST_VIEW_ID
+	}
+	return C.jint(id)
+}
+
+func (w *window) semIDFor(virtID C.jint) router.SemanticID {
+	if virtID == HOST_VIEW_ID {
+		return w.semantic.rootID
+	}
+	return router.SemanticID(virtID)
 }
 
 func (w *window) detach(env *C.JNIEnv) {
 	callVoidMethod(env, w.view, gioView.unregister)
 	w.callbacks.Event(ViewEvent{})
 	w.callbacks.SetDriver(nil)
-	delete(views, C.jlong(w.view))
+	w.handle.Delete()
 	C.jni_DeleteGlobalRef(env, w.view)
 	w.view = 0
 }
 
-func (w *window) setVisible() {
+func (w *window) setVisible(env *C.JNIEnv) {
 	width, height := C.ANativeWindow_getWidth(w.win), C.ANativeWindow_getHeight(w.win)
 	if width == 0 || height == 0 {
 		return
 	}
 	w.setStage(system.StageRunning)
-	w.draw(true)
+	w.draw(env, true)
 }
 
 func (w *window) setStage(stage system.Stage) {
@@ -528,12 +809,12 @@ func (w *window) SetAnimating(anim bool) {
 	w.animating = anim
 	if anim {
 		runInJVM(javaVM(), func(env *C.JNIEnv) {
-			callVoidMethod(env, w.view, gioView.postInvalidate)
+			callVoidMethod(env, w.view, gioView.postFrameCallback)
 		})
 	}
 }
 
-func (w *window) draw(sync bool) {
+func (w *window) draw(env *C.JNIEnv, sync bool) {
 	size := image.Pt(int(C.ANativeWindow_getWidth(w.win)), int(C.ANativeWindow_getHeight(w.win)))
 	if size != w.config.Size {
 		w.config.Size = size
@@ -544,11 +825,18 @@ func (w *window) draw(sync bool) {
 	}
 	const inchPrDp = 1.0 / 160
 	ppdp := float32(w.dpi) * inchPrDp
+	dppp := unit.Dp(1.0 / ppdp)
+	insets := system.Insets{
+		Top:    unit.Dp(w.insets.Min.Y) * dppp,
+		Bottom: unit.Dp(w.insets.Max.Y) * dppp,
+		Left:   unit.Dp(w.insets.Min.X) * dppp,
+		Right:  unit.Dp(w.insets.Max.X) * dppp,
+	}
 	w.callbacks.Event(frameEvent{
 		FrameEvent: system.FrameEvent{
 			Now:    time.Now(),
 			Size:   w.config.Size,
-			Insets: w.insets,
+			Insets: insets,
 			Metric: unit.Metric{
 				PxPerDp: ppdp,
 				PxPerSp: w.fontScale * ppdp,
@@ -556,9 +844,28 @@ func (w *window) draw(sync bool) {
 		},
 		Sync: sync,
 	})
+	a11yActive, err := callBooleanMethod(env, w.view, gioView.isA11yActive)
+	if err != nil {
+		panic(err)
+	}
+	if a11yActive {
+		if newR, oldR := w.callbacks.SemanticRoot(), w.semantic.rootID; newR != oldR {
+			// Remap focus and hover.
+			if oldR == w.semantic.hoverID {
+				w.semantic.hoverID = newR
+			}
+			if oldR == w.semantic.focusID {
+				w.semantic.focusID = newR
+			}
+			w.semantic.rootID = newR
+			callVoidMethod(env, w.view, gioView.sendA11yChange, jvalue(w.virtualIDFor(newR)))
+		}
+		w.semantic.diffs = w.callbacks.AppendSemanticDiffs(w.semantic.diffs[:0])
+		for _, id := range w.semantic.diffs {
+			callVoidMethod(env, w.view, gioView.sendA11yChange, jvalue(w.virtualIDFor(id)))
+		}
+	}
 }
-
-type keyMapper func(devId, keyCode C.int32_t) rune
 
 func runInJVM(jvm *C.JavaVM, f func(env *C.JNIEnv)) {
 	if jvm == nil {
@@ -583,6 +890,22 @@ func runInJVM(jvm *C.JavaVM, f func(env *C.JNIEnv)) {
 func convertKeyCode(code C.jint) (string, bool) {
 	var n string
 	switch code {
+	case C.AKEYCODE_FORWARD_DEL:
+		n = key.NameDeleteForward
+	case C.AKEYCODE_DEL:
+		n = key.NameDeleteBackward
+	case C.AKEYCODE_NUMPAD_ENTER:
+		n = key.NameEnter
+	case C.AKEYCODE_ENTER:
+		n = key.NameReturn
+	case C.AKEYCODE_CTRL_LEFT, C.AKEYCODE_CTRL_RIGHT:
+		n = key.NameCtrl
+	case C.AKEYCODE_SHIFT_LEFT, C.AKEYCODE_SHIFT_RIGHT:
+		n = key.NameShift
+	case C.AKEYCODE_ALT_LEFT, C.AKEYCODE_ALT_RIGHT:
+		n = key.NameAlt
+	case C.AKEYCODE_META_LEFT, C.AKEYCODE_META_RIGHT:
+		n = key.NameSuper
 	case C.AKEYCODE_DPAD_UP:
 		n = key.NameUpArrow
 	case C.AKEYCODE_DPAD_DOWN:
@@ -591,14 +914,6 @@ func convertKeyCode(code C.jint) (string, bool) {
 		n = key.NameLeftArrow
 	case C.AKEYCODE_DPAD_RIGHT:
 		n = key.NameRightArrow
-	case C.AKEYCODE_FORWARD_DEL:
-		n = key.NameDeleteForward
-	case C.AKEYCODE_DEL:
-		n = key.NameDeleteBackward
-	case C.AKEYCODE_NUMPAD_ENTER:
-		n = key.NameEnter
-	case C.AKEYCODE_ENTER:
-		n = key.NameEnter
 	default:
 		return "", false
 	}
@@ -606,19 +921,27 @@ func convertKeyCode(code C.jint) (string, bool) {
 }
 
 //export Java_org_gioui_GioView_onKeyEvent
-func Java_org_gioui_GioView_onKeyEvent(env *C.JNIEnv, class C.jclass, handle C.jlong, keyCode, r C.jint, t C.jlong) {
-	w := views[handle]
-	if n, ok := convertKeyCode(keyCode); ok {
-		w.callbacks.Event(key.Event{Name: n})
+func Java_org_gioui_GioView_onKeyEvent(env *C.JNIEnv, class C.jclass, handle C.jlong, keyCode, r C.jint, pressed C.jboolean, t C.jlong) {
+	w := cgo.Handle(handle).Value().(*window)
+	if pressed == C.JNI_TRUE && keyCode == C.AKEYCODE_DPAD_CENTER {
+		w.callbacks.ClickFocus()
+		return
 	}
-	if r != 0 && r != '\n' { // Checking for "\n" to prevent duplication with key.NameEnter (gio#224).
-		w.callbacks.Event(key.EditEvent{Text: string(rune(r))})
+	if n, ok := convertKeyCode(keyCode); ok {
+		state := key.Release
+		if pressed == C.JNI_TRUE {
+			state = key.Press
+		}
+		w.callbacks.Event(key.Event{Name: n, State: state})
+	}
+	if pressed == C.JNI_TRUE && r != 0 && r != '\n' { // Checking for "\n" to prevent duplication with key.NameEnter (gio#224).
+		w.callbacks.EditorInsert(string(rune(r)))
 	}
 }
 
 //export Java_org_gioui_GioView_onTouchEvent
 func Java_org_gioui_GioView_onTouchEvent(env *C.JNIEnv, class C.jclass, handle C.jlong, action, pointerID, tool C.jint, x, y, scrollX, scrollY C.jfloat, jbtns C.jint, t C.jlong) {
-	w := views[handle]
+	w := cgo.Handle(handle).Value().(*window)
 	var typ pointer.Type
 	switch action {
 	case C.AMOTION_EVENT_ACTION_DOWN, C.AMOTION_EVENT_ACTION_POINTER_DOWN:
@@ -670,6 +993,130 @@ func Java_org_gioui_GioView_onTouchEvent(env *C.JNIEnv, class C.jclass, handle C
 	})
 }
 
+//export Java_org_gioui_GioView_imeSelectionStart
+func Java_org_gioui_GioView_imeSelectionStart(env *C.JNIEnv, class C.jclass, handle C.jlong) C.jint {
+	w := cgo.Handle(handle).Value().(*window)
+	sel := w.callbacks.EditorState().Selection
+	start := sel.Start
+	if sel.End < sel.Start {
+		start = sel.End
+	}
+	return C.jint(start)
+}
+
+//export Java_org_gioui_GioView_imeSelectionEnd
+func Java_org_gioui_GioView_imeSelectionEnd(env *C.JNIEnv, class C.jclass, handle C.jlong) C.jint {
+	w := cgo.Handle(handle).Value().(*window)
+	sel := w.callbacks.EditorState().Selection
+	end := sel.End
+	if sel.End < sel.Start {
+		end = sel.Start
+	}
+	return C.jint(end)
+}
+
+//export Java_org_gioui_GioView_imeComposingStart
+func Java_org_gioui_GioView_imeComposingStart(env *C.JNIEnv, class C.jclass, handle C.jlong) C.jint {
+	w := cgo.Handle(handle).Value().(*window)
+	comp := w.callbacks.EditorState().compose
+	start := comp.Start
+	if e := comp.End; e < start {
+		start = e
+	}
+	return C.jint(start)
+}
+
+//export Java_org_gioui_GioView_imeComposingEnd
+func Java_org_gioui_GioView_imeComposingEnd(env *C.JNIEnv, class C.jclass, handle C.jlong) C.jint {
+	w := cgo.Handle(handle).Value().(*window)
+	comp := w.callbacks.EditorState().compose
+	end := comp.End
+	if s := comp.Start; s > end {
+		end = s
+	}
+	return C.jint(end)
+}
+
+//export Java_org_gioui_GioView_imeSnippet
+func Java_org_gioui_GioView_imeSnippet(env *C.JNIEnv, class C.jclass, handle C.jlong) C.jstring {
+	w := cgo.Handle(handle).Value().(*window)
+	snip := w.callbacks.EditorState().Snippet.Text
+	return javaString(env, snip)
+}
+
+//export Java_org_gioui_GioView_imeSnippetStart
+func Java_org_gioui_GioView_imeSnippetStart(env *C.JNIEnv, class C.jclass, handle C.jlong) C.jint {
+	w := cgo.Handle(handle).Value().(*window)
+	return C.jint(w.callbacks.EditorState().Snippet.Start)
+}
+
+//export Java_org_gioui_GioView_imeSetSnippet
+func Java_org_gioui_GioView_imeSetSnippet(env *C.JNIEnv, class C.jclass, handle C.jlong, start, end C.jint) {
+	w := cgo.Handle(handle).Value().(*window)
+	r := key.Range{Start: int(start), End: int(end)}
+	w.callbacks.SetEditorSnippet(r)
+}
+
+//export Java_org_gioui_GioView_imeSetSelection
+func Java_org_gioui_GioView_imeSetSelection(env *C.JNIEnv, class C.jclass, handle C.jlong, start, end C.jint) {
+	w := cgo.Handle(handle).Value().(*window)
+	r := key.Range{Start: int(start), End: int(end)}
+	w.callbacks.SetEditorSelection(r)
+}
+
+//export Java_org_gioui_GioView_imeSetComposingRegion
+func Java_org_gioui_GioView_imeSetComposingRegion(env *C.JNIEnv, class C.jclass, handle C.jlong, start, end C.jint) {
+	w := cgo.Handle(handle).Value().(*window)
+	w.callbacks.SetComposingRegion(key.Range{
+		Start: int(start),
+		End:   int(end),
+	})
+}
+
+//export Java_org_gioui_GioView_imeReplace
+func Java_org_gioui_GioView_imeReplace(env *C.JNIEnv, class C.jclass, handle C.jlong, start, end C.jint, jtext C.jstring) {
+	w := cgo.Handle(handle).Value().(*window)
+	r := key.Range{Start: int(start), End: int(end)}
+	text := goString(env, jtext)
+	w.callbacks.EditorReplace(r, text)
+}
+
+//export Java_org_gioui_GioView_imeToRunes
+func Java_org_gioui_GioView_imeToRunes(env *C.JNIEnv, class C.jclass, handle C.jlong, chars C.jint) C.jint {
+	w := cgo.Handle(handle).Value().(*window)
+	state := w.callbacks.EditorState()
+	return C.jint(state.RunesIndex(int(chars)))
+}
+
+//export Java_org_gioui_GioView_imeToUTF16
+func Java_org_gioui_GioView_imeToUTF16(env *C.JNIEnv, class C.jclass, handle C.jlong, runes C.jint) C.jint {
+	w := cgo.Handle(handle).Value().(*window)
+	state := w.callbacks.EditorState()
+	return C.jint(state.UTF16Index(int(runes)))
+}
+
+func (w *window) EditorStateChanged(old, new editorState) {
+	runInJVM(javaVM(), func(env *C.JNIEnv) {
+		if old.Snippet != new.Snippet {
+			callVoidMethod(env, w.view, gioView.restartInput)
+			return
+		}
+		if old.Selection.Range != new.Selection.Range {
+			w.callbacks.SetComposingRegion(key.Range{Start: -1, End: -1})
+			callVoidMethod(env, w.view, gioView.updateSelection)
+		}
+		if old.Selection.Transform != new.Selection.Transform || old.Selection.Caret != new.Selection.Caret {
+			sel := new.Selection
+			m00, m01, m02, m10, m11, m12 := sel.Transform.Elems()
+			f := func(v float32) jvalue {
+				return jvalue(math.Float32bits(v))
+			}
+			c := sel.Caret
+			callVoidMethod(env, w.view, gioView.updateCaret, f(m00), f(m01), f(m02), f(m10), f(m11), f(m12), f(c.Pos.X), f(c.Pos.Y-c.Ascent), f(c.Pos.Y), f(c.Pos.Y+c.Descent))
+		}
+	})
+}
+
 func (w *window) ShowTextInput(show bool) {
 	runInJVM(javaVM(), func(env *C.JNIEnv) {
 		if show {
@@ -683,38 +1130,57 @@ func (w *window) ShowTextInput(show bool) {
 func (w *window) SetInputHint(mode key.InputHint) {
 	// Constants defined at https://developer.android.com/reference/android/text/InputType.
 	const (
-		TYPE_NULL                            = 0
-		TYPE_CLASS_NUMBER                    = 2
-		TYPE_NUMBER_FLAG_DECIMAL             = 8192
-		TYPE_NUMBER_FLAG_SIGNED              = 4096
-		TYPE_TEXT_FLAG_NO_SUGGESTIONS        = 524288
-		TYPE_TEXT_VARIATION_VISIBLE_PASSWORD = 144
+		TYPE_NULL = 0
+
+		TYPE_CLASS_TEXT                   = 1
+		TYPE_TEXT_VARIATION_EMAIL_ADDRESS = 32
+		TYPE_TEXT_VARIATION_URI           = 16
+		TYPE_TEXT_FLAG_CAP_SENTENCES      = 16384
+		TYPE_TEXT_FLAG_AUTO_CORRECT       = 32768
+
+		TYPE_CLASS_NUMBER        = 2
+		TYPE_NUMBER_FLAG_DECIMAL = 8192
+		TYPE_NUMBER_FLAG_SIGNED  = 4096
+
+		TYPE_CLASS_PHONE = 3
 	)
 
 	runInJVM(javaVM(), func(env *C.JNIEnv) {
 		var m jvalue
 		switch mode {
+		case key.HintText:
+			m = TYPE_CLASS_TEXT | TYPE_TEXT_FLAG_AUTO_CORRECT | TYPE_TEXT_FLAG_CAP_SENTENCES
 		case key.HintNumeric:
 			m = TYPE_CLASS_NUMBER | TYPE_NUMBER_FLAG_DECIMAL | TYPE_NUMBER_FLAG_SIGNED
+		case key.HintEmail:
+			m = TYPE_CLASS_TEXT | TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+		case key.HintURL:
+			m = TYPE_CLASS_TEXT | TYPE_TEXT_VARIATION_URI
+		case key.HintTelephone:
+			m = TYPE_CLASS_PHONE
 		default:
-			// TYPE_NULL, since TYPE_CLASS_TEXT isn't currently supported.
-			m = TYPE_NULL
+			m = TYPE_CLASS_TEXT
 		}
-
-		// The TYPE_TEXT_FLAG_NO_SUGGESTIONS and TYPE_TEXT_VARIATION_VISIBLE_PASSWORD are used to fix the
-		// Samsung keyboard compatibility, forcing to disable the suggests/auto-complete. gio#116.
-		m = m | TYPE_TEXT_FLAG_NO_SUGGESTIONS | TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
 
 		callVoidMethod(env, w.view, gioView.setInputHint, m)
 	})
 }
 
-func javaString(env *C.JNIEnv, str string) C.jstring {
-	if str == "" {
-		return 0
+func javaBool(b bool) C.jboolean {
+	if b {
+		return C.JNI_TRUE
+	} else {
+		return C.JNI_FALSE
 	}
+}
+
+func javaString(env *C.JNIEnv, str string) C.jstring {
 	utf16Chars := utf16.Encode([]rune(str))
-	return C.jni_NewString(env, (*C.jchar)(unsafe.Pointer(&utf16Chars[0])), C.int(len(utf16Chars)))
+	var ptr *C.jchar
+	if len(utf16Chars) > 0 {
+		ptr = (*C.jchar)(unsafe.Pointer(&utf16Chars[0]))
+	}
+	return C.jni_NewString(env, ptr, C.int(len(utf16Chars)))
 }
 
 func varArgs(args []jvalue) *C.jvalue {
@@ -739,8 +1205,18 @@ func callVoidMethod(env *C.JNIEnv, obj C.jobject, method C.jmethodID, args ...jv
 	return exception(env)
 }
 
+func callBooleanMethod(env *C.JNIEnv, obj C.jobject, method C.jmethodID, args ...jvalue) (bool, error) {
+	res := C.jni_CallBooleanMethodA(env, obj, method, varArgs(args))
+	return res == C.JNI_TRUE, exception(env)
+}
+
 func callObjectMethod(env *C.JNIEnv, obj C.jobject, method C.jmethodID, args ...jvalue) (C.jobject, error) {
 	res := C.jni_CallObjectMethodA(env, obj, method, varArgs(args))
+	return res, exception(env)
+}
+
+func newObject(env *C.JNIEnv, cls C.jclass, method C.jmethodID, args ...jvalue) (C.jobject, error) {
+	res := C.jni_NewObjectA(env, cls, method, varArgs(args))
 	return res, exception(env)
 }
 
@@ -781,13 +1257,15 @@ func goString(env *C.JNIEnv, str C.jstring) string {
 	}
 	strlen := C.jni_GetStringLength(env, C.jstring(str))
 	chars := C.jni_GetStringChars(env, C.jstring(str))
-	var utf16Chars []uint16
-	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&utf16Chars))
-	hdr.Data = uintptr(unsafe.Pointer(chars))
-	hdr.Cap = int(strlen)
-	hdr.Len = int(strlen)
+	utf16Chars := unsafe.Slice((*uint16)(unsafe.Pointer(chars)), strlen)
 	utf8 := utf16.Decode(utf16Chars)
 	return string(utf8)
+}
+
+func findClass(env *C.JNIEnv, name string) C.jclass {
+	cn := C.CString(name)
+	defer C.free(unsafe.Pointer(cn))
+	return C.jni_FindClass(env, cn)
 }
 
 func osMain() {
@@ -823,6 +1301,9 @@ func (w *window) Configure(options []Option) {
 		prev := w.config
 		cnf := w.config
 		cnf.apply(unit.Metric{}, options)
+		// Decorations are never disabled.
+		cnf.Decorated = true
+
 		if prev.Orientation != cnf.Orientation {
 			w.config.Orientation = cnf.Orientation
 			setOrientation(env, w.view, cnf.Orientation)
@@ -845,17 +1326,18 @@ func (w *window) Configure(options []Option) {
 				w.config.Mode = Windowed
 			}
 		}
-		if w.config != prev {
-			w.callbacks.Event(ConfigEvent{Config: w.config})
+		if cnf.Decorated != prev.Decorated {
+			w.config.Decorated = cnf.Decorated
 		}
+		w.callbacks.Event(ConfigEvent{Config: w.config})
 	})
 }
 
-func (w *window) Raise() {}
+func (w *window) Perform(system.Action) {}
 
-func (w *window) SetCursor(name pointer.CursorName) {
+func (w *window) SetCursor(cursor pointer.Cursor) {
 	runInJVM(javaVM(), func(env *C.JNIEnv) {
-		setCursor(env, w.view, name)
+		setCursor(env, w.view, cursor)
 	})
 }
 
@@ -865,26 +1347,37 @@ func (w *window) Wakeup() {
 	})
 }
 
-func setCursor(env *C.JNIEnv, view C.jobject, name pointer.CursorName) {
-	var curID int
-	switch name {
-	default:
-		fallthrough
-	case pointer.CursorDefault:
-		curID = 1000 // TYPE_ARROW
-	case pointer.CursorText:
-		curID = 1008 // TYPE_TEXT
-	case pointer.CursorPointer:
-		curID = 1002 // TYPE_HAND
-	case pointer.CursorCrossHair:
-		curID = 1007 // TYPE_CROSSHAIR
-	case pointer.CursorColResize:
-		curID = 1014 // TYPE_HORIZONTAL_DOUBLE_ARROW
-	case pointer.CursorRowResize:
-		curID = 1015 // TYPE_VERTICAL_DOUBLE_ARROW
-	case pointer.CursorNone:
-		curID = 0 // TYPE_NULL
-	}
+var androidCursor = [...]uint16{
+	pointer.CursorDefault:                  1000, // TYPE_ARROW
+	pointer.CursorNone:                     0,
+	pointer.CursorText:                     1008, // TYPE_TEXT
+	pointer.CursorVerticalText:             1009, // TYPE_VERTICAL_TEXT
+	pointer.CursorPointer:                  1002, // TYPE_HAND
+	pointer.CursorCrosshair:                1007, // TYPE_CROSSHAIR
+	pointer.CursorAllScroll:                1013, // TYPE_ALL_SCROLL
+	pointer.CursorColResize:                1014, // TYPE_HORIZONTAL_DOUBLE_ARROW
+	pointer.CursorRowResize:                1015, // TYPE_VERTICAL_DOUBLE_ARROW
+	pointer.CursorGrab:                     1020, // TYPE_GRAB
+	pointer.CursorGrabbing:                 1021, // TYPE_GRABBING
+	pointer.CursorNotAllowed:               1012, // TYPE_NO_DROP
+	pointer.CursorWait:                     1004, // TYPE_WAIT
+	pointer.CursorProgress:                 1000, // TYPE_ARROW
+	pointer.CursorNorthWestResize:          1017, // TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW
+	pointer.CursorNorthEastResize:          1016, // TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW
+	pointer.CursorSouthWestResize:          1016, // TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW
+	pointer.CursorSouthEastResize:          1017, // TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW
+	pointer.CursorNorthSouthResize:         1015, // TYPE_VERTICAL_DOUBLE_ARROW
+	pointer.CursorEastWestResize:           1014, // TYPE_HORIZONTAL_DOUBLE_ARROW
+	pointer.CursorWestResize:               1014, // TYPE_HORIZONTAL_DOUBLE_ARROW
+	pointer.CursorEastResize:               1014, // TYPE_HORIZONTAL_DOUBLE_ARROW
+	pointer.CursorNorthResize:              1015, // TYPE_VERTICAL_DOUBLE_ARROW
+	pointer.CursorSouthResize:              1015, // TYPE_VERTICAL_DOUBLE_ARROW
+	pointer.CursorNorthEastSouthWestResize: 1016, // TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW
+	pointer.CursorNorthWestSouthEastResize: 1017, // TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW
+}
+
+func setCursor(env *C.JNIEnv, view C.jobject, cursor pointer.Cursor) {
+	curID := androidCursor[cursor]
 	callVoidMethod(env, view, gioView.setCursor, jvalue(curID))
 }
 
@@ -918,15 +1411,6 @@ func setNavigationColor(env *C.JNIEnv, view C.jobject, color color.NRGBA) {
 		jvalue(int(f32color.LinearFromSRGB(color).Luminance()*255)),
 	)
 }
-
-// Close the window. Not implemented for Android.
-func (w *window) Close() {}
-
-// Maximize maximizes the window. Not implemented for Android.
-func (w *window) Maximize() {}
-
-// Center the window. Not implemented for Android.
-func (w *window) Center() {}
 
 // runOnMain runs a function on the Java main thread.
 func runOnMain(f func(env *C.JNIEnv)) {

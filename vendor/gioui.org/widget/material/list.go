@@ -7,7 +7,6 @@ import (
 	"image/color"
 	"math"
 
-	"gioui.org/f32"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -51,7 +50,7 @@ type ScrollTrackStyle struct {
 	// MajorPadding and MinorPadding along the major and minor axis of the
 	// scrollbar's track. This is used to keep the scrollbar from touching
 	// the edges of the content area.
-	MajorPadding, MinorPadding unit.Value
+	MajorPadding, MinorPadding unit.Dp
 	// Color of the track background.
 	Color color.NRGBA
 }
@@ -60,16 +59,16 @@ type ScrollTrackStyle struct {
 type ScrollIndicatorStyle struct {
 	// MajorMinLen is the smallest that the scroll indicator is allowed to
 	// be along the major axis.
-	MajorMinLen unit.Value
+	MajorMinLen unit.Dp
 	// MinorWidth is the width of the scroll indicator across the minor axis.
-	MinorWidth unit.Value
+	MinorWidth unit.Dp
 	// Color and HoverColor are the normal and hovered colors of the scroll
 	// indicator.
 	Color, HoverColor color.NRGBA
 	// CornerRadius is the corner radius of the rectangular indicator. 0
 	// will produce square corners. 0.5*MinorWidth will produce perfectly
 	// round corners.
-	CornerRadius unit.Value
+	CornerRadius unit.Dp
 }
 
 // ScrollbarStyle configures the presentation of a scrollbar.
@@ -90,13 +89,13 @@ func Scrollbar(th *Theme, state *widget.Scrollbar) ScrollbarStyle {
 	return ScrollbarStyle{
 		Scrollbar: state,
 		Track: ScrollTrackStyle{
-			MajorPadding: unit.Dp(2),
-			MinorPadding: unit.Dp(2),
+			MajorPadding: 2,
+			MinorPadding: 2,
 		},
 		Indicator: ScrollIndicatorStyle{
-			MajorMinLen:  unit.Dp(8),
-			MinorWidth:   unit.Dp(6),
-			CornerRadius: unit.Dp(3),
+			MajorMinLen:  8,
+			MinorWidth:   6,
+			CornerRadius: 3,
 			Color:        lightFg,
 			HoverColor:   darkFg,
 		},
@@ -105,8 +104,8 @@ func Scrollbar(th *Theme, state *widget.Scrollbar) ScrollbarStyle {
 
 // Width returns the minor axis width of the scrollbar in its current
 // configuration (taking padding for the scroll track into account).
-func (s ScrollbarStyle) Width(metric unit.Metric) unit.Value {
-	return unit.Add(metric, s.Indicator.MinorWidth, s.Track.MinorPadding, s.Track.MinorPadding)
+func (s ScrollbarStyle) Width() unit.Dp {
+	return s.Indicator.MinorWidth + s.Track.MinorPadding + s.Track.MinorPadding
 }
 
 // Layout the scrollbar.
@@ -120,7 +119,7 @@ func (s ScrollbarStyle) Layout(gtx layout.Context, axis layout.Axis, viewportSta
 	convert := axis.Convert
 	maxMajorAxis := convert(gtx.Constraints.Max).X
 	gtx.Constraints.Min.X = maxMajorAxis
-	gtx.Constraints.Min.Y = gtx.Px(s.Width(gtx.Metric))
+	gtx.Constraints.Min.Y = gtx.Dp(s.Width())
 	gtx.Constraints.Min = convert(gtx.Constraints.Min)
 	gtx.Constraints.Max = gtx.Constraints.Min
 
@@ -180,23 +179,22 @@ func (s ScrollbarStyle) layout(gtx layout.Context, axis layout.Axis, viewportSta
 				trackLen := gtx.Constraints.Min.X
 				viewStart := int(math.Round(float64(viewportStart) * float64(trackLen)))
 				viewEnd := int(math.Round(float64(viewportEnd) * float64(trackLen)))
-				indicatorLen := max(viewEnd-viewStart, gtx.Px(s.Indicator.MajorMinLen))
+				indicatorLen := max(viewEnd-viewStart, gtx.Dp(s.Indicator.MajorMinLen))
 				if viewStart+indicatorLen > trackLen {
 					viewStart = trackLen - indicatorLen
 				}
 				indicatorDims := axis.Convert(image.Point{
 					X: indicatorLen,
-					Y: gtx.Px(s.Indicator.MinorWidth),
+					Y: gtx.Dp(s.Indicator.MinorWidth),
 				})
-				indicatorDimsF := layout.FPt(indicatorDims)
-				radius := float32(gtx.Px(s.Indicator.CornerRadius))
+				radius := gtx.Dp(s.Indicator.CornerRadius)
 
 				// Lay out the indicator.
 				offset := axis.Convert(image.Pt(viewStart, 0))
-				defer op.Offset(layout.FPt(offset)).Push(gtx.Ops).Pop()
+				defer op.Offset(offset).Push(gtx.Ops).Pop()
 				paint.FillShape(gtx.Ops, s.Indicator.Color, clip.RRect{
-					Rect: f32.Rectangle{
-						Max: indicatorDimsF,
+					Rect: image.Rectangle{
+						Max: indicatorDims,
 					},
 					SW: radius,
 					NW: radius,
@@ -249,7 +247,7 @@ func (l ListStyle) Layout(gtx layout.Context, length int, w layout.ListElement) 
 	originalConstraints := gtx.Constraints
 
 	// Determine how much space the scrollbar occupies.
-	barWidth := gtx.Px(l.Width(gtx.Metric))
+	barWidth := gtx.Dp(l.Width())
 
 	if l.AnchorStrategy == Occupy {
 
@@ -257,7 +255,13 @@ func (l ListStyle) Layout(gtx layout.Context, length int, w layout.ListElement) 
 		max := l.state.Axis.Convert(gtx.Constraints.Max)
 		min := l.state.Axis.Convert(gtx.Constraints.Min)
 		max.Y -= barWidth
+		if max.Y < 0 {
+			max.Y = 0
+		}
 		min.Y -= barWidth
+		if min.Y < 0 {
+			min.Y = 0
+		}
 		gtx.Constraints.Max = l.state.Axis.Convert(max)
 		gtx.Constraints.Min = l.state.Axis.Convert(min)
 	}
@@ -275,7 +279,12 @@ func (l ListStyle) Layout(gtx layout.Context, length int, w layout.ListElement) 
 	// layout.Direction respects the minimum, so ensure that the
 	// scrollbar will be drawn on the correct edge even if the provided
 	// layout.Context had a zero minimum constraint.
-	gtx.Constraints.Min = gtx.Constraints.Max
+	gtx.Constraints.Min = listDims.Size
+	if l.AnchorStrategy == Occupy {
+		min := l.state.Axis.Convert(gtx.Constraints.Min)
+		min.Y += barWidth
+		gtx.Constraints.Min = l.state.Axis.Convert(min)
+	}
 	anchoring.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return l.ScrollbarStyle.Layout(gtx, l.state.Axis, start, end)
 	})

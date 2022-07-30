@@ -135,6 +135,9 @@ func (c *Context) ReleaseCurrent() {
 }
 
 func (c *Context) MakeCurrent() error {
+	// OpenGL contexts are implicit and thread-local. Lock the OS thread.
+	runtime.LockOSThread()
+
 	if c.eglSurf == nilEGLSurface && !c.eglCtx.surfaceless {
 		return errors.New("no surface created yet EGL_KHR_surfaceless_context is not supported")
 	}

@@ -104,7 +104,7 @@ func (s Stack) Layout(gtx Context, children ...StackChild) Dimensions {
 		case SW, S, SE:
 			p.Y = maxSZ.Y - sz.Y
 		}
-		trans := op.Offset(FPt(p)).Push(gtx.Ops)
+		trans := op.Offset(p).Push(gtx.Ops)
 		ch.call.Add(gtx.Ops)
 		trans.Pop()
 		if baseline == 0 {

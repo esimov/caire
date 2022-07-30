@@ -50,7 +50,7 @@ func (g *Gui) EncodeSeamToImg() {
 
 	widget.Image{
 		Src:   src,
-		Scale: 1 / float32(g.ctx.Px(unit.Dp(1))),
+		Scale: 1 / float32(unit.Dp(1)),
 		Fit:   widget.Contain,
 	}.Layout(g.ctx)
 }
@@ -135,9 +135,9 @@ func (g *Gui) getFillColor() color.Color {
 // getRatio returns the image aspect ratio.
 func getRatio(w, h float32) float32 {
 	var r float32 = 1
-	if w > maxScreenX.V && h > maxScreenY.V {
-		wr := float32(maxScreenX.V) / float32(w) // width ratio
-		hr := float32(maxScreenY.V) / float32(h) // height ratio
+	if w > maxScreenX && h > maxScreenY {
+		wr := maxScreenX / float32(w) // width ratio
+		hr := maxScreenY / float32(h) // height ratio
 
 		r = utils.Min(wr, hr)
 	}

@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/f32"
 	"gioui.org/internal/f32color"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -32,25 +31,25 @@ type SliderStyle struct {
 	Color    color.NRGBA
 	Float    *widget.Float
 
-	FingerSize unit.Value
+	FingerSize unit.Dp
 }
 
 func (s SliderStyle) Layout(gtx layout.Context) layout.Dimensions {
-	thumbRadius := gtx.Px(unit.Dp(6))
-	trackWidth := gtx.Px(unit.Dp(2))
+	thumbRadius := gtx.Dp(6)
+	trackWidth := gtx.Dp(2)
 
 	axis := s.Float.Axis
 	// Keep a minimum length so that the track is always visible.
 	minLength := thumbRadius + 3*thumbRadius + thumbRadius
 	// Try to expand to finger size, but only if the constraints
 	// allow for it.
-	touchSizePx := min(gtx.Px(s.FingerSize), axis.Convert(gtx.Constraints.Max).Y)
+	touchSizePx := min(gtx.Dp(s.FingerSize), axis.Convert(gtx.Constraints.Max).Y)
 	sizeMain := max(axis.Convert(gtx.Constraints.Min).X, minLength)
 	sizeCross := max(2*thumbRadius, touchSizePx)
 	size := axis.Convert(image.Pt(sizeMain, sizeCross))
 
 	o := axis.Convert(image.Pt(thumbRadius, 0))
-	trans := op.Offset(layout.FPt(o)).Push(gtx.Ops)
+	trans := op.Offset(o).Push(gtx.Ops)
 	gtx.Constraints.Min = axis.Convert(image.Pt(sizeMain-2*thumbRadius, sizeCross))
 	s.Float.Layout(gtx, thumbRadius, s.Min, s.Max)
 	gtx.Constraints.Min = gtx.Constraints.Min.Add(axis.Convert(image.Pt(0, sizeCross)))
@@ -78,11 +77,11 @@ func (s SliderStyle) Layout(gtx layout.Context) layout.Dimensions {
 
 	// Draw thumb.
 	pt := axis.Convert(image.Pt(thumbPos, sizeCross/2))
-	paint.FillShape(gtx.Ops, color,
-		clip.Circle{
-			Center: f32.Point{X: float32(pt.X), Y: float32(pt.Y)},
-			Radius: float32(thumbRadius),
-		}.Op(gtx.Ops))
+	thumb := image.Rectangle{
+		Min: image.Pt(pt.X-thumbRadius, pt.Y-thumbRadius),
+		Max: image.Pt(pt.X+thumbRadius, pt.Y+thumbRadius),
+	}
+	paint.FillShape(gtx.Ops, color, clip.Ellipse(thumb).Op(gtx.Ops))
 
 	return layout.Dimensions{Size: size}
 }

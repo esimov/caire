@@ -34,7 +34,7 @@ type Palette struct {
 type Theme struct {
 	Shaper text.Shaper
 	Palette
-	TextSize unit.Value
+	TextSize unit.Sp
 	Icon     struct {
 		CheckBoxChecked   *widget.Icon
 		CheckBoxUnchecked *widget.Icon
@@ -43,7 +43,7 @@ type Theme struct {
 	}
 
 	// FingerSize is the minimum touch target size.
-	FingerSize unit.Value
+	FingerSize unit.Dp
 }
 
 func NewTheme(fontCollection []text.FontFace) *Theme {
@@ -56,7 +56,7 @@ func NewTheme(fontCollection []text.FontFace) *Theme {
 		ContrastBg: rgb(0x3f51b5),
 		ContrastFg: rgb(0xffffff),
 	}
-	t.TextSize = unit.Sp(16)
+	t.TextSize = 16
 
 	t.Icon.CheckBoxChecked = mustIcon(widget.NewIcon(icons.ToggleCheckBox))
 	t.Icon.CheckBoxUnchecked = mustIcon(widget.NewIcon(icons.ToggleCheckBoxOutlineBlank))
@@ -64,7 +64,7 @@ func NewTheme(fontCollection []text.FontFace) *Theme {
 	t.Icon.RadioUnchecked = mustIcon(widget.NewIcon(icons.ToggleRadioButtonUnchecked))
 
 	// 38dp is on the lower end of possible finger size.
-	t.FingerSize = unit.Dp(38)
+	t.FingerSize = 38
 
 	return t
 }

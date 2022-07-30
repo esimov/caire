@@ -31,6 +31,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"runtime"
 
 	"gioui.org/gpu"
 	"gioui.org/internal/gl"
@@ -101,6 +102,9 @@ func (c *context) Present() error {
 }
 
 func (c *context) Lock() error {
+	// OpenGL contexts are implicit and thread-local. Lock the OS thread.
+	runtime.LockOSThread()
+
 	if C.gio_makeCurrent(c.ctx) == 0 {
 		return errors.New("[EAGLContext setCurrentContext] failed")
 	}

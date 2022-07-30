@@ -7,6 +7,8 @@ import (
 	"math"
 )
 
+//go:generate go run ./f32colorgen -out tables.go
+
 // RGBA is a 32 bit floating point linear premultiplied color space.
 type RGBA struct {
 	R, G, B, A float32
@@ -53,9 +55,9 @@ func (col RGBA) Opaque() RGBA {
 func LinearFromSRGB(col color.NRGBA) RGBA {
 	af := float32(col.A) / 0xFF
 	return RGBA{
-		R: sRGBToLinear(float32(col.R)/0xff) * af,
-		G: sRGBToLinear(float32(col.G)/0xff) * af,
-		B: sRGBToLinear(float32(col.B)/0xff) * af,
+		R: srgb8ToLinear[col.R] * af, // sRGBToLinear(float32(col.R)/0xff) * af,
+		G: srgb8ToLinear[col.G] * af, // sRGBToLinear(float32(col.G)/0xff) * af,
+		B: srgb8ToLinear[col.B] * af, // sRGBToLinear(float32(col.B)/0xff) * af,
 		A: af,
 	}
 }
@@ -146,22 +148,34 @@ func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {
 func Disabled(c color.NRGBA) (d color.NRGBA) {
 	const r = 80 // blend ratio
 	lum := approxLuminance(c)
-	return color.NRGBA{
-		R: byte((int(c.R)*r + int(lum)*(256-r)) / 256),
-		G: byte((int(c.G)*r + int(lum)*(256-r)) / 256),
-		B: byte((int(c.B)*r + int(lum)*(256-r)) / 256),
-		A: byte(int(c.A) * (128 + 32) / 256),
-	}
+	d = mix(c, color.NRGBA{A: c.A, R: lum, G: lum, B: lum}, r)
+	d = MulAlpha(d, 128+32)
+	return
 }
 
-// Hovered blends color towards a brighter color.
-func Hovered(c color.NRGBA) (d color.NRGBA) {
-	const r = 0x20 // lighten ratio
+// Hovered blends dark colors towards white, and light colors towards
+// black. It is approximate because it operates in non-linear sRGB space.
+func Hovered(c color.NRGBA) (h color.NRGBA) {
+	if c.A == 0 {
+		// Provide a reasonable default for transparent widgets.
+		return color.NRGBA{A: 0x44, R: 0x88, G: 0x88, B: 0x88}
+	}
+	const ratio = 0x20
+	m := color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: c.A}
+	if approxLuminance(c) > 128 {
+		m = color.NRGBA{A: c.A}
+	}
+	return mix(m, c, ratio)
+}
+
+// mix mixes c1 and c2 weighted by (1 - a/256) and a/256 respectively.
+func mix(c1, c2 color.NRGBA, a uint8) color.NRGBA {
+	ai := int(a)
 	return color.NRGBA{
-		R: byte(255 - int(255-c.R)*(255-r)/256),
-		G: byte(255 - int(255-c.G)*(255-r)/256),
-		B: byte(255 - int(255-c.B)*(255-r)/256),
-		A: c.A,
+		R: byte((int(c1.R)*ai + int(c2.R)*(256-ai)) / 256),
+		G: byte((int(c1.G)*ai + int(c2.G)*(256-ai)) / 256),
+		B: byte((int(c1.B)*ai + int(c2.B)*(256-ai)) / 256),
+		A: byte((int(c1.A)*ai + int(c2.A)*(256-ai)) / 256),
 	}
 }
 

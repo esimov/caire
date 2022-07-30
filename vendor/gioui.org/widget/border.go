@@ -3,9 +3,9 @@
 package widget
 
 import (
+	"image"
 	"image/color"
 
-	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -15,27 +15,28 @@ import (
 // Border lays out a widget and draws a border inside it.
 type Border struct {
 	Color        color.NRGBA
-	CornerRadius unit.Value
-	Width        unit.Value
+	CornerRadius unit.Dp
+	Width        unit.Dp
 }
 
 func (b Border) Layout(gtx layout.Context, w layout.Widget) layout.Dimensions {
 	dims := w(gtx)
-	sz := layout.FPt(dims.Size)
+	sz := dims.Size
 
-	rr := float32(gtx.Px(b.CornerRadius))
-	width := float32(gtx.Px(b.Width))
-	sz.X -= width
-	sz.Y -= width
+	rr := gtx.Dp(b.CornerRadius)
+	width := gtx.Dp(b.Width)
+	whalf := (width + 1) / 2
+	sz.X -= whalf * 2
+	sz.Y -= whalf * 2
 
-	r := f32.Rectangle{Max: sz}
-	r = r.Add(f32.Point{X: width * 0.5, Y: width * 0.5})
+	r := image.Rectangle{Max: sz}
+	r = r.Add(image.Point{X: whalf, Y: whalf})
 
 	paint.FillShape(gtx.Ops,
 		b.Color,
 		clip.Stroke{
 			Path:  clip.UniformRRect(r, rr).Path(gtx.Ops),
-			Width: width,
+			Width: float32(width),
 		}.Op(),
 	)
 

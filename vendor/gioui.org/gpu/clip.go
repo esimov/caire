@@ -1,7 +1,7 @@
 package gpu
 
 import (
-	"gioui.org/f32"
+	"gioui.org/internal/f32"
 	"gioui.org/internal/stroke"
 )
 

@@ -16,7 +16,7 @@ For example, to add space above a widget:
 	var gtx layout.Context
 
 	// Configure a top inset.
-	inset := layout.Inset{Top: unit.Dp(8), ...}
+	inset := layout.Inset{Top: 8, ...}
 	// Use the inset to lay out a widget.
 	inset.Layout(gtx, func() {
 		// Lay out widget and determine its size given the constraints

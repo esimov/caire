@@ -11,10 +11,9 @@ import (
 	"runtime"
 	"time"
 	"unicode"
-	"unicode/utf16"
-	"unsafe"
+	"unicode/utf8"
 
-	"gioui.org/f32"
+	"gioui.org/internal/f32"
 	"gioui.org/io/clipboard"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
@@ -36,14 +35,11 @@ import (
 
 __attribute__ ((visibility ("hidden"))) void gio_main(void);
 __attribute__ ((visibility ("hidden"))) CFTypeRef gio_createView(void);
-__attribute__ ((visibility ("hidden"))) CFTypeRef gio_createWindow(CFTypeRef viewRef, const char *title, CGFloat width, CGFloat height, CGFloat minWidth, CGFloat minHeight, CGFloat maxWidth, CGFloat maxHeight);
+__attribute__ ((visibility ("hidden"))) CFTypeRef gio_createWindow(CFTypeRef viewRef, CGFloat width, CGFloat height, CGFloat minWidth, CGFloat minHeight, CGFloat maxWidth, CGFloat maxHeight);
 
-static void writeClipboard(unichar *chars, NSUInteger length) {
+static void writeClipboard(CFTypeRef str) {
 	@autoreleasepool {
-		NSString *s = [NSString string];
-		if (length > 0) {
-			s = [NSString stringWithCharacters:chars length:length];
-		}
+		NSString *s = (__bridge NSString *)str;
 		NSPasteboard *p = NSPasteboard.generalPasteboard;
 		[p declareTypes:@[NSPasteboardTypeString] owner:nil];
 		[p setString:s forType:NSPasteboardTypeString];
@@ -97,6 +93,36 @@ static void toggleFullScreen(CFTypeRef windowRef) {
 	[window toggleFullScreen:nil];
 }
 
+static NSWindowStyleMask getWindowStyleMask(CFTypeRef windowRef) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	return [window styleMask];
+}
+
+static void setWindowStyleMask(CFTypeRef windowRef, NSWindowStyleMask mask) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	window.styleMask = mask;
+}
+
+static void setWindowTitleVisibility(CFTypeRef windowRef, NSWindowTitleVisibility state) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	window.titleVisibility = state;
+}
+
+static void setWindowTitlebarAppearsTransparent(CFTypeRef windowRef, int transparent) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	window.titlebarAppearsTransparent = (BOOL)transparent;
+}
+
+static void setWindowStandardButtonHidden(CFTypeRef windowRef, NSWindowButton btn, int hide) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	[window standardWindowButton:btn].hidden = (BOOL)hide;
+}
+
+static void performWindowDragWithEvent(CFTypeRef windowRef, CFTypeRef evt) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	[window performWindowDragWithEvent:(__bridge NSEvent*)evt];
+}
+
 static void closeWindow(CFTypeRef windowRef) {
 	NSWindow* window = (__bridge NSWindow *)windowRef;
 	[window performClose:nil];
@@ -118,9 +144,40 @@ static void setMaxSize(CFTypeRef windowRef, CGFloat width, CGFloat height) {
 	window.contentMaxSize = NSMakeSize(width, height);
 }
 
-static void setTitle(CFTypeRef windowRef, const char *title) {
+static void setScreenFrame(CFTypeRef windowRef, CGFloat x, CGFloat y, CGFloat w, CGFloat h) {
 	NSWindow* window = (__bridge NSWindow *)windowRef;
-	window.title = [NSString stringWithUTF8String: title];
+	NSRect r = NSMakeRect(x, y, w, h);
+	[window setFrame:r display:YES];
+}
+
+static void hideWindow(CFTypeRef windowRef) {
+	NSWindow* window = (__bridge NSWindow *)windowRef;
+	[window miniaturize:window];
+}
+
+static void unhideWindow(CFTypeRef windowRef) {
+	NSWindow* window = (__bridge NSWindow *)windowRef;
+	[window deminiaturize:window];
+}
+
+static NSRect getScreenFrame(CFTypeRef windowRef) {
+	NSWindow* window = (__bridge NSWindow *)windowRef;
+	return [[window screen] frame];
+}
+
+static void setTitle(CFTypeRef windowRef, CFTypeRef titleRef) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	window.title = (__bridge NSString *)titleRef;
+}
+
+static int isWindowZoomed(CFTypeRef windowRef) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	return window.zoomed ? 1 : 0;
+}
+
+static void zoomWindow(CFTypeRef windowRef) {
+	NSWindow *window = (__bridge NSWindow *)windowRef;
+	[window zoom:nil];
 }
 
 static CFTypeRef layerForView(CFTypeRef viewRef) {
@@ -133,6 +190,33 @@ static void raiseWindow(CFTypeRef windowRef) {
 	[window makeKeyAndOrderFront:nil];
 }
 
+static CFTypeRef createInputContext(CFTypeRef clientRef) {
+	@autoreleasepool {
+		id<NSTextInputClient> client = (__bridge id<NSTextInputClient>)clientRef;
+		NSTextInputContext *ctx = [[NSTextInputContext alloc] initWithClient:client];
+		return CFBridgingRetain(ctx);
+	}
+}
+
+static void discardMarkedText(CFTypeRef viewRef) {
+    @autoreleasepool {
+		id<NSTextInputClient> view = (__bridge id<NSTextInputClient>)viewRef;
+		NSTextInputContext *ctx = [NSTextInputContext currentInputContext];
+		if (view == [ctx client]) {
+			[ctx discardMarkedText];
+		}
+    }
+}
+
+static void invalidateCharacterCoordinates(CFTypeRef viewRef) {
+    @autoreleasepool {
+		id<NSTextInputClient> view = (__bridge id<NSTextInputClient>)viewRef;
+		NSTextInputContext *ctx = [NSTextInputContext currentInputContext];
+		if (view == [ctx client]) {
+			[ctx invalidateCharacterCoordinates];
+		}
+    }
+}
 */
 import "C"
 
@@ -156,7 +240,10 @@ type window struct {
 	w           *callbacks
 	stage       system.Stage
 	displayLink *displayLink
-	cursor      pointer.CursorName
+	// redraw is a single entry channel for making sure only one
+	// display link redraw request is in flight.
+	redraw chan struct{}
+	cursor pointer.Cursor
 
 	scale  float32
 	config Config
@@ -203,62 +290,158 @@ func (w *window) contextView() C.CFTypeRef {
 }
 
 func (w *window) ReadClipboard() {
-	content := nsstringToString(C.readClipboard())
+	cstr := C.readClipboard()
+	defer C.CFRelease(cstr)
+	content := nsstringToString(cstr)
 	w.w.Event(clipboard.Event{Text: content})
 }
 
 func (w *window) WriteClipboard(s string) {
-	u16 := utf16.Encode([]rune(s))
-	var chars *C.unichar
-	if len(u16) > 0 {
-		chars = (*C.unichar)(unsafe.Pointer(&u16[0]))
+	cstr := stringToNSString(s)
+	defer C.CFRelease(cstr)
+	C.writeClipboard(cstr)
+}
+
+func (w *window) updateWindowMode() {
+	style := int(C.getWindowStyleMask(w.window))
+	if style&C.NSWindowStyleMaskFullScreen != 0 {
+		w.config.Mode = Fullscreen
+	} else {
+		w.config.Mode = Windowed
 	}
-	C.writeClipboard(chars, C.NSUInteger(len(u16)))
+	w.config.Decorated = style&C.NSWindowStyleMaskFullSizeContentView == 0
 }
 
 func (w *window) Configure(options []Option) {
 	screenScale := float32(C.getScreenBackingScale())
 	cfg := configFor(screenScale)
 	prev := w.config
+	w.updateWindowMode()
 	cnf := w.config
 	cnf.apply(cfg, options)
-	cnf.Size = cnf.Size.Div(int(screenScale))
-	cnf.MinSize = cnf.MinSize.Div(int(screenScale))
-	cnf.MaxSize = cnf.MaxSize.Div(int(screenScale))
 
-	if cnf.Mode != Fullscreen && prev.Size != cnf.Size {
-		w.config.Size = cnf.Size
-		C.setSize(w.window, C.CGFloat(cnf.Size.X), C.CGFloat(cnf.Size.Y))
-	}
-	if prev.MinSize != cnf.MinSize {
-		w.config.MinSize = cnf.MinSize
-		C.setMinSize(w.window, C.CGFloat(cnf.MinSize.X), C.CGFloat(cnf.MinSize.Y))
-	}
-	if prev.MaxSize != cnf.MaxSize {
-		w.config.MaxSize = cnf.MaxSize
-		C.setMaxSize(w.window, C.CGFloat(cnf.MaxSize.X), C.CGFloat(cnf.MaxSize.Y))
-	}
-
-	if prev.Title != cnf.Title {
-		w.config.Title = cnf.Title
-		title := C.CString(cnf.Title)
-		defer C.free(unsafe.Pointer(title))
-		C.setTitle(w.window, title)
-	}
-	if prev.Mode != cnf.Mode {
-		switch cnf.Mode {
-		case Windowed, Fullscreen:
-			w.config.Mode = cnf.Mode
+	switch cnf.Mode {
+	case Fullscreen:
+		switch prev.Mode {
+		case Fullscreen:
+		case Minimized:
+			C.unhideWindow(w.window)
+			fallthrough
+		default:
+			w.config.Mode = Fullscreen
 			C.toggleFullScreen(w.window)
 		}
+	case Minimized:
+		switch prev.Mode {
+		case Minimized, Fullscreen:
+		default:
+			w.config.Mode = Minimized
+			C.hideWindow(w.window)
+		}
+	case Maximized:
+		switch prev.Mode {
+		case Fullscreen:
+		case Minimized:
+			C.unhideWindow(w.window)
+			fallthrough
+		default:
+			w.config.Mode = Maximized
+			w.setTitle(prev, cnf)
+			if C.isWindowZoomed(w.window) == 0 {
+				C.zoomWindow(w.window)
+			}
+		}
+	case Windowed:
+		switch prev.Mode {
+		case Fullscreen:
+			C.toggleFullScreen(w.window)
+		case Minimized:
+			C.unhideWindow(w.window)
+		case Maximized:
+		}
+		w.config.Mode = Windowed
+		if C.isWindowZoomed(w.window) != 0 {
+			C.zoomWindow(w.window)
+		}
+		w.setTitle(prev, cnf)
+		if prev.Size != cnf.Size {
+			w.config.Size = cnf.Size
+			cnf.Size = cnf.Size.Div(int(screenScale))
+			C.setSize(w.window, C.CGFloat(cnf.Size.X), C.CGFloat(cnf.Size.Y))
+		}
+		if prev.MinSize != cnf.MinSize {
+			w.config.MinSize = cnf.MinSize
+			cnf.MinSize = cnf.MinSize.Div(int(screenScale))
+			C.setMinSize(w.window, C.CGFloat(cnf.MinSize.X), C.CGFloat(cnf.MinSize.Y))
+		}
+		if prev.MaxSize != cnf.MaxSize {
+			w.config.MaxSize = cnf.MaxSize
+			cnf.MaxSize = cnf.MaxSize.Div(int(screenScale))
+			C.setMaxSize(w.window, C.CGFloat(cnf.MaxSize.X), C.CGFloat(cnf.MaxSize.Y))
+		}
 	}
-	if w.config != prev {
-		w.w.Event(ConfigEvent{Config: w.config})
+	if cnf.Decorated != prev.Decorated {
+		w.config.Decorated = cnf.Decorated
+		mask := C.getWindowStyleMask(w.window)
+		style := C.NSWindowStyleMask(C.NSWindowStyleMaskTitled | C.NSWindowStyleMaskResizable | C.NSWindowStyleMaskMiniaturizable | C.NSWindowStyleMaskClosable)
+		style = C.NSWindowStyleMaskFullSizeContentView
+		mask &^= style
+		barTrans := C.int(C.NO)
+		titleVis := C.NSWindowTitleVisibility(C.NSWindowTitleVisible)
+		if !cnf.Decorated {
+			mask |= style
+			barTrans = C.YES
+			titleVis = C.NSWindowTitleHidden
+		}
+		C.setWindowTitlebarAppearsTransparent(w.window, barTrans)
+		C.setWindowTitleVisibility(w.window, titleVis)
+		C.setWindowStyleMask(w.window, mask)
+		C.setWindowStandardButtonHidden(w.window, C.NSWindowCloseButton, barTrans)
+		C.setWindowStandardButtonHidden(w.window, C.NSWindowMiniaturizeButton, barTrans)
+		C.setWindowStandardButtonHidden(w.window, C.NSWindowZoomButton, barTrans)
+	}
+	w.w.Event(ConfigEvent{Config: w.config})
+}
+
+func (w *window) setTitle(prev, cnf Config) {
+	if prev.Title != cnf.Title {
+		w.config.Title = cnf.Title
+		title := stringToNSString(cnf.Title)
+		defer C.CFRelease(title)
+		C.setTitle(w.window, title)
 	}
 }
 
-func (w *window) SetCursor(name pointer.CursorName) {
-	w.cursor = windowSetCursor(w.cursor, name)
+func (w *window) Perform(acts system.Action) {
+	walkActions(acts, func(a system.Action) {
+		switch a {
+		case system.ActionCenter:
+			r := C.getScreenFrame(w.window) // the screen size of the window
+			sz := w.config.Size
+			x := (int(r.size.width) - sz.X) / 2
+			y := (int(r.size.height) - sz.Y) / 2
+			C.setScreenFrame(w.window, C.CGFloat(x), C.CGFloat(y), C.CGFloat(sz.X), C.CGFloat(sz.Y))
+		case system.ActionRaise:
+			C.raiseWindow(w.window)
+		}
+	})
+	if acts&system.ActionClose != 0 {
+		C.closeWindow(w.window)
+	}
+}
+
+func (w *window) SetCursor(cursor pointer.Cursor) {
+	w.cursor = windowSetCursor(w.cursor, cursor)
+}
+
+func (w *window) EditorStateChanged(old, new editorState) {
+	if old.Selection.Range != new.Selection.Range || old.Snippet != new.Snippet {
+		C.discardMarkedText(w.view)
+		w.w.SetComposingRegion(key.Range{Start: -1, End: -1})
+	}
+	if old.Selection.Caret != new.Selection.Caret || old.Selection.Transform != new.Selection.Transform {
+		C.invalidateCharacterCoordinates(w.view)
+	}
 }
 
 func (w *window) ShowTextInput(show bool) {}
@@ -273,10 +456,6 @@ func (w *window) SetAnimating(anim bool) {
 	}
 }
 
-func (w *window) Raise() {
-	C.raiseWindow(w.window)
-}
-
 func (w *window) runOnMain(f func()) {
 	runOnMain(func() {
 		// Make sure the view is still valid. The window might've been closed
@@ -287,16 +466,6 @@ func (w *window) runOnMain(f func()) {
 	})
 }
 
-func (w *window) Close() {
-	C.closeWindow(w.window)
-}
-
-// Maximize the window. Not implemented for macos.
-func (w *window) Maximize() {}
-
-// Center the window. Not implemented for macos.
-func (w *window) Center() {}
-
 func (w *window) setStage(stage system.Stage) {
 	if stage == w.stage {
 		return
@@ -306,8 +475,8 @@ func (w *window) setStage(stage system.Stage) {
 }
 
 //export gio_onKeys
-func gio_onKeys(view C.CFTypeRef, cstr *C.char, ti C.double, mods C.NSUInteger, keyDown C.bool) {
-	str := C.GoString(cstr)
+func gio_onKeys(view, cstr C.CFTypeRef, ti C.double, mods C.NSUInteger, keyDown C.bool) {
+	str := nsstringToString(cstr)
 	kmods := convertMods(mods)
 	ks := key.Release
 	if keyDown {
@@ -326,14 +495,19 @@ func gio_onKeys(view C.CFTypeRef, cstr *C.char, ti C.double, mods C.NSUInteger, 
 }
 
 //export gio_onText
-func gio_onText(view C.CFTypeRef, cstr *C.char) {
-	str := C.GoString(cstr)
+func gio_onText(view, cstr C.CFTypeRef) {
+	str := nsstringToString(cstr)
 	w := mustView(view)
-	w.w.Event(key.EditEvent{Text: str})
+	w.w.EditorInsert(str)
 }
 
 //export gio_onMouse
-func gio_onMouse(view C.CFTypeRef, cdir C.int, cbtns C.NSUInteger, x, y, dx, dy C.CGFloat, ti C.double, mods C.NSUInteger) {
+func gio_onMouse(view, evt C.CFTypeRef, cdir C.int, cbtns C.NSUInteger, x, y, dx, dy C.CGFloat, ti C.double, mods C.NSUInteger) {
+	w := mustView(view)
+	t := time.Duration(float64(ti)*float64(time.Second) + .5)
+	xf, yf := float32(x)*w.scale, float32(y)*w.scale
+	dxf, dyf := float32(dx)*w.scale, float32(dy)*w.scale
+	pos := f32.Point{X: xf, Y: yf}
 	var typ pointer.Type
 	switch cdir {
 	case C.MOUSE_MOVE:
@@ -342,6 +516,14 @@ func gio_onMouse(view C.CFTypeRef, cdir C.int, cbtns C.NSUInteger, x, y, dx, dy 
 		typ = pointer.Release
 	case C.MOUSE_DOWN:
 		typ = pointer.Press
+		act, ok := w.w.ActionAt(pos)
+		if ok && w.config.Mode != Fullscreen {
+			switch act {
+			case system.ActionMove:
+				C.performWindowDragWithEvent(w.window, evt)
+				return
+			}
+		}
 	case C.MOUSE_SCROLL:
 		typ = pointer.Scroll
 	default:
@@ -357,16 +539,12 @@ func gio_onMouse(view C.CFTypeRef, cdir C.int, cbtns C.NSUInteger, x, y, dx, dy 
 	if cbtns&(1<<2) != 0 {
 		btns |= pointer.ButtonTertiary
 	}
-	t := time.Duration(float64(ti)*float64(time.Second) + .5)
-	w := mustView(view)
-	xf, yf := float32(x)*w.scale, float32(y)*w.scale
-	dxf, dyf := float32(dx)*w.scale, float32(dy)*w.scale
 	w.w.Event(pointer.Event{
 		Type:      typ,
 		Source:    pointer.Mouse,
 		Time:      t,
 		Buttons:   btns,
-		Position:  f32.Point{X: xf, Y: yf},
+		Position:  pos,
 		Scroll:    f32.Point{X: dxf, Y: dyf},
 		Modifiers: convertMods(mods),
 	})
@@ -389,9 +567,177 @@ func gio_onFocus(view C.CFTypeRef, focus C.int) {
 func gio_onChangeScreen(view C.CFTypeRef, did uint64) {
 	w := mustView(view)
 	w.displayLink.SetDisplayID(did)
+	C.setNeedsDisplay(w.view)
+}
+
+//export gio_hasMarkedText
+func gio_hasMarkedText(view C.CFTypeRef) C.int {
+	w := mustView(view)
+	state := w.w.EditorState()
+	if state.compose.Start != -1 {
+		return 1
+	}
+	return 0
+}
+
+//export gio_markedRange
+func gio_markedRange(view C.CFTypeRef) C.NSRange {
+	w := mustView(view)
+	state := w.w.EditorState()
+	rng := state.compose
+	start, end := rng.Start, rng.End
+	if start == -1 {
+		return C.NSMakeRange(C.NSNotFound, 0)
+	}
+	u16start := state.UTF16Index(start)
+	return C.NSMakeRange(
+		C.NSUInteger(u16start),
+		C.NSUInteger(state.UTF16Index(end)-u16start),
+	)
+}
+
+//export gio_selectedRange
+func gio_selectedRange(view C.CFTypeRef) C.NSRange {
+	w := mustView(view)
+	state := w.w.EditorState()
+	rng := state.Selection
+	start, end := rng.Start, rng.End
+	if start > end {
+		start, end = end, start
+	}
+	u16start := state.UTF16Index(start)
+	return C.NSMakeRange(
+		C.NSUInteger(u16start),
+		C.NSUInteger(state.UTF16Index(end)-u16start),
+	)
+}
+
+//export gio_unmarkText
+func gio_unmarkText(view C.CFTypeRef) {
+	w := mustView(view)
+	w.w.SetComposingRegion(key.Range{Start: -1, End: -1})
+}
+
+//export gio_setMarkedText
+func gio_setMarkedText(view, cstr C.CFTypeRef, selRange C.NSRange, replaceRange C.NSRange) {
+	w := mustView(view)
+	str := nsstringToString(cstr)
+	state := w.w.EditorState()
+	rng := state.compose
+	if rng.Start == -1 {
+		rng = state.Selection.Range
+	}
+	if replaceRange.location != C.NSNotFound {
+		// replaceRange is relative to marked (or selected) text.
+		offset := state.UTF16Index(rng.Start)
+		start := state.RunesIndex(int(replaceRange.location) + offset)
+		end := state.RunesIndex(int(replaceRange.location+replaceRange.length) + offset)
+		rng = key.Range{
+			Start: start,
+			End:   end,
+		}
+	}
+	w.w.EditorReplace(rng, str)
+	comp := key.Range{
+		Start: rng.Start,
+		End:   rng.Start + utf8.RuneCountInString(str),
+	}
+	w.w.SetComposingRegion(comp)
+
+	sel := key.Range{Start: comp.End, End: comp.End}
+	if selRange.location != C.NSNotFound {
+		// selRange is relative to inserted text.
+		offset := state.UTF16Index(rng.Start)
+		start := state.RunesIndex(int(selRange.location) + offset)
+		end := state.RunesIndex(int(selRange.location+selRange.length) + offset)
+		sel = key.Range{
+			Start: start,
+			End:   end,
+		}
+	}
+	w.w.SetEditorSelection(sel)
+}
+
+//export gio_substringForProposedRange
+func gio_substringForProposedRange(view C.CFTypeRef, crng C.NSRange, actual C.NSRangePointer) C.CFTypeRef {
+	w := mustView(view)
+	state := w.w.EditorState()
+	start, end := state.Snippet.Start, state.Snippet.End
+	if start > end {
+		start, end = end, start
+	}
+	rng := key.Range{
+		Start: state.RunesIndex(int(crng.location)),
+		End:   state.RunesIndex(int(crng.location + crng.length)),
+	}
+	if rng.Start < start || end < rng.End {
+		w.w.SetEditorSnippet(rng)
+	}
+	u16start := state.UTF16Index(start)
+	actual.location = C.NSUInteger(u16start)
+	actual.length = C.NSUInteger(state.UTF16Index(end) - u16start)
+	return stringToNSString(state.Snippet.Text)
+}
+
+//export gio_insertText
+func gio_insertText(view, cstr C.CFTypeRef, crng C.NSRange) {
+	w := mustView(view)
+	state := w.w.EditorState()
+	rng := state.compose
+	if rng.Start == -1 {
+		rng = state.Selection.Range
+	}
+	if crng.location != C.NSNotFound {
+		rng = key.Range{
+			Start: state.RunesIndex(int(crng.location)),
+			End:   state.RunesIndex(int(crng.location + crng.length)),
+		}
+	}
+	str := nsstringToString(cstr)
+	w.w.EditorReplace(rng, str)
+	w.w.SetComposingRegion(key.Range{Start: -1, End: -1})
+	start := rng.Start
+	if rng.End < start {
+		start = rng.End
+	}
+	pos := start + utf8.RuneCountInString(str)
+	w.w.SetEditorSelection(key.Range{Start: pos, End: pos})
+}
+
+//export gio_characterIndexForPoint
+func gio_characterIndexForPoint(view C.CFTypeRef, p C.NSPoint) C.NSUInteger {
+	return C.NSNotFound
+}
+
+//export gio_firstRectForCharacterRange
+func gio_firstRectForCharacterRange(view C.CFTypeRef, crng C.NSRange, actual C.NSRangePointer) C.NSRect {
+	w := mustView(view)
+	state := w.w.EditorState()
+	sel := state.Selection
+	u16start := state.UTF16Index(sel.Start)
+	actual.location = C.NSUInteger(u16start)
+	actual.length = 0
+	// Transform to NSView local coordinates (lower left origin, undo backing scale).
+	scale := 1. / float32(C.getViewBackingScale(w.view))
+	height := float32(C.viewHeight(w.view))
+	local := f32.Affine2D{}.Scale(f32.Pt(0, 0), f32.Pt(scale, -scale)).Offset(f32.Pt(0, height))
+	t := local.Mul(sel.Transform)
+	bounds := f32.Rectangle{
+		Min: t.Transform(sel.Pos.Sub(f32.Pt(0, sel.Ascent))),
+		Max: t.Transform(sel.Pos.Add(f32.Pt(0, sel.Descent))),
+	}.Canon()
+	sz := bounds.Size()
+	return C.NSMakeRect(
+		C.CGFloat(bounds.Min.X), C.CGFloat(bounds.Min.Y),
+		C.CGFloat(sz.X), C.CGFloat(sz.Y),
+	)
 }
 
 func (w *window) draw() {
+	select {
+	case <-w.redraw:
+	default:
+	}
 	w.scale = float32(C.getViewBackingScale(w.view))
 	wf, hf := float32(C.viewWidth(w.view)), float32(C.viewHeight(w.view))
 	sz := image.Point{
@@ -450,6 +796,20 @@ func gio_onShow(view C.CFTypeRef) {
 	w.setStage(system.StageRunning)
 }
 
+//export gio_onFullscreen
+func gio_onFullscreen(view C.CFTypeRef) {
+	w := mustView(view)
+	w.config.Mode = Fullscreen
+	w.w.Event(ConfigEvent{Config: w.config})
+}
+
+//export gio_onWindowed
+func gio_onWindowed(view C.CFTypeRef) {
+	w := mustView(view)
+	w.config.Mode = Windowed
+	w.w.Event(ConfigEvent{Config: w.config})
+}
+
 //export gio_onAppHide
 func gio_onAppHide() {
 	for _, w := range viewMap {
@@ -480,7 +840,8 @@ func newWindow(win *callbacks, options []Option) error {
 		}
 		errch <- nil
 		w.w = win
-		w.window = C.gio_createWindow(w.view, nil, 0, 0, 0, 0, 0, 0)
+		w.window = C.gio_createWindow(w.view, 0, 0, 0, 0, 0, 0)
+		w.updateWindowMode()
 		win.SetDriver(w)
 		w.Configure(options)
 		if nextTopLeft.x == 0 && nextTopLeft.y == 0 {
@@ -499,14 +860,20 @@ func newWindow(win *callbacks, options []Option) error {
 func newOSWindow() (*window, error) {
 	view := C.gio_createView()
 	if view == 0 {
-		return nil, errors.New("CreateWindow: failed to create view")
+		return nil, errors.New("newOSWindows: failed to create view")
 	}
 	scale := float32(C.getViewBackingScale(view))
 	w := &window{
-		view:  view,
-		scale: scale,
+		view:   view,
+		scale:  scale,
+		redraw: make(chan struct{}, 1),
 	}
 	dl, err := NewDisplayLink(func() {
+		select {
+		case w.redraw <- struct{}{}:
+		default:
+			return
+		}
 		w.runOnMain(func() {
 			C.setNeedsDisplay(w.view)
 		})
@@ -554,29 +921,29 @@ func convertKey(k rune) (string, bool) {
 	case C.NSPageDownFunctionKey:
 		n = key.NamePageDown
 	case C.NSF1FunctionKey:
-		n = "F1"
+		n = key.NameF1
 	case C.NSF2FunctionKey:
-		n = "F2"
+		n = key.NameF2
 	case C.NSF3FunctionKey:
-		n = "F3"
+		n = key.NameF3
 	case C.NSF4FunctionKey:
-		n = "F4"
+		n = key.NameF4
 	case C.NSF5FunctionKey:
-		n = "F5"
+		n = key.NameF5
 	case C.NSF6FunctionKey:
-		n = "F6"
+		n = key.NameF6
 	case C.NSF7FunctionKey:
-		n = "F7"
+		n = key.NameF7
 	case C.NSF8FunctionKey:
-		n = "F8"
+		n = key.NameF8
 	case C.NSF9FunctionKey:
-		n = "F9"
+		n = key.NameF9
 	case C.NSF10FunctionKey:
-		n = "F10"
+		n = key.NameF10
 	case C.NSF11FunctionKey:
-		n = "F11"
+		n = key.NameF11
 	case C.NSF12FunctionKey:
-		n = "F12"
+		n = key.NameF12
 	case 0x09, 0x19:
 		n = key.NameTab
 	case 0x20:

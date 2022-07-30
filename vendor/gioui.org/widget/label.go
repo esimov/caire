@@ -5,8 +5,9 @@ package widget
 import (
 	"fmt"
 	"image"
-	"unicode/utf8"
 
+	"gioui.org/io/semantic"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -29,160 +30,105 @@ type Label struct {
 // not pixels): Y = line number, X = rune column.
 type screenPos image.Point
 
-type segmentIterator struct {
-	Lines     []text.Line
-	Clip      image.Rectangle
-	Alignment text.Alignment
-	Width     int
-	Offset    image.Point
-	startSel  screenPos
-	endSel    screenPos
-
-	pos    screenPos   // current position
-	line   text.Line   // current line
-	layout text.Layout // current line's Layout
-
-	// pixel positions
-	off         fixed.Point26_6
-	y, prevDesc fixed.Int26_6
-}
-
 const inf = 1e6
 
-func (l *segmentIterator) Next() (text.Layout, image.Point, bool, int, image.Point, bool) {
-	for l.pos.Y < len(l.Lines) {
-		if l.pos.X == 0 {
-			l.line = l.Lines[l.pos.Y]
+func posIsAbove(lines []text.Line, pos combinedPos, y int) bool {
+	line := lines[pos.lineCol.Y]
+	return pos.y+line.Bounds.Max.Y.Ceil() < y
+}
 
-			// Calculate X & Y pixel coordinates of left edge of line. We need y
-			// for the next line, so it's in l, but we only need x here, so it's
-			// not.
-			x := align(l.Alignment, l.line.Width, l.Width) + fixed.I(l.Offset.X)
-			l.y += l.prevDesc + l.line.Ascent
-			l.prevDesc = l.line.Descent
-			// Align baseline and line start to the pixel grid.
-			l.off = fixed.Point26_6{X: fixed.I(x.Floor()), Y: fixed.I(l.y.Ceil())}
-			l.y = l.off.Y
-			l.off.Y += fixed.I(l.Offset.Y)
-			if (l.off.Y + l.line.Bounds.Min.Y).Floor() > l.Clip.Max.Y {
-				break
-			}
+func posIsBelow(lines []text.Line, pos combinedPos, y int) bool {
+	line := lines[pos.lineCol.Y]
+	return pos.y+line.Bounds.Min.Y.Floor() > y
+}
 
-			if (l.off.Y + l.line.Bounds.Max.Y).Ceil() < l.Clip.Min.Y {
-				// This line is outside/before the clip area; go on to the next line.
-				l.pos.Y++
-				continue
-			}
+func clipLine(lines []text.Line, alignment text.Alignment, width int, clip image.Rectangle, linePos combinedPos) (start combinedPos, end combinedPos) {
+	// Seek to first (potentially) visible column.
+	lineIdx := linePos.lineCol.Y
+	line := lines[lineIdx]
+	// runeWidth is the width of the widest rune in line.
+	runeWidth := (line.Bounds.Max.X - line.Width).Ceil()
+	lineStart := fixed.I(clip.Min.X - runeWidth)
+	lineEnd := fixed.I(clip.Max.X + runeWidth)
 
-			// Copy the line's Layout, since we slice it up later.
-			l.layout = l.line.Layout
-
-			// Find the left edge of the text visible in the l.Clip clipping
-			// area.
-			for len(l.layout.Advances) > 0 {
-				_, n := utf8.DecodeRuneInString(l.layout.Text)
-				adv := l.layout.Advances[0]
-				if (l.off.X + adv + l.line.Bounds.Max.X - l.line.Width).Ceil() >= l.Clip.Min.X {
-					break
-				}
-				l.off.X += adv
-				l.layout.Text = l.layout.Text[n:]
-				l.layout.Advances = l.layout.Advances[1:]
-				l.pos.X++
-			}
-		}
-
-		selected := l.inSelection()
-		endx := l.off.X
-		rune := 0
-		nextLine := true
-		retLayout := l.layout
-		for n := range l.layout.Text {
-			selChanged := selected != l.inSelection()
-			beyondClipEdge := (endx + l.line.Bounds.Min.X).Floor() > l.Clip.Max.X
-			if selChanged || beyondClipEdge {
-				retLayout.Advances = l.layout.Advances[:rune]
-				retLayout.Text = l.layout.Text[:n]
-				if selChanged {
-					// Save the rest of the line
-					l.layout.Advances = l.layout.Advances[rune:]
-					l.layout.Text = l.layout.Text[n:]
-					nextLine = false
-				}
-				break
-			}
-			endx += l.layout.Advances[rune]
-			rune++
-			l.pos.X++
-		}
-		offFloor := image.Point{X: l.off.X.Floor(), Y: l.off.Y.Floor()}
-
-		// Calculate the width & height if the returned text.
-		//
-		// If there's a better way to do this, I'm all ears.
-		var d fixed.Int26_6
-		for _, adv := range retLayout.Advances {
-			d += adv
-		}
-		size := image.Point{
-			X: d.Ceil(),
-			Y: (l.line.Ascent + l.line.Descent).Ceil(),
-		}
-
-		if nextLine {
-			l.pos.Y++
-			l.pos.X = 0
-		} else {
-			l.off.X = endx
-		}
-
-		return retLayout, offFloor, selected, l.prevDesc.Ceil() - size.Y, size, true
+	flip := line.Layout.Direction.Progression() == system.TowardOrigin
+	if flip {
+		lineStart, lineEnd = lineEnd, lineStart
 	}
-	return text.Layout{}, image.Point{}, false, 0, image.Point{}, false
+	q := combinedPos{y: start.y, x: lineStart}
+	start, _ = seekPosition(lines, alignment, width, linePos, q, 0)
+	// Seek to first invisible column after start.
+	q = combinedPos{y: start.y, x: lineEnd}
+	end, _ = seekPosition(lines, alignment, width, start, q, 0)
+	if flip {
+		start, end = end, start
+	}
+
+	return start, end
 }
 
-func (l *segmentIterator) inSelection() bool {
-	return l.startSel.LessOrEqual(l.pos) &&
-		l.pos.Less(l.endSel)
+func subLayout(line text.Line, start, end combinedPos) text.Layout {
+	if start.lineCol.X == line.Layout.Runes.Count {
+		return text.Layout{}
+	}
+
+	startCluster := clusterIndexFor(line, start.lineCol.X, start.clusterIndex)
+	endCluster := clusterIndexFor(line, end.lineCol.X, end.clusterIndex)
+	if startCluster > endCluster {
+		startCluster, endCluster = endCluster, startCluster
+	}
+	return line.Layout.Slice(startCluster, endCluster)
 }
 
-func (p1 screenPos) LessOrEqual(p2 screenPos) bool {
-	return p1.Y < p2.Y || (p1.Y == p2.Y && p1.X <= p2.X)
+func firstPos(line text.Line, alignment text.Alignment, width int) combinedPos {
+	p := combinedPos{
+		x: align(alignment, line.Layout.Direction, line.Width, width),
+		y: line.Ascent.Ceil(),
+	}
+
+	if line.Layout.Direction.Progression() == system.TowardOrigin {
+		p.x += line.Width
+	}
+	return p
 }
 
 func (p1 screenPos) Less(p2 screenPos) bool {
 	return p1.Y < p2.Y || (p1.Y == p2.Y && p1.X < p2.X)
 }
 
-func (l Label) Layout(gtx layout.Context, s text.Shaper, font text.Font, size unit.Value, txt string) layout.Dimensions {
+func (l Label) Layout(gtx layout.Context, s text.Shaper, font text.Font, size unit.Sp, txt string) layout.Dimensions {
 	cs := gtx.Constraints
-	textSize := fixed.I(gtx.Px(size))
-	lines := s.LayoutString(font, textSize, cs.Max.X, txt)
+	textSize := fixed.I(gtx.Sp(size))
+	lines := s.LayoutString(font, textSize, cs.Max.X, gtx.Locale, txt)
 	if max := l.MaxLines; max > 0 && len(lines) > max {
 		lines = lines[:max]
 	}
 	dims := linesDimens(lines)
 	dims.Size = cs.Constrain(dims.Size)
+	if len(lines) == 0 {
+		return dims
+	}
 	cl := textPadding(lines)
 	cl.Max = cl.Max.Add(dims.Size)
-	it := segmentIterator{
-		Lines:     lines,
-		Clip:      cl,
-		Alignment: l.Alignment,
-		Width:     dims.Size.X,
-	}
-	for {
-		l, off, _, _, _, ok := it.Next()
-		if !ok {
+	defer clip.Rect(cl).Push(gtx.Ops).Pop()
+	semantic.LabelOp(txt).Add(gtx.Ops)
+	pos := firstPos(lines[0], l.Alignment, dims.Size.X)
+	for !posIsBelow(lines, pos, cl.Max.Y) {
+		start, end := clipLine(lines, l.Alignment, dims.Size.X, cl, pos)
+		line := lines[start.lineCol.Y]
+		lt := subLayout(line, start, end)
+
+		off := image.Point{X: start.x.Floor(), Y: start.y}
+		t := op.Offset(off).Push(gtx.Ops)
+		op := clip.Outline{Path: s.Shape(font, textSize, lt)}.Op().Push(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+		op.Pop()
+		t.Pop()
+
+		if pos.lineCol.Y == len(lines)-1 {
 			break
 		}
-		t := op.Offset(layout.FPt(off)).Push(gtx.Ops)
-		rcl := clip.Rect(cl.Sub(off)).Push(gtx.Ops)
-		cl := s.Shape(font, textSize, l).Push(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-		cl.Pop()
-		rcl.Pop()
-		t.Pop()
+		pos, _ = seekPosition(lines, l.Alignment, dims.Size.X, pos, combinedPos{lineCol: screenPos{Y: pos.lineCol.Y + 1}}, 0)
 	}
 	return dims
 }
@@ -234,8 +180,19 @@ func linesDimens(lines []text.Line) layout.Dimensions {
 	}
 }
 
-func align(align text.Alignment, width fixed.Int26_6, maxWidth int) fixed.Int26_6 {
+// align returns the x offset that should be applied to text with width so that it
+// appears correctly aligned within a space of size maxWidth and with the primary
+// text direction dir.
+func align(align text.Alignment, dir system.TextDirection, width fixed.Int26_6, maxWidth int) fixed.Int26_6 {
 	mw := fixed.I(maxWidth)
+	if dir.Progression() == system.TowardOrigin {
+		switch align {
+		case text.Start:
+			align = text.End
+		case text.End:
+			align = text.Start
+		}
+	}
 	switch align {
 	case text.Middle:
 		return fixed.I(((mw - width) / 2).Floor())

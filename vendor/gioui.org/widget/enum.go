@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: Unlicense OR MIT
+
 package widget
 
 import (
-	"image"
-
 	"gioui.org/gesture"
+	"gioui.org/io/key"
+	"gioui.org/io/pointer"
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 )
 
@@ -13,19 +17,27 @@ type Enum struct {
 	hovered  string
 	hovering bool
 
+	focus   string
+	focused bool
+
 	changed bool
 
-	clicks []gesture.Click
-	values []string
+	keys []*enumKey
 }
 
-func index(vs []string, t string) int {
-	for i, v := range vs {
-		if v == t {
-			return i
+type enumKey struct {
+	key   string
+	click gesture.Click
+	tag   struct{}
+}
+
+func (e *Enum) index(k string) *enumKey {
+	for _, v := range e.keys {
+		if v.key == k {
+			return v
 		}
 	}
-	return -1
+	return nil
 }
 
 // Changed reports whether Value has changed by user interaction since the last
@@ -41,35 +53,78 @@ func (e *Enum) Hovered() (string, bool) {
 	return e.hovered, e.hovering
 }
 
-// Layout adds the event handler for key.
-func (e *Enum) Layout(gtx layout.Context, key string) layout.Dimensions {
-	defer clip.Rect(image.Rectangle{Max: gtx.Constraints.Min}).Push(gtx.Ops).Pop()
+// Focused reports the focused key, or false if no key is focused.
+func (e *Enum) Focused() (string, bool) {
+	return e.focus, e.focused
+}
 
-	if index(e.values, key) == -1 {
-		e.values = append(e.values, key)
-		e.clicks = append(e.clicks, gesture.Click{})
-		e.clicks[len(e.clicks)-1].Add(gtx.Ops)
-	} else {
-		idx := index(e.values, key)
-		clk := &e.clicks[idx]
-		for _, ev := range clk.Events(gtx) {
-			switch ev.Type {
-			case gesture.TypeClick:
-				if new := e.values[idx]; new != e.Value {
-					e.Value = new
-					e.changed = true
-				}
+// Layout adds the event handler for the key k.
+func (e *Enum) Layout(gtx layout.Context, k string, content layout.Widget) layout.Dimensions {
+	m := op.Record(gtx.Ops)
+	dims := content(gtx)
+	c := m.Stop()
+	defer clip.Rect{Max: dims.Size}.Push(gtx.Ops).Pop()
+
+	state := e.index(k)
+	if state == nil {
+		state = &enumKey{
+			key: k,
+		}
+		e.keys = append(e.keys, state)
+	}
+	clk := &state.click
+	for _, ev := range clk.Events(gtx) {
+		switch ev.Type {
+		case gesture.TypePress:
+			if ev.Source == pointer.Mouse {
+				key.FocusOp{Tag: &state.tag}.Add(gtx.Ops)
+			}
+		case gesture.TypeClick:
+			if state.key != e.Value {
+				e.Value = state.key
+				e.changed = true
 			}
 		}
-		if e.hovering && e.hovered == key {
-			e.hovering = false
+	}
+	for _, ev := range gtx.Events(&state.tag) {
+		switch ev := ev.(type) {
+		case key.FocusEvent:
+			if ev.Focus {
+				e.focused = true
+				e.focus = state.key
+			} else if state.key == e.focus {
+				e.focused = false
+			}
+		case key.Event:
+			if !e.focused || ev.State != key.Release {
+				break
+			}
+			if ev.Name != key.NameReturn && ev.Name != key.NameSpace {
+				break
+			}
+			if state.key != e.Value {
+				e.Value = state.key
+				e.changed = true
+			}
 		}
-		if clk.Hovered() {
-			e.hovered = key
-			e.hovering = true
-		}
-		clk.Add(gtx.Ops)
+	}
+	if clk.Hovered() {
+		e.hovered = k
+		e.hovering = true
+	} else if e.hovered == k {
+		e.hovering = false
 	}
 
-	return layout.Dimensions{Size: gtx.Constraints.Min}
+	clk.Add(gtx.Ops)
+	disabled := gtx.Queue == nil
+	if !disabled {
+		key.InputOp{Tag: &state.tag, Keys: "⏎|Space"}.Add(gtx.Ops)
+	} else if e.focus == k {
+		e.focused = false
+	}
+	semantic.SelectedOp(k == e.Value).Add(gtx.Ops)
+	semantic.DisabledOp(disabled).Add(gtx.Ops)
+	c.Add(gtx.Ops)
+
+	return dims
 }

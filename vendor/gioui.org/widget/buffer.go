@@ -30,20 +30,21 @@ func (e *editBuffer) Changed() bool {
 	return c
 }
 
-func (e *editBuffer) deleteRunes(caret, runes int) int {
+func (e *editBuffer) deleteRunes(caret, count int) (bytes int, runes int) {
 	e.moveGap(caret, 0)
-	for ; runes < 0 && e.gapstart > 0; runes++ {
+	for ; count < 0 && e.gapstart > 0; count++ {
 		_, s := utf8.DecodeLastRune(e.text[:e.gapstart])
 		e.gapstart -= s
-		caret -= s
+		bytes += s
+		runes++
 		e.changed = e.changed || s > 0
 	}
-	for ; runes > 0 && e.gapend < len(e.text); runes-- {
+	for ; count > 0 && e.gapend < len(e.text); count-- {
 		_, s := utf8.DecodeRune(e.text[e.gapend:])
 		e.gapend += s
 		e.changed = e.changed || s > 0
 	}
-	return caret
+	return
 }
 
 // moveGap moves the gap to the caret position. After returning,
@@ -112,6 +113,9 @@ func (e *editBuffer) Seek(offset int64, whence int) (ret int64, err error) {
 }
 
 func (e *editBuffer) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
 	if e.pos == e.len() {
 		return 0, io.EOF
 	}
@@ -126,9 +130,6 @@ func (e *editBuffer) Read(p []byte) (int, error) {
 		n := copy(p, e.text[e.pos+e.gapLen():])
 		total += n
 		e.pos += n
-	}
-	if e.pos > e.len() {
-		panic("hey!")
 	}
 	return total, nil
 }
@@ -145,7 +146,7 @@ func (e *editBuffer) ReadRune() (rune, int, error) {
 // WriteTo implements io.WriterTo.
 func (e *editBuffer) WriteTo(w io.Writer) (int64, error) {
 	n1, err := w.Write(e.text[:e.gapstart])
-	if err != nil {
+	if err != nil || n1 < e.gapstart {
 		return int64(n1), err
 	}
 	n2, err := w.Write(e.text[e.gapend:])

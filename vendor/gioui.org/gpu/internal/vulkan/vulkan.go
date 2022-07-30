@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Unlicense OR MIT
 
-//go:build linux
-// +build linux
+//go:build (linux || freebsd) && !novulkan
+// +build linux freebsd
+// +build !novulkan
 
 package vulkan
 
@@ -34,6 +35,7 @@ type Backend struct {
 	}
 	defers     []func(d vk.Device)
 	frameSig   vk.Semaphore
+	frameFence vk.Fence
 	waitSems   []vk.Semaphore
 	waitStages []vk.PipelineStageFlags
 	sigSems    []vk.Semaphore
@@ -105,8 +107,8 @@ type descPool struct {
 	layout     vk.PipelineLayout
 	descLayout vk.DescriptorSetLayout
 	pool       vk.DescriptorPool
+	sets       []vk.DescriptorSet
 	size       int
-	cap        int
 	texBinds   []int
 	imgBinds   []int
 	bufBinds   []int
@@ -158,7 +160,7 @@ func newVulkanDevice(api driver.Vulkan) (driver.Device, error) {
 	if props&reqs == reqs {
 		b.caps |= driver.FeatureSRGB
 	}
-	fence, err := vk.CreateFence(b.dev)
+	fence, err := vk.CreateFence(b.dev, 0)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -167,7 +169,6 @@ func newVulkanDevice(api driver.Vulkan) (driver.Device, error) {
 }
 
 func (b *Backend) BeginFrame(target driver.RenderTarget, clear bool, viewport image.Point) driver.Texture {
-	vk.QueueWaitIdle(b.queue)
 	b.staging.size = 0
 	b.cmdPool.used = 0
 	b.runDefers()
@@ -183,6 +184,7 @@ func (b *Backend) BeginFrame(target driver.RenderTarget, clear bool, viewport im
 			layout = vk.IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 		}
 		b.frameSig = vk.Semaphore(t.SignalSem)
+		b.frameFence = vk.Fence(t.Fence)
 		tex := &Texture{
 			img:        vk.Image(t.Image),
 			fbo:        vk.Framebuffer(t.Framebuffer),
@@ -222,7 +224,6 @@ func (b *Backend) resetPipes() {
 			continue
 		}
 		if p.desc.size > 0 {
-			vk.ResetDescriptorPool(b.dev, p.desc.pool)
 			p.desc.size = 0
 		}
 	}
@@ -233,7 +234,16 @@ func (b *Backend) EndFrame() {
 		b.sigSems = append(b.sigSems, b.frameSig)
 		b.frameSig = 0
 	}
-	b.submitCmdBuf(false)
+	fence := b.frameFence
+	if fence == 0 {
+		// We're internally synchronized.
+		fence = b.fence
+	}
+	b.submitCmdBuf(fence)
+	if b.frameFence == 0 {
+		vk.WaitForFences(b.dev, fence)
+		vk.ResetFences(b.dev, fence)
+	}
 }
 
 func (b *Backend) Caps() driver.Caps {
@@ -675,73 +685,61 @@ func (p *descPool) release(d vk.Device) {
 }
 
 func (p *descPool) bindDescriptorSet(b *Backend, cmdBuf vk.CommandBuffer, bindPoint vk.PipelineBindPoint, texBinds [texUnits]*Texture, bufBinds [storageUnits]*Buffer) {
-	realloced := false
-	destroyPool := func() {
-		pool := p.pool
-		b.deferFunc(func(d vk.Device) {
-			vk.DestroyDescriptorPool(d, pool)
-		})
-		p.pool = 0
-		p.cap = 0
-	}
-	for {
-		if p.size == p.cap {
-			if realloced {
-				panic("vulkan: vkAllocateDescriptorSet failed on a newly allocated descriptor pool")
-			}
-			destroyPool()
-			realloced = true
-			newCap := p.cap * 2
-			const initialPoolSize = 100
-			if newCap < initialPoolSize {
-				newCap = initialPoolSize
-			}
-			var poolSizes []vk.DescriptorPoolSize
-			if n := len(p.texBinds); n > 0 {
-				poolSizes = append(poolSizes, vk.BuildDescriptorPoolSize(vk.DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, newCap*n))
-			}
-			if n := len(p.imgBinds); n > 0 {
-				poolSizes = append(poolSizes, vk.BuildDescriptorPoolSize(vk.DESCRIPTOR_TYPE_STORAGE_IMAGE, newCap*n))
-			}
-			if n := len(p.bufBinds); n > 0 {
-				poolSizes = append(poolSizes, vk.BuildDescriptorPoolSize(vk.DESCRIPTOR_TYPE_STORAGE_BUFFER, newCap*n))
-			}
-			pool, err := vk.CreateDescriptorPool(b.dev, newCap, poolSizes)
-			if err != nil {
-				panic(fmt.Errorf("vulkan: failed to allocate descriptor pool with %d descriptors", newCap))
-			}
-			p.pool = pool
-			p.cap = newCap
-			p.size = 0
-		}
+	if p.size == len(p.sets) {
 		l := p.descLayout
 		if l == 0 {
 			panic("vulkan: descriptor set is dirty, but pipeline has empty layout")
 		}
-		descSet, err := vk.AllocateDescriptorSet(b.dev, p.pool, l)
+		newCap := len(p.sets) * 2
+		if pool := p.pool; pool != 0 {
+			b.deferFunc(func(d vk.Device) {
+				vk.DestroyDescriptorPool(d, pool)
+			})
+		}
+		const initialPoolSize = 100
+		if newCap < initialPoolSize {
+			newCap = initialPoolSize
+		}
+		var poolSizes []vk.DescriptorPoolSize
+		if n := len(p.texBinds); n > 0 {
+			poolSizes = append(poolSizes, vk.BuildDescriptorPoolSize(vk.DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, newCap*n))
+		}
+		if n := len(p.imgBinds); n > 0 {
+			poolSizes = append(poolSizes, vk.BuildDescriptorPoolSize(vk.DESCRIPTOR_TYPE_STORAGE_IMAGE, newCap*n))
+		}
+		if n := len(p.bufBinds); n > 0 {
+			poolSizes = append(poolSizes, vk.BuildDescriptorPoolSize(vk.DESCRIPTOR_TYPE_STORAGE_BUFFER, newCap*n))
+		}
+		pool, err := vk.CreateDescriptorPool(b.dev, newCap, poolSizes)
 		if err != nil {
-			destroyPool()
-			continue
+			panic(fmt.Errorf("vulkan: failed to allocate descriptor pool with %d descriptors: %v", newCap, err))
 		}
-		p.size++
-		for _, bind := range p.texBinds {
-			tex := texBinds[bind]
-			write := vk.BuildWriteDescriptorSetImage(descSet, bind, vk.DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, tex.sampler, tex.view, vk.IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			vk.UpdateDescriptorSet(b.dev, write)
+		p.pool = pool
+		sets, err := vk.AllocateDescriptorSets(b.dev, p.pool, l, newCap)
+		if err != nil {
+			panic(fmt.Errorf("vulkan: failed to allocate descriptor with %d sets: %v", newCap, err))
 		}
-		for _, bind := range p.imgBinds {
-			tex := texBinds[bind]
-			write := vk.BuildWriteDescriptorSetImage(descSet, bind, vk.DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, tex.view, vk.IMAGE_LAYOUT_GENERAL)
-			vk.UpdateDescriptorSet(b.dev, write)
-		}
-		for _, bind := range p.bufBinds {
-			buf := bufBinds[bind]
-			write := vk.BuildWriteDescriptorSetBuffer(descSet, bind, vk.DESCRIPTOR_TYPE_STORAGE_BUFFER, buf.buf)
-			vk.UpdateDescriptorSet(b.dev, write)
-		}
-		vk.CmdBindDescriptorSets(cmdBuf, bindPoint, p.layout, 0, []vk.DescriptorSet{descSet})
-		break
+		p.sets = sets
+		p.size = 0
 	}
+	descSet := p.sets[p.size]
+	p.size++
+	for _, bind := range p.texBinds {
+		tex := texBinds[bind]
+		write := vk.BuildWriteDescriptorSetImage(descSet, bind, vk.DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, tex.sampler, tex.view, vk.IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		vk.UpdateDescriptorSet(b.dev, write)
+	}
+	for _, bind := range p.imgBinds {
+		tex := texBinds[bind]
+		write := vk.BuildWriteDescriptorSetImage(descSet, bind, vk.DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, tex.view, vk.IMAGE_LAYOUT_GENERAL)
+		vk.UpdateDescriptorSet(b.dev, write)
+	}
+	for _, bind := range p.bufBinds {
+		buf := bufBinds[bind]
+		write := vk.BuildWriteDescriptorSetBuffer(descSet, bind, vk.DESCRIPTOR_TYPE_STORAGE_BUFFER, buf.buf)
+		vk.UpdateDescriptorSet(b.dev, write)
+	}
+	vk.CmdBindDescriptorSets(cmdBuf, bindPoint, p.layout, 0, []vk.DescriptorSet{descSet})
 }
 
 func (t *Texture) imageBarrier(cmdBuf vk.CommandBuffer, layout vk.ImageLayout, stage vk.PipelineStageFlags, access vk.AccessFlags) {
@@ -856,7 +854,9 @@ func (b *Buffer) Download(data []byte) error {
 		vk.PIPELINE_STAGE_HOST_BIT,
 		vk.ACCESS_HOST_READ_BIT,
 	)
-	b.backend.submitCmdBuf(true)
+	b.backend.submitCmdBuf(b.backend.fence)
+	vk.WaitForFences(b.backend.dev, b.backend.fence)
+	vk.ResetFences(b.backend.dev, b.backend.fence)
 	copy(data, mem)
 	return nil
 }
@@ -938,7 +938,9 @@ func (t *Texture) ReadPixels(src image.Rectangle, pixels []byte, stride int) err
 		vk.PIPELINE_STAGE_HOST_BIT,
 		vk.ACCESS_HOST_READ_BIT,
 	)
-	t.backend.submitCmdBuf(true)
+	t.backend.submitCmdBuf(t.backend.fence)
+	vk.WaitForFences(t.backend.dev, t.backend.fence)
+	vk.ResetFences(t.backend.dev, t.backend.fence)
 	var srcOff, dstOff int
 	for y := 0; y < sz.Y; y++ {
 		dstRow := pixels[srcOff : srcOff+stageStride]
@@ -1041,18 +1043,15 @@ func (b *Backend) lookupPass(fmt vk.Format, loadAct vk.AttachmentLoadOp, initLay
 	return pass
 }
 
-func (b *Backend) submitCmdBuf(sync bool) {
+func (b *Backend) submitCmdBuf(fence vk.Fence) {
 	buf := b.cmdPool.current
-	if buf == nil {
+	if buf == nil && fence == 0 {
 		return
 	}
+	buf = b.ensureCmdBuf()
 	b.cmdPool.current = nil
 	if err := vk.EndCommandBuffer(buf); err != nil {
 		panic(err)
-	}
-	var fence vk.Fence
-	if sync {
-		fence = b.fence
 	}
 	if err := vk.QueueSubmit(b.queue, buf, b.waitSems, b.waitStages, b.sigSems, fence); err != nil {
 		panic(err)
@@ -1060,10 +1059,6 @@ func (b *Backend) submitCmdBuf(sync bool) {
 	b.waitSems = b.waitSems[:0]
 	b.sigSems = b.sigSems[:0]
 	b.waitStages = b.waitStages[:0]
-	if sync {
-		vk.WaitForFences(b.dev, b.fence)
-		vk.ResetFences(b.dev, b.fence)
-	}
 }
 
 func (b *Backend) stagingBuffer(size int) (*Buffer, []byte, int) {

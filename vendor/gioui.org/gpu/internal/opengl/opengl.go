@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"runtime"
 	"strings"
 	"time"
 	"unsafe"
@@ -48,7 +49,6 @@ type Backend struct {
 type glState struct {
 	drawFBO     gl.Framebuffer
 	readFBO     gl.Framebuffer
-	renderBuf   gl.Renderbuffer
 	vertAttribs [5]struct {
 		obj        gl.Buffer
 		enabled    bool
@@ -151,11 +151,6 @@ type uniformLocation struct {
 	offset  int
 	typ     shader.DataType
 	size    int
-}
-
-type inputLayout struct {
-	inputs []shader.InputLocation
-	layout []driver.InputDesc
 }
 
 // textureTriple holds the type settings for
@@ -297,6 +292,10 @@ func (b *Backend) EndFrame() {
 	}
 	if b.sharedCtx {
 		b.restoreState(b.savedState)
+	} else if runtime.GOOS == "android" {
+		// The Android emulator needs the output framebuffer to be current when
+		// eglSwapBuffers is called.
+		b.glstate.bindFramebuffer(b.funcs, gl.FRAMEBUFFER, b.outputFBO)
 	}
 }
 
@@ -334,10 +333,12 @@ func (b *Backend) queryState() glState {
 			s.storeBufs[i] = gl.Buffer(b.funcs.GetBindingi(gl.SHADER_STORAGE_BUFFER_BINDING, i))
 		}
 	}
+	active := s.texUnits.active
 	for i := range s.texUnits.binds {
 		s.activeTexture(b.funcs, gl.TEXTURE0+gl.Enum(i))
 		s.texUnits.binds[i] = gl.Texture(b.funcs.GetBinding(gl.TEXTURE_BINDING_2D))
 	}
+	s.activeTexture(b.funcs, active)
 	for i := range s.vertAttribs {
 		a := &s.vertAttribs[i]
 		a.enabled = b.funcs.GetVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_ENABLED) != gl.FALSE
@@ -352,7 +353,7 @@ func (b *Backend) queryState() glState {
 }
 
 func (b *Backend) restoreState(dst glState) {
-	src := b.glstate
+	src := &b.glstate
 	f := b.funcs
 	for i, unit := range dst.texUnits.binds {
 		src.bindTexture(f, i, unit)
@@ -419,13 +420,6 @@ func (s *glState) activeTexture(f *gl.Functions, unit gl.Enum) {
 	}
 }
 
-func (s *glState) bindRenderbuffer(f *gl.Functions, target gl.Enum, r gl.Renderbuffer) {
-	if !r.Equal(s.renderBuf) {
-		f.BindRenderbuffer(gl.RENDERBUFFER, r)
-		s.renderBuf = r
-	}
-}
-
 func (s *glState) bindTexture(f *gl.Functions, unit int, t gl.Texture) {
 	s.activeTexture(f, gl.TEXTURE0+gl.Enum(unit))
 	if !t.Equal(s.texUnits.binds[unit]) {
@@ -438,13 +432,6 @@ func (s *glState) bindVertexArray(f *gl.Functions, a gl.VertexArray) {
 	if !a.Equal(s.vertArray) {
 		f.BindVertexArray(a)
 		s.vertArray = a
-	}
-}
-
-func (s *glState) deleteRenderbuffer(f *gl.Functions, r gl.Renderbuffer) {
-	f.DeleteRenderbuffer(r)
-	if r.Equal(s.renderBuf) {
-		s.renderBuf = gl.Renderbuffer{}
 	}
 }
 
@@ -1149,17 +1136,25 @@ func (b *Backend) CopyTexture(dst driver.Texture, dstOrigin image.Point, src dri
 func (t *texture) ReadPixels(src image.Rectangle, pixels []byte, stride int) error {
 	glErr(t.backend.funcs)
 	t.backend.glstate.bindFramebuffer(t.backend.funcs, gl.FRAMEBUFFER, t.ensureFBO())
-	if len(pixels) < src.Dx()*src.Dy()*4 {
+	w, h := src.Dx(), src.Dy()
+	if len(pixels) < w*h*4 {
 		return errors.New("unexpected RGBA size")
 	}
-	w, h := src.Dx(), src.Dy()
-	// WebGL 1 doesn't support PACK_ROW_LENGTH != 0. Avoid it if possible.
+	// OpenGL ES 2 doesn't support PACK_ROW_LENGTH != 0. Avoid it if possible.
 	rowLen := 0
 	if n := stride / 4; n != w {
 		rowLen = n
 	}
-	t.backend.glstate.pixelStorei(t.backend.funcs, gl.PACK_ROW_LENGTH, rowLen)
-	t.backend.funcs.ReadPixels(src.Min.X, src.Min.Y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+	if rowLen == 0 || t.backend.glver[0] > 2 {
+		t.backend.glstate.pixelStorei(t.backend.funcs, gl.PACK_ROW_LENGTH, rowLen)
+		t.backend.funcs.ReadPixels(src.Min.X, src.Min.Y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+	} else {
+		tmp := make([]byte, w*h*4)
+		t.backend.funcs.ReadPixels(src.Min.X, src.Min.Y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, tmp)
+		for y := 0; y < h; y++ {
+			copy(pixels[y*stride:], tmp[y*w*4:])
+		}
+	}
 	return glErr(t.backend.funcs)
 }
 

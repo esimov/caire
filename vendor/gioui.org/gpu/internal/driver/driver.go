@@ -199,17 +199,17 @@ func (f Features) Has(feats Features) bool {
 	return f&feats == feats
 }
 
-func DownloadImage(d Device, t Texture, r image.Rectangle) (*image.RGBA, error) {
-	img := image.NewRGBA(r)
+func DownloadImage(d Device, t Texture, img *image.RGBA) error {
+	r := img.Bounds()
 	if err := t.ReadPixels(r, img.Pix, img.Stride); err != nil {
-		return nil, err
+		return err
 	}
 	if d.Caps().BottomLeftOrigin {
 		// OpenGL origin is in the lower-left corner. Flip the image to
 		// match.
 		flipImageY(r.Dx()*4, r.Dy(), img.Pix)
 	}
-	return img, nil
+	return nil
 }
 
 func flipImageY(stride, height int, pixels []byte) {

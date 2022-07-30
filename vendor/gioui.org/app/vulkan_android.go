@@ -79,10 +79,12 @@ func (c *wlVkContext) Refresh() error {
 	if c.surf != 0 {
 		c.ctx.destroySwapchain()
 		vk.DestroySurface(c.inst, c.surf)
+		c.surf = 0
 	}
 	surf, err := vk.CreateAndroidSurface(c.inst, unsafe.Pointer(win))
 	if err != nil {
 		return err
 	}
-	return c.ctx.refresh(surf, w, h)
+	c.surf = surf
+	return c.ctx.refresh(c.surf, w, h)
 }

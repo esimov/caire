@@ -6,6 +6,7 @@
 
 #include <wayland-client.h>
 #include "wayland_xdg_shell.h"
+#include "wayland_xdg_decoration.h"
 #include "wayland_text_input.h"
 #include "_cgo_export.h"
 
@@ -27,6 +28,10 @@ const struct xdg_surface_listener gio_xdg_surface_listener = {
 const struct xdg_toplevel_listener gio_xdg_toplevel_listener = {
 	.configure = gio_onToplevelConfigure,
 	.close = gio_onToplevelClose,
+};
+
+const struct zxdg_toplevel_decoration_v1_listener gio_zxdg_toplevel_decoration_v1_listener = {
+	.configure = gio_onToplevelDecorationConfigure,
 };
 
 static void xdg_wm_base_handle_ping(void *data, struct xdg_wm_base *wm, uint32_t serial) {

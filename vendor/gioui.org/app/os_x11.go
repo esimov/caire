@@ -49,6 +49,11 @@ import (
 	"gioui.org/app/internal/xkb"
 )
 
+const (
+	_NET_WM_STATE_REMOVE = 0
+	_NET_WM_STATE_ADD    = 1
+)
+
 type x11Window struct {
 	w            *callbacks
 	x            *C.Display
@@ -65,6 +70,8 @@ type x11Window struct {
 		targets C.Atom
 		// "CLIPBOARD".
 		clipboard C.Atom
+		// "PRIMARY".
+		primary C.Atom
 		// "CLIPBOARD_CONTENT", the clipboard destination property.
 		clipboardContent C.Atom
 		// "WM_DELETE_WINDOW"
@@ -81,6 +88,10 @@ type x11Window struct {
 		wmStateFullscreen C.Atom
 		// "_NET_ACTIVE_WINDOW"
 		wmActiveWindow C.Atom
+		// _NET_WM_STATE_MAXIMIZED_HORZ
+		wmStateMaximizedHorz C.Atom
+		// _NET_WM_STATE_MAXIMIZED_VERT
+		wmStateMaximizedVert C.Atom
 	}
 	stage  system.Stage
 	metric unit.Metric
@@ -96,7 +107,7 @@ type x11Window struct {
 	clipboard struct {
 		content []byte
 	}
-	cursor pointer.CursorName
+	cursor pointer.Cursor
 	config Config
 
 	wakeups chan struct{}
@@ -107,9 +118,13 @@ var (
 	newX11VulkanContext func(w *x11Window) (context, error)
 )
 
+// X11 and Vulkan doesn't work reliably on NVIDIA systems.
+// See https://gioui.org/issue/347.
+const vulkanBuggy = true
+
 func (w *x11Window) NewContext() (context, error) {
 	var firstErr error
-	if f := newX11VulkanContext; f != nil {
+	if f := newX11VulkanContext; f != nil && !vulkanBuggy {
 		c, err := f(w)
 		if err == nil {
 			return c, nil
@@ -141,6 +156,7 @@ func (w *x11Window) ReadClipboard() {
 func (w *x11Window) WriteClipboard(s string) {
 	w.clipboard.content = []byte(s)
 	C.XSetSelectionOwner(w.x, w.atoms.clipboard, w.xw, C.CurrentTime)
+	C.XSetSelectionOwner(w.x, w.atoms.primary, w.xw, C.CurrentTime)
 }
 
 func (w *x11Window) Configure(options []Option) {
@@ -148,27 +164,80 @@ func (w *x11Window) Configure(options []Option) {
 	prev := w.config
 	cnf := w.config
 	cnf.apply(w.metric, options)
-	if prev.MinSize != cnf.MinSize {
-		w.config.MinSize = cnf.MinSize
-		shints.min_width = C.int(cnf.MinSize.X)
-		shints.min_height = C.int(cnf.MinSize.Y)
-		shints.flags = C.PMinSize
-	}
-	if prev.MaxSize != cnf.MaxSize {
-		w.config.MaxSize = cnf.MaxSize
-		shints.max_width = C.int(cnf.MaxSize.X)
-		shints.max_height = C.int(cnf.MaxSize.Y)
-		shints.flags = shints.flags | C.PMaxSize
-	}
-	if shints.flags != 0 {
-		C.XSetWMNormalHints(w.x, w.xw, &shints)
-	}
+	// Decorations are never disabled.
+	cnf.Decorated = true
 
-	if cnf.Mode != Fullscreen && prev.Size != cnf.Size {
-		w.config.Size = cnf.Size
-		C.XResizeWindow(w.x, w.xw, C.uint(cnf.Size.X), C.uint(cnf.Size.Y))
+	switch cnf.Mode {
+	case Fullscreen:
+		switch prev.Mode {
+		case Fullscreen:
+		case Minimized:
+			w.raise()
+			fallthrough
+		default:
+			w.config.Mode = Fullscreen
+			w.sendWMStateEvent(_NET_WM_STATE_ADD, w.atoms.wmStateFullscreen, 0)
+		}
+	case Minimized:
+		switch prev.Mode {
+		case Minimized, Fullscreen:
+		default:
+			w.config.Mode = Minimized
+			screen := C.XDefaultScreen(w.x)
+			C.XIconifyWindow(w.x, w.xw, screen)
+		}
+	case Maximized:
+		switch prev.Mode {
+		case Fullscreen:
+		case Minimized:
+			w.raise()
+			fallthrough
+		default:
+			w.config.Mode = Maximized
+			w.sendWMStateEvent(_NET_WM_STATE_ADD, w.atoms.wmStateMaximizedHorz, w.atoms.wmStateMaximizedVert)
+			w.setTitle(prev, cnf)
+		}
+	case Windowed:
+		switch prev.Mode {
+		case Fullscreen:
+			w.config.Mode = Windowed
+			w.sendWMStateEvent(_NET_WM_STATE_REMOVE, w.atoms.wmStateFullscreen, 0)
+			C.XResizeWindow(w.x, w.xw, C.uint(cnf.Size.X), C.uint(cnf.Size.Y))
+		case Minimized:
+			w.config.Mode = Windowed
+			w.raise()
+		case Maximized:
+			w.config.Mode = Windowed
+			w.sendWMStateEvent(_NET_WM_STATE_REMOVE, w.atoms.wmStateMaximizedHorz, w.atoms.wmStateMaximizedVert)
+		}
+		w.setTitle(prev, cnf)
+		if prev.Size != cnf.Size {
+			w.config.Size = cnf.Size
+			C.XResizeWindow(w.x, w.xw, C.uint(cnf.Size.X), C.uint(cnf.Size.Y))
+		}
+		if prev.MinSize != cnf.MinSize {
+			w.config.MinSize = cnf.MinSize
+			shints.min_width = C.int(cnf.MinSize.X)
+			shints.min_height = C.int(cnf.MinSize.Y)
+			shints.flags = C.PMinSize
+		}
+		if prev.MaxSize != cnf.MaxSize {
+			w.config.MaxSize = cnf.MaxSize
+			shints.max_width = C.int(cnf.MaxSize.X)
+			shints.max_height = C.int(cnf.MaxSize.Y)
+			shints.flags = shints.flags | C.PMaxSize
+		}
+		if shints.flags != 0 {
+			C.XSetWMNormalHints(w.x, w.xw, &shints)
+		}
 	}
+	if cnf.Decorated != prev.Decorated {
+		w.config.Decorated = cnf.Decorated
+	}
+	w.w.Event(ConfigEvent{Config: w.config})
+}
 
+func (w *x11Window) setTitle(prev, cnf Config) {
 	if prev.Title != cnf.Title {
 		title := cnf.Title
 		ctitle := C.CString(title)
@@ -184,16 +253,40 @@ func (w *x11Window) Configure(options []Option) {
 			},
 			w.atoms.wmName)
 	}
+}
 
-	if prev.Mode != cnf.Mode {
-		w.SetWindowMode(cnf.Mode)
-	}
-	if w.config != prev {
-		w.w.Event(ConfigEvent{Config: w.config})
+func (w *x11Window) Perform(acts system.Action) {
+	walkActions(acts, func(a system.Action) {
+		switch a {
+		case system.ActionCenter:
+			w.center()
+		case system.ActionRaise:
+			w.raise()
+		}
+	})
+	if acts&system.ActionClose != 0 {
+		w.close()
 	}
 }
 
-func (w *x11Window) Raise() {
+func (w *x11Window) center() {
+	screen := C.XDefaultScreen(w.x)
+	width := C.XDisplayWidth(w.x, screen)
+	height := C.XDisplayHeight(w.x, screen)
+
+	var attrs C.XWindowAttributes
+	C.XGetWindowAttributes(w.x, w.xw, &attrs)
+	width -= attrs.border_width
+	height -= attrs.border_width
+
+	sz := w.config.Size
+	x := (int(width) - sz.X) / 2
+	y := (int(height) - sz.Y) / 2
+
+	C.XMoveResizeWindow(w.x, w.xw, C.int(x), C.int(y), C.uint(sz.X), C.uint(sz.Y))
+}
+
+func (w *x11Window) raise() {
 	var xev C.XEvent
 	ev := (*C.XClientMessageEvent)(unsafe.Pointer(&xev))
 	*ev = C.XClientMessageEvent{
@@ -213,73 +306,34 @@ func (w *x11Window) Raise() {
 	C.XMapRaised(w.display(), w.xw)
 }
 
-func (w *x11Window) SetCursor(name pointer.CursorName) {
-	switch name {
-	case pointer.CursorNone:
-		w.cursor = name
+func (w *x11Window) SetCursor(cursor pointer.Cursor) {
+	if cursor == pointer.CursorNone {
+		w.cursor = cursor
 		C.XFixesHideCursor(w.x, w.xw)
 		return
-	case pointer.CursorGrab:
-		name = "hand1"
 	}
-	if w.cursor == pointer.CursorNone {
-		C.XFixesShowCursor(w.x, w.xw)
-	}
-	cname := C.CString(string(name))
+
+	xcursor := xCursor[cursor]
+	cname := C.CString(xcursor)
 	defer C.free(unsafe.Pointer(cname))
 	c := C.XcursorLibraryLoadCursor(w.x, cname)
 	if c == 0 {
-		name = pointer.CursorDefault
+		cursor = pointer.CursorDefault
 	}
-	w.cursor = name
-	// If c if null (i.e. name was not found),
+	w.cursor = cursor
+	// If c if null (i.e. cursor was not found),
 	// XDefineCursor will use the default cursor.
 	C.XDefineCursor(w.x, w.xw, c)
-}
-
-func (w *x11Window) SetWindowMode(mode WindowMode) {
-	var action C.long
-	switch mode {
-	case Windowed:
-		action = 0 // _NET_WM_STATE_REMOVE
-	case Fullscreen:
-		action = 1 // _NET_WM_STATE_ADD
-	default:
-		return
-	}
-	w.config.Mode = mode
-	// "A Client wishing to change the state of a window MUST send
-	//  a _NET_WM_STATE client message to the root window."
-	var xev C.XEvent
-	ev := (*C.XClientMessageEvent)(unsafe.Pointer(&xev))
-	*ev = C.XClientMessageEvent{
-		_type:        C.ClientMessage,
-		display:      w.x,
-		window:       w.xw,
-		message_type: w.atoms.wmState,
-		format:       32,
-	}
-	arr := (*[5]C.long)(unsafe.Pointer(&ev.data))
-	arr[0] = action
-	arr[1] = C.long(w.atoms.wmStateFullscreen)
-	arr[2] = 0
-	arr[3] = 1 // application
-	arr[4] = 0
-	C.XSendEvent(
-		w.x,
-		C.XDefaultRootWindow(w.x), // MUST be the root window
-		C.False,
-		C.SubstructureNotifyMask|C.SubstructureRedirectMask,
-		&xev,
-	)
 }
 
 func (w *x11Window) ShowTextInput(show bool) {}
 
 func (w *x11Window) SetInputHint(_ key.InputHint) {}
 
-// Close the window.
-func (w *x11Window) Close() {
+func (w *x11Window) EditorStateChanged(old, new editorState) {}
+
+// close the window.
+func (w *x11Window) close() {
 	var xev C.XEvent
 	ev := (*C.XClientMessageEvent)(unsafe.Pointer(&xev))
 	*ev = C.XClientMessageEvent{
@@ -295,11 +349,31 @@ func (w *x11Window) Close() {
 	C.XSendEvent(w.x, w.xw, C.False, C.NoEventMask, &xev)
 }
 
-// Maximize the window. Not implemented for x11.
-func (w *x11Window) Maximize() {}
+// action is one of _NET_WM_STATE_REMOVE, _NET_WM_STATE_ADD.
+func (w *x11Window) sendWMStateEvent(action C.long, atom1, atom2 C.ulong) {
+	var xev C.XEvent
+	ev := (*C.XClientMessageEvent)(unsafe.Pointer(&xev))
+	*ev = C.XClientMessageEvent{
+		_type:        C.ClientMessage,
+		display:      w.x,
+		window:       w.xw,
+		message_type: w.atoms.wmState,
+		format:       32,
+	}
+	data := (*[5]C.long)(unsafe.Pointer(&ev.data))
+	data[0] = C.long(action)
+	data[1] = C.long(atom1)
+	data[2] = C.long(atom2)
+	data[3] = 1 // application
 
-// Center the window. Not implemented for x11.
-func (w *x11Window) Center() {}
+	C.XSendEvent(
+		w.x,
+		C.XDefaultRootWindow(w.x), // MUST be the root window
+		C.False,
+		C.SubstructureNotifyMask|C.SubstructureRedirectMask,
+		&xev,
+	)
+}
 
 var x11OneByte = make([]byte, 1)
 
@@ -395,7 +469,6 @@ loop:
 			})
 		}
 	}
-	w.w.Event(system.DestroyEvent{Err: nil})
 }
 
 func (w *x11Window) destroy() {
@@ -469,7 +542,12 @@ func (h *x11EventHandler) handleEvents() bool {
 			}
 			kevt := (*C.XKeyPressedEvent)(unsafe.Pointer(xev))
 			for _, e := range h.w.xkb.DispatchKey(uint32(kevt.keycode), ks) {
-				w.w.Event(e)
+				if ee, ok := e.(key.EditEvent); ok {
+					// There's no support for IME yet.
+					w.w.EditorInsert(ee.Text)
+				} else {
+					w.w.Event(e)
+				}
 			}
 		case C.ButtonPress, C.ButtonRelease:
 			bevt := (*C.XButtonEvent)(unsafe.Pointer(xev))
@@ -572,7 +650,7 @@ func (h *x11EventHandler) handleEvents() bool {
 			w.w.Event(clipboard.Event{Text: str})
 		case C.SelectionRequest:
 			cevt := (*C.XSelectionRequestEvent)(unsafe.Pointer(xev))
-			if cevt.selection != w.atoms.clipboard || cevt.property == C.None {
+			if (cevt.selection != w.atoms.clipboard && cevt.selection != w.atoms.primary) || cevt.property == C.None {
 				// Unsupported clipboard or obsolete requestor.
 				break
 			}
@@ -728,6 +806,7 @@ func newX11Window(gioWin *callbacks, options []Option) error {
 	w.atoms.gtk_text_buffer_contents = w.atom("GTK_TEXT_BUFFER_CONTENTS", false)
 	w.atoms.evDelWindow = w.atom("WM_DELETE_WINDOW", false)
 	w.atoms.clipboard = w.atom("CLIPBOARD", false)
+	w.atoms.primary = w.atom("PRIMARY", false)
 	w.atoms.clipboardContent = w.atom("CLIPBOARD_CONTENT", false)
 	w.atoms.atom = w.atom("ATOM", false)
 	w.atoms.targets = w.atom("TARGETS", false)
@@ -735,21 +814,23 @@ func newX11Window(gioWin *callbacks, options []Option) error {
 	w.atoms.wmState = w.atom("_NET_WM_STATE", false)
 	w.atoms.wmStateFullscreen = w.atom("_NET_WM_STATE_FULLSCREEN", false)
 	w.atoms.wmActiveWindow = w.atom("_NET_ACTIVE_WINDOW", false)
+	w.atoms.wmStateMaximizedHorz = w.atom("_NET_WM_STATE_MAXIMIZED_HORZ", false)
+	w.atoms.wmStateMaximizedVert = w.atom("_NET_WM_STATE_MAXIMIZED_VERT", false)
 
 	// extensions
 	C.XSetWMProtocols(dpy, win, &w.atoms.evDelWindow, 1)
 
 	go func() {
-		w.Configure(options)
+		w.w.SetDriver(w)
 
 		// make the window visible on the screen
 		C.XMapWindow(dpy, win)
-
-		w.w.SetDriver(w)
-		w.w.Event(ViewEvent{Display: unsafe.Pointer(dpy), Window: uintptr(win)})
+		w.Configure(options)
+		w.w.Event(X11ViewEvent{Display: unsafe.Pointer(dpy), Window: uintptr(win)})
 		w.setStage(system.StageRunning)
 		w.loop()
-		w.w.Event(ViewEvent{})
+		w.w.Event(X11ViewEvent{})
+		w.w.Event(system.DestroyEvent{Err: nil})
 		w.destroy()
 	}()
 	return nil

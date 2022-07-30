@@ -3,7 +3,9 @@
 package text
 
 import (
+	"gioui.org/io/system"
 	"gioui.org/op/clip"
+	"github.com/benoitkugler/textlayout/fonts"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -26,18 +28,20 @@ type layoutElem struct {
 type path struct {
 	next, prev *path
 	key        pathKey
-	val        clip.Op
+	val        clip.PathSpec
+	gids       []fonts.GID
 }
 
 type layoutKey struct {
 	ppem     fixed.Int26_6
 	maxWidth int
 	str      string
+	locale   system.Locale
 }
 
 type pathKey struct {
-	ppem fixed.Int26_6
-	str  string
+	ppem    fixed.Int26_6
+	gidHash uint64
 }
 
 const maxSize = 1000
@@ -81,16 +85,28 @@ func (l *layoutCache) insert(lt *layoutElem) {
 	lt.next.prev = lt
 }
 
-func (c *pathCache) Get(k pathKey) (clip.Op, bool) {
-	if v, ok := c.m[k]; ok {
+func gidsMatch(gids []fonts.GID, l Layout) bool {
+	if len(gids) != len(l.Glyphs) {
+		return false
+	}
+	for i := range gids {
+		if gids[i] != l.Glyphs[i].ID {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *pathCache) Get(k pathKey, l Layout) (clip.PathSpec, bool) {
+	if v, ok := c.m[k]; ok && gidsMatch(v.gids, l) {
 		c.remove(v)
 		c.insert(v)
 		return v.val, true
 	}
-	return clip.Op{}, false
+	return clip.PathSpec{}, false
 }
 
-func (c *pathCache) Put(k pathKey, v clip.Op) {
+func (c *pathCache) Put(k pathKey, l Layout, v clip.PathSpec) {
 	if c.m == nil {
 		c.m = make(map[pathKey]*path)
 		c.head = new(path)
@@ -98,7 +114,11 @@ func (c *pathCache) Put(k pathKey, v clip.Op) {
 		c.head.prev = c.tail
 		c.tail.next = c.head
 	}
-	val := &path{key: k, val: v}
+	gids := make([]fonts.GID, len(l.Glyphs))
+	for i := range l.Glyphs {
+		gids[i] = l.Glyphs[i].ID
+	}
+	val := &path{key: k, val: v, gids: gids}
 	c.m[k] = val
 	c.insert(val)
 	if len(c.m) > maxSize {

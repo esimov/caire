@@ -11,14 +11,14 @@ import (
 	"math"
 	"unsafe"
 
-	"gioui.org/f32"
+	"gioui.org/internal/f32"
 )
 
 type Op uint32
 
 type Command [sceneElemSize / 4]uint32
 
-// GPU commands from scene.h
+// GPU commands from piet/scene.h in package gioui.org/shaders.
 const (
 	OpNop Op = iota
 	OpLine
@@ -31,6 +31,7 @@ const (
 	OpEndClip
 	OpFillImage
 	OpSetFillMode
+	OpGap
 )
 
 // FillModes, from setup.h.
@@ -56,6 +57,9 @@ func (c Command) String() string {
 	case OpLine:
 		from, to := DecodeLine(c)
 		return fmt.Sprintf("line(%v, %v)", from, to)
+	case OpGap:
+		from, to := DecodeLine(c)
+		return fmt.Sprintf("gap(%v, %v)", from, to)
 	case OpQuad:
 		from, ctrl, to := DecodeQuad(c)
 		return fmt.Sprintf("quad(%v, %v, %v)", from, ctrl, to)
@@ -100,6 +104,16 @@ func (c Command) String() string {
 func Line(start, end f32.Point) Command {
 	return Command{
 		0: uint32(OpLine),
+		1: math.Float32bits(start.X),
+		2: math.Float32bits(start.Y),
+		3: math.Float32bits(end.X),
+		4: math.Float32bits(end.Y),
+	}
+}
+
+func Gap(start, end f32.Point) Command {
+	return Command{
+		0: uint32(OpGap),
 		1: math.Float32bits(start.X),
 		2: math.Float32bits(start.Y),
 		3: math.Float32bits(end.X),
@@ -199,6 +213,15 @@ func SetFillMode(mode FillMode) Command {
 
 func DecodeLine(cmd Command) (from, to f32.Point) {
 	if cmd[0] != uint32(OpLine) {
+		panic("invalid command")
+	}
+	from = f32.Pt(math.Float32frombits(cmd[1]), math.Float32frombits(cmd[2]))
+	to = f32.Pt(math.Float32frombits(cmd[3]), math.Float32frombits(cmd[4]))
+	return
+}
+
+func DecodeGap(cmd Command) (from, to f32.Point) {
+	if cmd[0] != uint32(OpGap) {
 		panic("invalid command")
 	}
 	from = f32.Pt(math.Float32frombits(cmd[1]), math.Float32frombits(cmd[2]))

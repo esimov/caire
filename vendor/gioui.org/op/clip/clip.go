@@ -9,6 +9,7 @@ import (
 	"math"
 
 	"gioui.org/f32"
+	f32internal "gioui.org/internal/f32"
 	"gioui.org/internal/ops"
 	"gioui.org/internal/scene"
 	"gioui.org/internal/stroke"
@@ -48,6 +49,24 @@ func (p Op) Push(o *op.Ops) Stack {
 func (p Op) add(o *op.Ops) {
 	path := p.path
 
+	if !path.hasSegments && p.width > 0 {
+		switch p.path.shape {
+		case ops.Rect:
+			b := f32internal.FRect(path.bounds)
+			var rect Path
+			rect.Begin(o)
+			rect.MoveTo(b.Min)
+			rect.LineTo(f32.Pt(b.Max.X, b.Min.Y))
+			rect.LineTo(b.Max)
+			rect.LineTo(f32.Pt(b.Min.X, b.Max.Y))
+			rect.Close()
+			path = rect.End()
+		case ops.Path:
+			// Nothing to do.
+		default:
+			panic("invalid empty path for shape")
+		}
+	}
 	bo := binary.LittleEndian
 	if path.hasSegments {
 		data := ops.Write(&o.Internal, ops.TypePathLen)
@@ -90,9 +109,6 @@ func (s Stack) Pop() {
 
 type PathSpec struct {
 	spec op.CallOp
-	// open is true if any path contour is not closed. A closed contour starts
-	// and ends in the same point.
-	open bool
 	// hasSegments tracks whether there are any segments in the path.
 	hasSegments bool
 	bounds      image.Rectangle
@@ -109,13 +125,12 @@ type PathSpec struct {
 // data is stored directly in the Ops list supplied to Begin.
 type Path struct {
 	ops         *ops.Ops
-	open        bool
 	contour     int
 	pen         f32.Point
 	macro       op.MacroOp
 	start       f32.Point
 	hasSegments bool
-	bounds      f32.Rectangle
+	bounds      f32internal.Rectangle
 	hash        maphash.Hash
 }
 
@@ -124,22 +139,26 @@ func (p *Path) Pos() f32.Point { return p.pen }
 
 // Begin the path, storing the path data and final Op into ops.
 func (p *Path) Begin(o *op.Ops) {
+	*p = Path{
+		ops:     &o.Internal,
+		macro:   op.Record(o),
+		contour: 1,
+	}
 	p.hash.SetSeed(pathSeed)
-	p.ops = &o.Internal
-	p.macro = op.Record(o)
-	// Write the TypeAux opcode
-	data := ops.Write(p.ops, ops.TypeAuxLen)
+	ops.BeginMulti(p.ops)
+	data := ops.WriteMulti(p.ops, ops.TypeAuxLen)
 	data[0] = byte(ops.TypeAux)
 }
 
 // End returns a PathSpec ready to use in clipping operations.
 func (p *Path) End() PathSpec {
+	p.gap()
 	c := p.macro.Stop()
+	ops.EndMulti(p.ops)
 	return PathSpec{
 		spec:        c,
-		open:        p.open || p.pen != p.start,
 		hasSegments: p.hasSegments,
-		bounds:      boundRectF(p.bounds),
+		bounds:      p.bounds.Round(),
 		hash:        p.hash.Sum64(),
 	}
 }
@@ -152,10 +171,24 @@ func (p *Path) Move(delta f32.Point) {
 
 // MoveTo moves the pen to the specified absolute coordinate.
 func (p *Path) MoveTo(to f32.Point) {
-	p.open = p.open || p.pen != p.start
+	if p.pen == to {
+		return
+	}
+	p.gap()
 	p.end()
 	p.pen = to
 	p.start = to
+}
+
+func (p *Path) gap() {
+	if p.pen != p.start {
+		// A closed contour starts and ends in the same point.
+		// This move creates a gap in the contour, register it.
+		data := ops.WriteMulti(p.ops, scene.CommandSize+4)
+		bo := binary.LittleEndian
+		bo.PutUint32(data[0:], uint32(p.contour))
+		p.cmd(data[4:], scene.Gap(p.pen, p.start))
+	}
 }
 
 // end completes the current contour.
@@ -171,7 +204,7 @@ func (p *Path) Line(delta f32.Point) {
 
 // LineTo moves the pen to the absolute point specified, recording a line.
 func (p *Path) LineTo(to f32.Point) {
-	data := ops.Write(p.ops, scene.CommandSize+4)
+	data := ops.WriteMulti(p.ops, scene.CommandSize+4)
 	bo := binary.LittleEndian
 	bo.PutUint32(data[0:], uint32(p.contour))
 	p.cmd(data[4:], scene.Line(p.pen, to))
@@ -187,7 +220,7 @@ func (p *Path) cmd(data []byte, c scene.Command) {
 func (p *Path) expand(pt f32.Point) {
 	if !p.hasSegments {
 		p.hasSegments = true
-		p.bounds = f32.Rectangle{Min: pt, Max: pt}
+		p.bounds = f32internal.Rectangle{Min: pt, Max: pt}
 	} else {
 		b := p.bounds
 		if pt.X < b.Min.X {
@@ -206,28 +239,6 @@ func (p *Path) expand(pt f32.Point) {
 	}
 }
 
-// boundRectF returns a bounding image.Rectangle for a f32.Rectangle.
-func boundRectF(r f32.Rectangle) image.Rectangle {
-	return image.Rectangle{
-		Min: image.Point{
-			X: int(floor(r.Min.X)),
-			Y: int(floor(r.Min.Y)),
-		},
-		Max: image.Point{
-			X: int(ceil(r.Max.X)),
-			Y: int(ceil(r.Max.Y)),
-		},
-	}
-}
-
-func ceil(v float32) int {
-	return int(math.Ceil(float64(v)))
-}
-
-func floor(v float32) int {
-	return int(math.Floor(float64(v)))
-}
-
 // Quad records a quadratic Bézier from the pen to end
 // with the control point ctrl.
 func (p *Path) Quad(ctrl, to f32.Point) {
@@ -239,7 +250,7 @@ func (p *Path) Quad(ctrl, to f32.Point) {
 // QuadTo records a quadratic Bézier from the pen to end
 // with the control point ctrl, with absolute coordinates.
 func (p *Path) QuadTo(ctrl, to f32.Point) {
-	data := ops.Write(p.ops, scene.CommandSize+4)
+	data := ops.WriteMulti(p.ops, scene.CommandSize+4)
 	bo := binary.LittleEndian
 	bo.PutUint32(data[0:], uint32(p.contour))
 	p.cmd(data[4:], scene.Quad(p.pen, ctrl, to))
@@ -254,9 +265,7 @@ func (p *Path) QuadTo(ctrl, to f32.Point) {
 // The sign of angle determines the direction; positive being counter-clockwise,
 // negative clockwise.
 func (p *Path) ArcTo(f1, f2 f32.Point, angle float32) {
-	const segments = 16
-	m := stroke.ArcTransform(p.pen, f1, f2, angle, segments)
-
+	m, segments := stroke.ArcTransform(p.pen, f1, f2, angle)
 	for i := 0; i < segments; i++ {
 		p0 := p.pen
 		p1 := m.Transform(p0)
@@ -285,7 +294,7 @@ func (p *Path) CubeTo(ctrl0, ctrl1, to f32.Point) {
 	if ctrl0 == p.pen && ctrl1 == p.pen && to == p.pen {
 		return
 	}
-	data := ops.Write(p.ops, scene.CommandSize+4)
+	data := ops.WriteMulti(p.ops, scene.CommandSize+4)
 	bo := binary.LittleEndian
 	bo.PutUint32(data[0:], uint32(p.contour))
 	p.cmd(data[4:], scene.Cubic(p.pen, ctrl0, ctrl1, to))
@@ -326,9 +335,6 @@ type Outline struct {
 
 // Op returns a clip operation representing the outline.
 func (o Outline) Op() Op {
-	if o.Path.open {
-		panic("not all path contours are closed")
-	}
 	return Op{
 		path:    o.Path,
 		outline: true,

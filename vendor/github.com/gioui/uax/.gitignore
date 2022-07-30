@@ -1,0 +1,13 @@
+.DS_Store
+.idea
+.vscode
+*.png
+*.svg
+*.dot
+*.pdf
+*.code-workspace
+*.swp
+,*.txt
+*.prof
+*.test
+gen

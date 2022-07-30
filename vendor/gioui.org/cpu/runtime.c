@@ -12,7 +12,6 @@
 #include <assert.h>
 #include "abi.h"
 #include "runtime.h"
-#include "_cgo_export.h"
 
 // coroutines is a FIFO queue of coroutines implemented as a circular
 // buffer.

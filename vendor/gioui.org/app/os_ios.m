@@ -30,7 +30,7 @@ CGFloat _keyboardHeight;
 #endif
 	drawView.preservesSuperviewLayoutMargins = YES;
 	drawView.layoutMargins = UIEdgeInsetsMake(0, 0, 0, 0);
-	onCreate((__bridge CFTypeRef)drawView);
+	onCreate((__bridge CFTypeRef)drawView, (__bridge CFTypeRef)self);
 	[[NSNotificationCenter defaultCenter] addObserver:self
 											 selector:@selector(keyboardWillChange:)
 												 name:UIKeyboardWillShowNotification
@@ -123,10 +123,6 @@ static void handleTouches(int last, UIView *view, NSSet<UITouch *> *touches, UIE
 
 @implementation GioView
 NSArray<UIKeyCommand *> *_keyCommands;
-+ (void)onFrameCallback:(CADisplayLink *)link {
-	gio_onFrameCallback((__bridge CFTypeRef)link);
-}
-
 + (Class)layerClass {
     return gio_layerClass();
 }
@@ -179,7 +175,7 @@ NSArray<UIKeyCommand *> *_keyCommands;
 }
 
 - (void)insertText:(NSString *)text {
-	onText((__bridge CFTypeRef)self, (char *)text.UTF8String);
+	onText((__bridge CFTypeRef)self, (__bridge CFTypeRef)text);
 }
 
 - (BOOL)canBecomeFirstResponder {
@@ -231,8 +227,23 @@ NSArray<UIKeyCommand *> *_keyCommands;
 }
 @end
 
-CFTypeRef gio_createDisplayLink(void) {
-	CADisplayLink *dl = [CADisplayLink displayLinkWithTarget:[GioView class] selector:@selector(onFrameCallback:)];
+@interface DisplayLinkHandle : NSObject {
+}
+@property uintptr_t handle;
+@end
+
+@implementation DisplayLinkHandle {
+}
+
+- (void)onFrameCallback:(CADisplayLink *)link {
+	gio_onFrameCallback((__bridge CFTypeRef)link, _handle);
+}
+@end
+
+CFTypeRef gio_createDisplayLink(uintptr_t handle) {
+	DisplayLinkHandle *h = [DisplayLinkHandle alloc];
+	h.handle = handle;
+	CADisplayLink *dl = [CADisplayLink displayLinkWithTarget:h selector:@selector(onFrameCallback:)];
 	dl.paused = YES;
 	NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
 	[dl addToRunLoop:runLoop forMode:[runLoop currentMode]];

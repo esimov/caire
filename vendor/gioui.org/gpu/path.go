@@ -11,9 +11,9 @@ import (
 	"math"
 	"unsafe"
 
-	"gioui.org/f32"
 	"gioui.org/gpu/internal/driver"
 	"gioui.org/internal/byteslice"
+	"gioui.org/internal/f32"
 	"gioui.org/internal/f32color"
 	"gioui.org/shader"
 	"gioui.org/shader/gio"
@@ -58,7 +58,7 @@ type coverUniforms struct {
 	uvCoverTransform [4]float32
 	uvTransformR1    [4]float32
 	uvTransformR2    [4]float32
-	z                float32
+	_                float32
 }
 
 type stenciler struct {
@@ -239,6 +239,9 @@ func newStenciler(ctx driver.Device) *stenciler {
 		Topology:    driver.TopologyTriangleStrip,
 	})
 	st.ipipeline.pipeline = &pipeline{ipipe, vertUniforms}
+	if err != nil {
+		panic(err)
+	}
 	return st
 }
 
@@ -258,6 +261,15 @@ func (s *fboSet) resize(ctx driver.Device, sizes []image.Point) {
 		if resize {
 			if f.tex != nil {
 				f.tex.Release()
+			}
+			// Add 5% extra space in each dimension to minimize resizing.
+			sz = sz.Mul(105).Div(100)
+			max := ctx.Caps().MaxTextureSize
+			if sz.Y > max {
+				sz.Y = max
+			}
+			if sz.X > max {
+				sz.X = max
 			}
 			tex, err := ctx.NewTexture(driver.TextureFormatFloat, sz.X, sz.Y, driver.FilterNearest, driver.FilterNearest,
 				driver.BufferBindingTexture|driver.BufferBindingFramebuffer)

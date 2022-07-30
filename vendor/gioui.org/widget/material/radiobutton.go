@@ -3,11 +3,8 @@
 package material
 
 import (
-	"image"
-
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/unit"
 	"gioui.org/widget"
 )
 
@@ -27,8 +24,8 @@ func RadioButton(th *Theme, group *widget.Enum, key, label string) RadioButtonSt
 
 			Color:              th.Palette.Fg,
 			IconColor:          th.Palette.ContrastBg,
-			TextSize:           th.TextSize.Scale(14.0 / 16.0),
-			Size:               unit.Dp(26),
+			TextSize:           th.TextSize * 14.0 / 16.0,
+			Size:               26,
 			shaper:             th.Shaper,
 			checkedStateIcon:   th.Icon.RadioChecked,
 			uncheckedStateIcon: th.Icon.RadioUnchecked,
@@ -40,9 +37,10 @@ func RadioButton(th *Theme, group *widget.Enum, key, label string) RadioButtonSt
 // Layout updates enum and displays the radio button.
 func (r RadioButtonStyle) Layout(gtx layout.Context) layout.Dimensions {
 	hovered, hovering := r.Group.Hovered()
-	dims := r.layout(gtx, r.Group.Value == r.Key, hovering && hovered == r.Key)
-	defer clip.Rect(image.Rectangle{Max: dims.Size}).Push(gtx.Ops).Pop()
-	gtx.Constraints.Min = dims.Size
-	r.Group.Layout(gtx, r.Key)
-	return dims
+	focus, focused := r.Group.Focused()
+	return r.Group.Layout(gtx, r.Key, func(gtx layout.Context) layout.Dimensions {
+		semantic.RadioButton.Add(gtx.Ops)
+		highlight := hovering && hovered == r.Key || focused && focus == r.Key
+		return r.layout(gtx, r.Group.Value == r.Key, highlight)
+	})
 }

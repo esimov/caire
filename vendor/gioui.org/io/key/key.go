@@ -10,9 +10,12 @@ events.
 package key
 
 import (
+	"encoding/binary"
 	"fmt"
+	"math"
 	"strings"
 
+	"gioui.org/f32"
 	"gioui.org/internal/ops"
 	"gioui.org/io/event"
 	"gioui.org/op"
@@ -22,9 +25,29 @@ import (
 // Key events are in general only delivered to the
 // focused key handler.
 type InputOp struct {
-	Tag  event.Tag
+	Tag event.Tag
+	// Hint describes the type of text expected by Tag.
 	Hint InputHint
+	// Keys is the set of keys Tag can handle. That is, Tag will only
+	// receive an Event if its key and modifiers are accepted by Keys.Contains.
+	Keys Set
 }
+
+// Set is an expression that describes a set of key combinations, in the form
+// "<modifiers>-<keyset>|...".  Modifiers are separated by dashes, optional
+// modifiers are enclosed by parentheses.  A key set is either a literal key
+// name or a list of key names separated by commas and enclosed in brackets.
+//
+// The "Short" modifier matches the shortcut modifier (ModShortcut) and
+// "ShortAlt" matches the alternative modifier (ModShortcutAlt).
+//
+// Examples:
+//
+//   - A|B matches the A and B keys
+//   - [A,B] also matches the A and B keys
+//   - Shift-A matches A key if shift is pressed, and no other modifier.
+//   - Shift-(Ctrl)-A matches A if shift is pressed, and optionally ctrl.
+type Set string
 
 // SoftKeyboardOp shows or hide the on-screen keyboard, if available.
 // It replaces any previous SoftKeyboardOp.
@@ -39,6 +62,50 @@ type FocusOp struct {
 	// has no InputOp in the same frame.
 	Tag event.Tag
 }
+
+// SelectionOp updates the selection for an input handler.
+type SelectionOp struct {
+	Tag event.Tag
+	Range
+	Caret
+}
+
+// SnippetOp updates the content snippet for an input handler.
+type SnippetOp struct {
+	Tag event.Tag
+	Snippet
+}
+
+// Range represents a range of text, such as an editor's selection.
+// Start and End are in runes.
+type Range struct {
+	Start int
+	End   int
+}
+
+// Snippet represents a snippet of text content used for communicating between
+// an editor and an input method.
+type Snippet struct {
+	Range
+	Text string
+}
+
+// Caret represents the position of a caret.
+type Caret struct {
+	// Pos is the intersection point of the caret and its baseline.
+	Pos f32.Point
+	// Ascent is the length of the caret above its baseline.
+	Ascent float32
+	// Descent is the length of the caret below its baseline.
+	Descent float32
+}
+
+// SelectionEvent is generated when an input method changes the selection.
+type SelectionEvent Range
+
+// SnippetEvent is generated when the snippet range is updated by an
+// input method.
+type SnippetEvent Range
 
 // A FocusEvent is generated when a handler gains or loses
 // focus.
@@ -60,9 +127,11 @@ type Event struct {
 	State State
 }
 
-// An EditEvent is generated when text is input.
+// An EditEvent requests an edit by an input method.
 type EditEvent struct {
-	Text string
+	// Range specifies the range to replace with Text.
+	Range Range
+	Text  string
 }
 
 // InputHint changes the on-screen-keyboard type. That hints the
@@ -131,8 +200,26 @@ const (
 	NameDeleteForward  = "⌦"
 	NamePageUp         = "⇞"
 	NamePageDown       = "⇟"
-	NameTab            = "⇥"
+	NameTab            = "Tab"
 	NameSpace          = "Space"
+	NameCtrl           = "Ctrl"
+	NameShift          = "Shift"
+	NameAlt            = "Alt"
+	NameSuper          = "Super"
+	NameCommand        = "⌘"
+	NameF1             = "F1"
+	NameF2             = "F2"
+	NameF3             = "F3"
+	NameF4             = "F4"
+	NameF5             = "F5"
+	NameF6             = "F6"
+	NameF7             = "F7"
+	NameF8             = "F8"
+	NameF9             = "F9"
+	NameF10            = "F10"
+	NameF11            = "F11"
+	NameF12            = "F12"
+	NameBack           = "Back"
 )
 
 // Contain reports whether m contains all modifiers
@@ -141,11 +228,99 @@ func (m Modifiers) Contain(m2 Modifiers) bool {
 	return m&m2 == m2
 }
 
+func (k Set) Contains(name string, mods Modifiers) bool {
+	ks := string(k)
+	for len(ks) > 0 {
+		// Cut next key expression.
+		chord, rest, _ := cut(ks, "|")
+		ks = rest
+		// Separate key set and modifier set.
+		var modSet, keySet string
+		sep := strings.LastIndex(chord, "-")
+		if sep != -1 {
+			modSet, keySet = chord[:sep], chord[sep+1:]
+		} else {
+			modSet, keySet = "", chord
+		}
+		if !keySetContains(keySet, name) {
+			continue
+		}
+		if modSetContains(modSet, mods) {
+			return true
+		}
+	}
+	return false
+}
+
+func keySetContains(keySet, name string) bool {
+	// Check for single key match.
+	if keySet == name {
+		return true
+	}
+	// Check for set match.
+	if len(keySet) < 2 || keySet[0] != '[' || keySet[len(keySet)-1] != ']' {
+		return false
+	}
+	keySet = keySet[1 : len(keySet)-1]
+	for len(keySet) > 0 {
+		key, rest, _ := cut(keySet, ",")
+		keySet = rest
+		if key == name {
+			return true
+		}
+	}
+	return false
+}
+
+func modSetContains(modSet string, mods Modifiers) bool {
+	var smods Modifiers
+	for len(modSet) > 0 {
+		mod, rest, _ := cut(modSet, "-")
+		modSet = rest
+		if len(mod) >= 2 && mod[0] == '(' && mod[len(mod)-1] == ')' {
+			mods &^= modFor(mod[1 : len(mod)-1])
+		} else {
+			smods |= modFor(mod)
+		}
+	}
+	return mods == smods
+}
+
+// cut is a copy of the standard library strings.Cut.
+// TODO: remove when Go 1.18 is our minimum.
+func cut(s, sep string) (before, after string, found bool) {
+	if i := strings.Index(s, sep); i >= 0 {
+		return s[:i], s[i+len(sep):], true
+	}
+	return s, "", false
+}
+
+func modFor(name string) Modifiers {
+	switch name {
+	case NameCtrl:
+		return ModCtrl
+	case NameShift:
+		return ModShift
+	case NameAlt:
+		return ModAlt
+	case NameSuper:
+		return ModSuper
+	case NameCommand:
+		return ModCommand
+	case "Short":
+		return ModShortcut
+	case "ShortAlt":
+		return ModShortcutAlt
+	}
+	return 0
+}
+
 func (h InputOp) Add(o *op.Ops) {
 	if h.Tag == nil {
 		panic("Tag must be non-nil")
 	}
-	data := ops.Write1(&o.Internal, ops.TypeKeyInputLen, h.Tag)
+	filter := h.Keys
+	data := ops.Write2(&o.Internal, ops.TypeKeyInputLen, h.Tag, &filter)
 	data[0] = byte(ops.TypeKeyInput)
 	data[1] = byte(h.Hint)
 }
@@ -163,9 +338,31 @@ func (h FocusOp) Add(o *op.Ops) {
 	data[0] = byte(ops.TypeKeyFocus)
 }
 
-func (EditEvent) ImplementsEvent()  {}
-func (Event) ImplementsEvent()      {}
-func (FocusEvent) ImplementsEvent() {}
+func (s SnippetOp) Add(o *op.Ops) {
+	data := ops.Write2(&o.Internal, ops.TypeSnippetLen, s.Tag, &s.Text)
+	data[0] = byte(ops.TypeSnippet)
+	bo := binary.LittleEndian
+	bo.PutUint32(data[1:], uint32(s.Range.Start))
+	bo.PutUint32(data[5:], uint32(s.Range.End))
+}
+
+func (s SelectionOp) Add(o *op.Ops) {
+	data := ops.Write1(&o.Internal, ops.TypeSelectionLen, s.Tag)
+	data[0] = byte(ops.TypeSelection)
+	bo := binary.LittleEndian
+	bo.PutUint32(data[1:], uint32(s.Start))
+	bo.PutUint32(data[5:], uint32(s.End))
+	bo.PutUint32(data[9:], math.Float32bits(s.Pos.X))
+	bo.PutUint32(data[13:], math.Float32bits(s.Pos.Y))
+	bo.PutUint32(data[17:], math.Float32bits(s.Ascent))
+	bo.PutUint32(data[21:], math.Float32bits(s.Descent))
+}
+
+func (EditEvent) ImplementsEvent()      {}
+func (Event) ImplementsEvent()          {}
+func (FocusEvent) ImplementsEvent()     {}
+func (SnippetEvent) ImplementsEvent()   {}
+func (SelectionEvent) ImplementsEvent() {}
 
 func (e Event) String() string {
 	return fmt.Sprintf("%v %v %v}", e.Name, e.Modifiers, e.State)
@@ -174,21 +371,21 @@ func (e Event) String() string {
 func (m Modifiers) String() string {
 	var strs []string
 	if m.Contain(ModCtrl) {
-		strs = append(strs, "ModCtrl")
+		strs = append(strs, NameCtrl)
 	}
 	if m.Contain(ModCommand) {
-		strs = append(strs, "ModCommand")
+		strs = append(strs, NameCommand)
 	}
 	if m.Contain(ModShift) {
-		strs = append(strs, "ModShift")
+		strs = append(strs, NameShift)
 	}
 	if m.Contain(ModAlt) {
-		strs = append(strs, "ModAlt")
+		strs = append(strs, NameAlt)
 	}
 	if m.Contain(ModSuper) {
-		strs = append(strs, "ModSuper")
+		strs = append(strs, NameSuper)
 	}
-	return strings.Join(strs, "|")
+	return strings.Join(strs, "-")
 }
 
 func (s State) String() string {

@@ -1,0 +1,136 @@
+# gioui.org v0.0.0-20220721082542-b67bef3e0d96
+## explicit; go 1.17
+gioui.org/app
+gioui.org/app/internal/log
+gioui.org/app/internal/windows
+gioui.org/app/internal/xkb
+gioui.org/f32
+gioui.org/font/gofont
+gioui.org/font/opentype
+gioui.org/font/opentype/internal
+gioui.org/gesture
+gioui.org/gpu
+gioui.org/gpu/internal/d3d11
+gioui.org/gpu/internal/driver
+gioui.org/gpu/internal/metal
+gioui.org/gpu/internal/opengl
+gioui.org/gpu/internal/vulkan
+gioui.org/internal/byteslice
+gioui.org/internal/cocoainit
+gioui.org/internal/d3d11
+gioui.org/internal/egl
+gioui.org/internal/f32
+gioui.org/internal/f32color
+gioui.org/internal/fling
+gioui.org/internal/gl
+gioui.org/internal/ops
+gioui.org/internal/scene
+gioui.org/internal/stroke
+gioui.org/internal/vk
+gioui.org/io/clipboard
+gioui.org/io/event
+gioui.org/io/key
+gioui.org/io/pointer
+gioui.org/io/profile
+gioui.org/io/router
+gioui.org/io/semantic
+gioui.org/io/system
+gioui.org/io/transfer
+gioui.org/layout
+gioui.org/op
+gioui.org/op/clip
+gioui.org/op/paint
+gioui.org/text
+gioui.org/unit
+gioui.org/widget
+gioui.org/widget/material
+# gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7
+## explicit; go 1.17
+gioui.org/cpu
+# gioui.org/shader v1.0.6
+## explicit; go 1.16
+gioui.org/shader
+gioui.org/shader/gio
+gioui.org/shader/piet
+# github.com/benoitkugler/textlayout v0.1.1
+## explicit; go 1.17
+github.com/benoitkugler/textlayout/fonts
+github.com/benoitkugler/textlayout/fonts/binaryreader
+github.com/benoitkugler/textlayout/fonts/glyphsnames
+github.com/benoitkugler/textlayout/fonts/psinterpreter
+github.com/benoitkugler/textlayout/fonts/simpleencodings
+github.com/benoitkugler/textlayout/fonts/truetype
+github.com/benoitkugler/textlayout/fonts/type1C
+github.com/benoitkugler/textlayout/graphite
+github.com/benoitkugler/textlayout/harfbuzz
+github.com/benoitkugler/textlayout/language
+github.com/benoitkugler/textlayout/unicodedata
+# github.com/disintegration/imaging v1.6.2
+## explicit
+github.com/disintegration/imaging
+# github.com/esimov/pigo v1.4.5
+## explicit; go 1.12
+github.com/esimov/pigo/core
+# github.com/gioui/uax v0.2.1-0.20220325163150-e3d987515a12
+## explicit; go 1.16
+github.com/gioui/uax
+github.com/gioui/uax/internal/tracing
+github.com/gioui/uax/segment
+github.com/gioui/uax/uax14
+# github.com/go-text/typesetting v0.0.0-20220411150340-35994bc27a7b
+## explicit; go 1.15
+github.com/go-text/typesetting/di
+github.com/go-text/typesetting/font
+github.com/go-text/typesetting/language
+github.com/go-text/typesetting/shaping
+# golang.org/x/exp v0.0.0-20220713135740-79cabaa25d75
+## explicit; go 1.18
+golang.org/x/exp/constraints
+# golang.org/x/exp/shiny v0.0.0-20220317015231-48e79f11773a
+## explicit; go 1.18
+golang.org/x/exp/shiny/iconvg
+golang.org/x/exp/shiny/iconvg/internal/gradient
+golang.org/x/exp/shiny/materialdesign/icons
+# golang.org/x/image v0.0.0-20220617043117-41969df76e82
+## explicit; go 1.12
+golang.org/x/image/bmp
+golang.org/x/image/ccitt
+golang.org/x/image/font
+golang.org/x/image/font/gofont/gobold
+golang.org/x/image/font/gofont/gobolditalic
+golang.org/x/image/font/gofont/goitalic
+golang.org/x/image/font/gofont/gomedium
+golang.org/x/image/font/gofont/gomediumitalic
+golang.org/x/image/font/gofont/gomono
+golang.org/x/image/font/gofont/gomonobold
+golang.org/x/image/font/gofont/gomonobolditalic
+golang.org/x/image/font/gofont/gomonoitalic
+golang.org/x/image/font/gofont/goregular
+golang.org/x/image/font/gofont/gosmallcaps
+golang.org/x/image/font/gofont/gosmallcapsitalic
+golang.org/x/image/math/f32
+golang.org/x/image/math/f64
+golang.org/x/image/math/fixed
+golang.org/x/image/tiff
+golang.org/x/image/tiff/lzw
+golang.org/x/image/vector
+# golang.org/x/sys v0.0.0-20211019181941-9d821ace8654
+## explicit; go 1.17
+golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/plan9
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
+## explicit; go 1.17
+golang.org/x/term
+# golang.org/x/text v0.3.7
+## explicit; go 1.17
+golang.org/x/text/encoding
+golang.org/x/text/encoding/charmap
+golang.org/x/text/encoding/internal
+golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/encoding/unicode
+golang.org/x/text/internal/utf8internal
+golang.org/x/text/runes
+golang.org/x/text/transform
+golang.org/x/text/unicode/rangetable

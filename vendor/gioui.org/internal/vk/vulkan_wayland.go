@@ -7,6 +7,8 @@
 package vk
 
 /*
+#cgo linux pkg-config: wayland-client
+
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #define VK_NO_PROTOTYPES 1
 #define VK_DEFINE_NON_DISPATCHABLE_HANDLE(object) typedef uint64_t object;

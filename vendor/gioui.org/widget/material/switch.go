@@ -6,18 +6,18 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/f32"
 	"gioui.org/internal/f32color"
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/unit"
 	"gioui.org/widget"
 )
 
 type SwitchStyle struct {
-	Color struct {
+	Description string
+	Color       struct {
 		Enabled  color.NRGBA
 		Disabled color.NRGBA
 		Track    color.NRGBA
@@ -26,9 +26,10 @@ type SwitchStyle struct {
 }
 
 // Switch is for selecting a boolean value.
-func Switch(th *Theme, swtch *widget.Bool) SwitchStyle {
+func Switch(th *Theme, swtch *widget.Bool, description string) SwitchStyle {
 	sw := SwitchStyle{
-		Switch: swtch,
+		Switch:      swtch,
+		Description: description,
 	}
 	sw.Color.Enabled = th.Palette.ContrastBg
 	sw.Color.Disabled = th.Palette.Bg
@@ -38,16 +39,16 @@ func Switch(th *Theme, swtch *widget.Bool) SwitchStyle {
 
 // Layout updates the switch and displays it.
 func (s SwitchStyle) Layout(gtx layout.Context) layout.Dimensions {
-	trackWidth := gtx.Px(unit.Dp(36))
-	trackHeight := gtx.Px(unit.Dp(16))
-	thumbSize := gtx.Px(unit.Dp(20))
-	trackOff := float32(thumbSize-trackHeight) * .5
+	trackWidth := gtx.Dp(36)
+	trackHeight := gtx.Dp(16)
+	thumbSize := gtx.Dp(20)
+	trackOff := (thumbSize - trackHeight) / 2
 
 	// Draw track.
-	trackCorner := float32(trackHeight) / 2
-	trackRect := f32.Rectangle{Max: f32.Point{
-		X: float32(trackWidth),
-		Y: float32(trackHeight),
+	trackCorner := trackHeight / 2
+	trackRect := image.Rectangle{Max: image.Point{
+		X: trackWidth,
+		Y: trackHeight,
 	}}
 	col := s.Color.Disabled
 	if s.Switch.Value {
@@ -57,7 +58,7 @@ func (s SwitchStyle) Layout(gtx layout.Context) layout.Dimensions {
 		col = f32color.Disabled(col)
 	}
 	trackColor := s.Color.Track
-	t := op.Offset(f32.Point{Y: trackOff}).Push(gtx.Ops)
+	t := op.Offset(image.Point{Y: trackOff}).Push(gtx.Ops)
 	cl := clip.UniformRRect(trackRect, trackCorner).Push(gtx.Ops)
 	paint.ColorOp{Color: trackColor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
@@ -65,15 +66,15 @@ func (s SwitchStyle) Layout(gtx layout.Context) layout.Dimensions {
 	t.Pop()
 
 	// Draw thumb ink.
-	inkSize := gtx.Px(unit.Dp(44))
-	rr := float32(inkSize) * .5
-	inkOff := f32.Point{
-		X: float32(trackWidth)*.5 - rr,
-		Y: -rr + float32(trackHeight)*.5 + trackOff,
+	inkSize := gtx.Dp(44)
+	rr := inkSize / 2
+	inkOff := image.Point{
+		X: trackWidth/2 - rr,
+		Y: -rr + trackHeight/2 + trackOff,
 	}
 	t = op.Offset(inkOff).Push(gtx.Ops)
 	gtx.Constraints.Min = image.Pt(inkSize, inkSize)
-	cl = clip.UniformRRect(f32.Rectangle{Max: layout.FPt(gtx.Constraints.Min)}, rr).Push(gtx.Ops)
+	cl = clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, rr).Push(gtx.Ops)
 	for _, p := range s.Switch.History() {
 		drawInk(gtx, p)
 	}
@@ -82,50 +83,50 @@ func (s SwitchStyle) Layout(gtx layout.Context) layout.Dimensions {
 
 	// Compute thumb offset.
 	if s.Switch.Value {
-		xoff := float32(trackWidth - thumbSize)
-		defer op.Offset(f32.Point{X: xoff}).Push(gtx.Ops).Pop()
+		xoff := trackWidth - thumbSize
+		defer op.Offset(image.Point{X: xoff}).Push(gtx.Ops).Pop()
 	}
 
-	thumbRadius := float32(thumbSize) / 2
+	thumbRadius := thumbSize / 2
 
+	circle := func(x, y, r int) clip.Op {
+		b := image.Rectangle{
+			Min: image.Pt(x-r, y-r),
+			Max: image.Pt(x+r, y+r),
+		}
+		return clip.Ellipse(b).Op(gtx.Ops)
+	}
 	// Draw hover.
-	if s.Switch.Hovered() {
-		r := 1.7 * thumbRadius
+	if s.Switch.Hovered() || s.Switch.Focused() {
+		r := thumbRadius * 10 / 17
 		background := f32color.MulAlpha(s.Color.Enabled, 70)
-		paint.FillShape(gtx.Ops, background,
-			clip.Circle{
-				Center: f32.Point{X: thumbRadius, Y: thumbRadius},
-				Radius: r,
-			}.Op(gtx.Ops))
+		paint.FillShape(gtx.Ops, background, circle(thumbRadius, thumbRadius, r))
 	}
 
 	// Draw thumb shadow, a translucent disc slightly larger than the
 	// thumb itself.
 	// Center shadow horizontally and slightly adjust its Y.
-	paint.FillShape(gtx.Ops, argb(0x55000000),
-		clip.Circle{
-			Center: f32.Point{X: thumbRadius, Y: thumbRadius + .25},
-			Radius: thumbRadius + 1,
-		}.Op(gtx.Ops))
+	paint.FillShape(gtx.Ops, argb(0x55000000), circle(thumbRadius, thumbRadius+gtx.Dp(.25), thumbRadius+1))
 
 	// Draw thumb.
-	paint.FillShape(gtx.Ops, col,
-		clip.Circle{
-			Center: f32.Point{X: thumbRadius, Y: thumbRadius},
-			Radius: thumbRadius,
-		}.Op(gtx.Ops))
+	paint.FillShape(gtx.Ops, col, circle(thumbRadius, thumbRadius, thumbRadius))
 
 	// Set up click area.
-	clickSize := gtx.Px(unit.Dp(40))
-	clickOff := f32.Point{
-		X: (float32(trackWidth) - float32(clickSize)) * .5,
-		Y: (float32(trackHeight)-float32(clickSize))*.5 + trackOff,
+	clickSize := gtx.Dp(40)
+	clickOff := image.Point{
+		X: (thumbSize - clickSize) / 2,
+		Y: (trackHeight-clickSize)/2 + trackOff,
 	}
 	defer op.Offset(clickOff).Push(gtx.Ops).Pop()
 	sz := image.Pt(clickSize, clickSize)
-	defer clip.Ellipse(f32.Rectangle{Max: layout.FPt(sz)}).Push(gtx.Ops).Pop()
-	gtx.Constraints.Min = sz
-	s.Switch.Layout(gtx)
+	defer clip.Ellipse(image.Rectangle{Max: sz}).Push(gtx.Ops).Pop()
+	s.Switch.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		if d := s.Description; d != "" {
+			semantic.DescriptionOp(d).Add(gtx.Ops)
+		}
+		semantic.Switch.Add(gtx.Ops)
+		return layout.Dimensions{Size: sz}
+	})
 
 	dims := image.Point{X: trackWidth, Y: thumbSize}
 	return layout.Dimensions{Size: dims}

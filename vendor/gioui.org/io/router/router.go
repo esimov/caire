@@ -13,21 +13,31 @@ package router
 import (
 	"encoding/binary"
 	"image"
+	"io"
+	"math"
+	"strings"
 	"time"
 
+	"gioui.org/f32"
+	f32internal "gioui.org/internal/f32"
 	"gioui.org/internal/ops"
 	"gioui.org/io/clipboard"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/io/profile"
+	"gioui.org/io/semantic"
+	"gioui.org/io/system"
+	"gioui.org/io/transfer"
 	"gioui.org/op"
 )
 
 // Router is a Queue implementation that routes events
 // to handlers declared in operation lists.
 type Router struct {
-	pointer struct {
+	savedTrans []f32.Affine2D
+	transStack []f32.Affine2D
+	pointer    struct {
 		queue     pointerQueue
 		collector pointerCollector
 	}
@@ -49,6 +59,41 @@ type Router struct {
 	profHandlers map[event.Tag]struct{}
 	profile      profile.Event
 }
+
+// SemanticNode represents a node in the tree describing the components
+// contained in a frame.
+type SemanticNode struct {
+	ID       SemanticID
+	ParentID SemanticID
+	Children []SemanticNode
+	Desc     SemanticDesc
+
+	areaIdx int
+}
+
+// SemanticDesc provides a semantic description of a UI component.
+type SemanticDesc struct {
+	Class       semantic.ClassOp
+	Description string
+	Label       string
+	Selected    bool
+	Disabled    bool
+	Gestures    SemanticGestures
+	Bounds      image.Rectangle
+}
+
+// SemanticGestures is a bit-set of supported gestures.
+type SemanticGestures int
+
+const (
+	ClickGesture SemanticGestures = 1 << iota
+	ScrollGesture
+)
+
+// SemanticID uniquely identifies a SemanticDescription.
+//
+// By convention, the zero value denotes the non-existent ID.
+type SemanticID uint64
 
 type handlerEvents struct {
 	handlers  map[event.Tag][]event.Event
@@ -97,13 +142,172 @@ func (q *Router) Queue(events ...event.Event) bool {
 			q.profile = e
 		case pointer.Event:
 			q.pointer.queue.Push(e, &q.handlers)
-		case key.EditEvent, key.Event, key.FocusEvent:
-			q.key.queue.Push(e, &q.handlers)
+		case key.Event:
+			q.queueKeyEvent(e)
+		case key.SnippetEvent:
+			// Expand existing, overlapping snippet.
+			if r := q.key.queue.content.Snippet.Range; rangeOverlaps(r, key.Range(e)) {
+				if e.Start > r.Start {
+					e.Start = r.Start
+				}
+				if e.End < r.End {
+					e.End = r.End
+				}
+			}
+			if f := q.key.queue.focus; f != nil {
+				q.handlers.Add(f, e)
+			}
+		case key.EditEvent, key.FocusEvent, key.SelectionEvent:
+			if f := q.key.queue.focus; f != nil {
+				q.handlers.Add(f, e)
+			}
 		case clipboard.Event:
 			q.cqueue.Push(e, &q.handlers)
 		}
 	}
 	return q.handlers.HadEvents()
+}
+
+func rangeOverlaps(r1, r2 key.Range) bool {
+	r1 = rangeNorm(r1)
+	r2 = rangeNorm(r2)
+	return r1.Start <= r2.Start && r2.Start < r1.End ||
+		r1.Start <= r2.End && r2.End < r1.End
+}
+
+func rangeNorm(r key.Range) key.Range {
+	if r.End < r.Start {
+		r.End, r.Start = r.Start, r.End
+	}
+	return r
+}
+
+func (q *Router) queueKeyEvent(e key.Event) {
+	kq := &q.key.queue
+	f := q.key.queue.focus
+	if f != nil && kq.Accepts(f, e) {
+		q.handlers.Add(f, e)
+		return
+	}
+	pq := &q.pointer.queue
+	idx := len(pq.hitTree) - 1
+	focused := f != nil
+	if focused {
+		// If there is a focused tag, traverse its ancestry through the
+		// hit tree to search for handlers.
+		for ; pq.hitTree[idx].ktag != f; idx-- {
+		}
+	}
+	for idx != -1 {
+		n := &pq.hitTree[idx]
+		if focused {
+			idx = n.next
+			if idx == -1 {
+				// No handler found in focus ancestor tree.
+				// Try all handlers.
+				idx = len(pq.hitTree) - 1
+				focused = false
+			}
+		} else {
+			idx--
+		}
+		if n.ktag == nil {
+			continue
+		}
+		if kq.Accepts(n.ktag, e) {
+			q.handlers.Add(n.ktag, e)
+			break
+		}
+	}
+}
+
+func (q *Router) MoveFocus(dir FocusDirection) bool {
+	return q.key.queue.MoveFocus(dir, &q.handlers)
+}
+
+// RevealFocus scrolls the current focus (if any) into viewport
+// if there are scrollable parent handlers.
+func (q *Router) RevealFocus(viewport image.Rectangle) {
+	focus := q.key.queue.focus
+	if focus == nil {
+		return
+	}
+	bounds := q.key.queue.BoundsFor(focus)
+	area := q.key.queue.AreaFor(focus)
+	viewport = q.pointer.queue.ClipFor(area, viewport)
+
+	topleft := bounds.Min.Sub(viewport.Min)
+	topleft = max(topleft, bounds.Max.Sub(viewport.Max))
+	topleft = min(image.Pt(0, 0), topleft)
+	bottomright := bounds.Max.Sub(viewport.Max)
+	bottomright = min(bottomright, bounds.Min.Sub(viewport.Min))
+	bottomright = max(image.Pt(0, 0), bottomright)
+	s := topleft
+	if s.X == 0 {
+		s.X = bottomright.X
+	}
+	if s.Y == 0 {
+		s.Y = bottomright.Y
+	}
+	q.ScrollFocus(s)
+}
+
+// ScrollFocus scrolls the focused widget, if any, by dist.
+func (q *Router) ScrollFocus(dist image.Point) {
+	focus := q.key.queue.focus
+	if focus == nil {
+		return
+	}
+	area := q.key.queue.AreaFor(focus)
+	q.pointer.queue.Deliver(area, pointer.Event{
+		Type:   pointer.Scroll,
+		Source: pointer.Touch,
+		Scroll: f32internal.FPt(dist),
+	}, &q.handlers)
+}
+
+func max(p1, p2 image.Point) image.Point {
+	m := p1
+	if p2.X > m.X {
+		m.X = p2.X
+	}
+	if p2.Y > m.Y {
+		m.Y = p2.Y
+	}
+	return m
+}
+
+func min(p1, p2 image.Point) image.Point {
+	m := p1
+	if p2.X < m.X {
+		m.X = p2.X
+	}
+	if p2.Y < m.Y {
+		m.Y = p2.Y
+	}
+	return m
+}
+
+func (q *Router) ActionAt(p f32.Point) (system.Action, bool) {
+	return q.pointer.queue.ActionAt(p)
+}
+
+func (q *Router) ClickFocus() {
+	focus := q.key.queue.focus
+	if focus == nil {
+		return
+	}
+	bounds := q.key.queue.BoundsFor(focus)
+	center := bounds.Max.Add(bounds.Min).Div(2)
+	e := pointer.Event{
+		Position: f32.Pt(float32(center.X), float32(center.Y)),
+		Source:   pointer.Touch,
+	}
+	area := q.key.queue.AreaFor(focus)
+	e.Type = pointer.Press
+	q.pointer.queue.Deliver(area, e, &q.handlers)
+	e.Type = pointer.Release
+	q.pointer.queue.Deliver(area, e, &q.handlers)
 }
 
 // TextInputState returns the input state from the most recent
@@ -130,16 +334,39 @@ func (q *Router) ReadClipboard() bool {
 }
 
 // Cursor returns the last cursor set.
-func (q *Router) Cursor() pointer.CursorName {
+func (q *Router) Cursor() pointer.Cursor {
 	return q.pointer.queue.cursor
 }
 
+// SemanticAt returns the first semantic description under pos, if any.
+func (q *Router) SemanticAt(pos f32.Point) (SemanticID, bool) {
+	return q.pointer.queue.SemanticAt(pos)
+}
+
+// AppendSemantics appends the semantic tree to nodes, and returns the result.
+// The root node is the first added.
+func (q *Router) AppendSemantics(nodes []SemanticNode) []SemanticNode {
+	q.pointer.collector.q = &q.pointer.queue
+	q.pointer.collector.ensureRoot()
+	return q.pointer.queue.AppendSemantics(nodes)
+}
+
+// EditorState returns the editor state for the focused handler, or the
+// zero value if there is none.
+func (q *Router) EditorState() EditorState {
+	return q.key.queue.content
+}
+
 func (q *Router) collect() {
+	q.transStack = q.transStack[:0]
 	pc := &q.pointer.collector
-	pc.reset(&q.pointer.queue)
+	pc.q = &q.pointer.queue
+	pc.reset()
 	kc := &q.key.collector
 	*kc = keyCollector{q: &q.key.queue}
 	q.key.queue.Reset()
+	var t f32.Affine2D
+	bo := binary.LittleEndian
 	for encOp, ok := q.reader.Decode(); ok; encOp, ok = q.reader.Decode() {
 		switch ops.OpType(encOp.Data[0]) {
 		case ops.TypeInvalidate:
@@ -160,29 +387,41 @@ func (q *Router) collect() {
 			q.cqueue.ProcessWriteClipboard(encOp.Refs)
 		case ops.TypeSave:
 			id := ops.DecodeSave(encOp.Data)
-			pc.save(id)
+			if extra := id - len(q.savedTrans) + 1; extra > 0 {
+				q.savedTrans = append(q.savedTrans, make([]f32.Affine2D, extra)...)
+			}
+			q.savedTrans[id] = t
 		case ops.TypeLoad:
 			id := ops.DecodeLoad(encOp.Data)
-			pc.load(id)
+			t = q.savedTrans[id]
+			pc.resetState()
+			pc.setTrans(t)
 
-		// Pointer ops.
 		case ops.TypeClip:
 			var op ops.ClipOp
 			op.Decode(encOp.Data)
 			pc.clip(op)
 		case ops.TypePopClip:
 			pc.popArea()
+		case ops.TypeTransform:
+			t2, push := ops.DecodeTransform(encOp.Data)
+			if push {
+				q.transStack = append(q.transStack, t)
+			}
+			t = t.Mul(t2)
+			pc.setTrans(t)
+		case ops.TypePopTransform:
+			n := len(q.transStack)
+			t = q.transStack[n-1]
+			q.transStack = q.transStack[:n-1]
+			pc.setTrans(t)
+
+		// Pointer ops.
 		case ops.TypePass:
 			pc.pass()
 		case ops.TypePopPass:
 			pc.popPass()
-		case ops.TypeTransform:
-			t, push := ops.DecodeTransform(encOp.Data)
-			pc.transform(t, push)
-		case ops.TypePopTransform:
-			pc.popTransform()
 		case ops.TypePointerInput:
-			bo := binary.LittleEndian
 			op := pointer.InputOp{
 				Tag:   encOp.Refs[0].(event.Tag),
 				Grab:  encOp.Data[1] != 0,
@@ -200,8 +439,30 @@ func (q *Router) collect() {
 			}
 			pc.inputOp(op, &q.handlers)
 		case ops.TypeCursor:
-			name := encOp.Refs[0].(pointer.CursorName)
+			name := pointer.Cursor(encOp.Data[1])
 			pc.cursor(name)
+		case ops.TypeSource:
+			op := transfer.SourceOp{
+				Tag:  encOp.Refs[0].(event.Tag),
+				Type: encOp.Refs[1].(string),
+			}
+			pc.sourceOp(op, &q.handlers)
+		case ops.TypeTarget:
+			op := transfer.TargetOp{
+				Tag:  encOp.Refs[0].(event.Tag),
+				Type: encOp.Refs[1].(string),
+			}
+			pc.targetOp(op, &q.handlers)
+		case ops.TypeOffer:
+			op := transfer.OfferOp{
+				Tag:  encOp.Refs[0].(event.Tag),
+				Type: encOp.Refs[1].(string),
+				Data: encOp.Refs[2].(io.ReadCloser),
+			}
+			pc.offerOp(op, &q.handlers)
+		case ops.TypeActionInput:
+			act := system.Action(encOp.Data[1])
+			pc.actionInputOp(act)
 
 		// Key ops.
 		case ops.TypeKeyFocus:
@@ -216,11 +477,68 @@ func (q *Router) collect() {
 			}
 			kc.softKeyboard(op.Show)
 		case ops.TypeKeyInput:
+			filter := encOp.Refs[1].(*key.Set)
 			op := key.InputOp{
 				Tag:  encOp.Refs[0].(event.Tag),
 				Hint: key.InputHint(encOp.Data[1]),
+				Keys: *filter,
 			}
-			kc.inputOp(op)
+			a := pc.currentArea()
+			b := pc.currentAreaBounds()
+			pc.keyInputOp(op)
+			kc.inputOp(op, a, b)
+		case ops.TypeSnippet:
+			op := key.SnippetOp{
+				Tag: encOp.Refs[0].(event.Tag),
+				Snippet: key.Snippet{
+					Range: key.Range{
+						Start: int(int32(bo.Uint32(encOp.Data[1:]))),
+						End:   int(int32(bo.Uint32(encOp.Data[5:]))),
+					},
+					Text: *(encOp.Refs[1].(*string)),
+				},
+			}
+			kc.snippetOp(op)
+		case ops.TypeSelection:
+			op := key.SelectionOp{
+				Tag: encOp.Refs[0].(event.Tag),
+				Range: key.Range{
+					Start: int(int32(bo.Uint32(encOp.Data[1:]))),
+					End:   int(int32(bo.Uint32(encOp.Data[5:]))),
+				},
+				Caret: key.Caret{
+					Pos: f32.Point{
+						X: math.Float32frombits(bo.Uint32(encOp.Data[9:])),
+						Y: math.Float32frombits(bo.Uint32(encOp.Data[13:])),
+					},
+					Ascent:  math.Float32frombits(bo.Uint32(encOp.Data[17:])),
+					Descent: math.Float32frombits(bo.Uint32(encOp.Data[21:])),
+				},
+			}
+			kc.selectionOp(t, op)
+
+		// Semantic ops.
+		case ops.TypeSemanticLabel:
+			lbl := encOp.Refs[0].(*string)
+			pc.semanticLabel(*lbl)
+		case ops.TypeSemanticDesc:
+			desc := encOp.Refs[0].(*string)
+			pc.semanticDesc(*desc)
+		case ops.TypeSemanticClass:
+			class := semantic.ClassOp(encOp.Data[1])
+			pc.semanticClass(class)
+		case ops.TypeSemanticSelected:
+			if encOp.Data[1] != 0 {
+				pc.semanticSelected(true)
+			} else {
+				pc.semanticSelected(false)
+			}
+		case ops.TypeSemanticDisabled:
+			if encOp.Data[1] != 0 {
+				pc.semanticDisabled(true)
+			} else {
+				pc.semanticDisabled(false)
+			}
 		}
 	}
 }
@@ -302,4 +620,12 @@ func decodeInvalidateOp(d []byte) op.InvalidateOp {
 		o.At = time.Unix(0, int64(nanos))
 	}
 	return o
+}
+
+func (s SemanticGestures) String() string {
+	var gestures []string
+	if s&ClickGesture != 0 {
+		gestures = append(gestures, "Click")
+	}
+	return strings.Join(gestures, ",")
 }

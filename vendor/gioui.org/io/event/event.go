@@ -25,7 +25,7 @@ The following example declares a handler ready for key input:
 
 	ops := new(op.Ops)
 	var h *Handler = ...
-	key.InputOp{Tag: h}.Add(ops)
+	key.InputOp{Tag: h, Filter: ...}.Add(ops)
 
 */
 package event
