@@ -23,9 +23,3 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 )
 
-replace (
-	gioui.org => ./vendor/gioui.org
-	gioui.org/cpu => ./vendor/gioui.org/cpu
-	gioui.org/gpu => ./vendor/gioui.org/gpu
-	gioui.org/shader => ./vendor/gioui.org/shader
-)
