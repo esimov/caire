@@ -110,7 +110,11 @@ func (b *Clickable) Layout(gtx layout.Context, w layout.Widget) layout.Dimension
 	semantic.DisabledOp(disabled).Add(gtx.Ops)
 	b.click.Add(gtx.Ops)
 	if !disabled {
-		key.InputOp{Tag: &b.keyTag, Keys: "⏎|Space"}.Add(gtx.Ops)
+		keys := key.Set("⏎|Space")
+		if !b.focused {
+			keys = ""
+		}
+		key.InputOp{Tag: &b.keyTag, Keys: keys}.Add(gtx.Ops)
 	} else {
 		b.focused = false
 	}

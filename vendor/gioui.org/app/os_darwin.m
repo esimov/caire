@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Unlicense OR MIT
 
-@import Dispatch;
-@import Foundation;
+#import <Dispatch/Dispatch.h>
+#import <Foundation/Foundation.h>
 
 #include "_cgo_export.h"
 

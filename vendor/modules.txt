@@ -1,4 +1,4 @@
-# gioui.org v0.0.0-20220721082542-b67bef3e0d96
+# gioui.org v0.0.0-20220801181544-dbbae0519e24
 ## explicit; go 1.17
 gioui.org/app
 gioui.org/app/internal/log
@@ -44,7 +44,7 @@ gioui.org/text
 gioui.org/unit
 gioui.org/widget
 gioui.org/widget/material
-# gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7
+# gioui.org/cpu v0.0.0-20210817075930-8d6a761490d2
 ## explicit; go 1.17
 gioui.org/cpu
 # gioui.org/shader v1.0.6
@@ -83,15 +83,15 @@ github.com/go-text/typesetting/di
 github.com/go-text/typesetting/font
 github.com/go-text/typesetting/language
 github.com/go-text/typesetting/shaping
-# golang.org/x/exp v0.0.0-20220713135740-79cabaa25d75
+# golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 ## explicit; go 1.18
 golang.org/x/exp/constraints
-# golang.org/x/exp/shiny v0.0.0-20220317015231-48e79f11773a
+# golang.org/x/exp/shiny v0.0.0-20220722155223-a9213eeb770e
 ## explicit; go 1.18
 golang.org/x/exp/shiny/iconvg
 golang.org/x/exp/shiny/iconvg/internal/gradient
 golang.org/x/exp/shiny/materialdesign/icons
-# golang.org/x/image v0.0.0-20220617043117-41969df76e82
+# golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 ## explicit; go 1.12
 golang.org/x/image/bmp
 golang.org/x/image/ccitt
@@ -120,7 +120,7 @@ golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
+# golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
 ## explicit; go 1.17
 golang.org/x/term
 # golang.org/x/text v0.3.7

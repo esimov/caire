@@ -24,7 +24,8 @@ import (
 )
 
 /*
-#cgo CFLAGS: -DGL_SILENCE_DEPRECATION -Werror -Wno-deprecated-declarations -fmodules -fobjc-arc -x objective-c
+#cgo CFLAGS: -Werror -Wno-deprecated-declarations -fobjc-arc -x objective-c
+#cgo LDFLAGS: -framework AppKit -framework QuartzCore
 
 #include <AppKit/AppKit.h>
 
@@ -242,8 +243,9 @@ type window struct {
 	displayLink *displayLink
 	// redraw is a single entry channel for making sure only one
 	// display link redraw request is in flight.
-	redraw chan struct{}
-	cursor pointer.Cursor
+	redraw      chan struct{}
+	cursor      pointer.Cursor
+	pointerBtns pointer.Buttons
 
 	scale  float32
 	config Config
@@ -502,20 +504,29 @@ func gio_onText(view, cstr C.CFTypeRef) {
 }
 
 //export gio_onMouse
-func gio_onMouse(view, evt C.CFTypeRef, cdir C.int, cbtns C.NSUInteger, x, y, dx, dy C.CGFloat, ti C.double, mods C.NSUInteger) {
+func gio_onMouse(view, evt C.CFTypeRef, cdir C.int, cbtn C.NSInteger, x, y, dx, dy C.CGFloat, ti C.double, mods C.NSUInteger) {
 	w := mustView(view)
 	t := time.Duration(float64(ti)*float64(time.Second) + .5)
 	xf, yf := float32(x)*w.scale, float32(y)*w.scale
 	dxf, dyf := float32(dx)*w.scale, float32(dy)*w.scale
 	pos := f32.Point{X: xf, Y: yf}
+	var btn pointer.Buttons
+	switch cbtn {
+	case 0:
+		btn = pointer.ButtonPrimary
+	case 1:
+		btn = pointer.ButtonSecondary
+	}
 	var typ pointer.Type
 	switch cdir {
 	case C.MOUSE_MOVE:
 		typ = pointer.Move
 	case C.MOUSE_UP:
 		typ = pointer.Release
+		w.pointerBtns &^= btn
 	case C.MOUSE_DOWN:
 		typ = pointer.Press
+		w.pointerBtns |= btn
 		act, ok := w.w.ActionAt(pos)
 		if ok && w.config.Mode != Fullscreen {
 			switch act {
@@ -529,21 +540,11 @@ func gio_onMouse(view, evt C.CFTypeRef, cdir C.int, cbtns C.NSUInteger, x, y, dx
 	default:
 		panic("invalid direction")
 	}
-	var btns pointer.Buttons
-	if cbtns&(1<<0) != 0 {
-		btns |= pointer.ButtonPrimary
-	}
-	if cbtns&(1<<1) != 0 {
-		btns |= pointer.ButtonSecondary
-	}
-	if cbtns&(1<<2) != 0 {
-		btns |= pointer.ButtonTertiary
-	}
 	w.w.Event(pointer.Event{
 		Type:      typ,
 		Source:    pointer.Mouse,
 		Time:      t,
-		Buttons:   btns,
+		Buttons:   w.pointerBtns,
 		Position:  pos,
 		Scroll:    f32.Point{X: dxf, Y: dyf},
 		Modifiers: convertMods(mods),

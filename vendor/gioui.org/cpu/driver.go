@@ -20,8 +20,9 @@ import (
 )
 
 type (
-	BufferDescriptor = C.struct_buffer_descriptor
-	ImageDescriptor  = C.struct_image_descriptor
+	BufferDescriptor  = C.struct_buffer_descriptor
+	ImageDescriptor   = C.struct_image_descriptor
+	SamplerDescriptor = C.struct_sampler_descriptor
 
 	DispatchContext = C.struct_dispatch_context
 	ThreadContext   = C.struct_thread_context

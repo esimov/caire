@@ -6,12 +6,10 @@
 package app
 
 /*
-#cgo CFLAGS: -Werror -xobjective-c -fmodules -fobjc-arc
+#cgo CFLAGS: -Werror -xobjective-c -fobjc-arc
 
-@import AppKit;
-
-@import QuartzCore.CAMetalLayer;
-
+#import <AppKit/AppKit.h>
+#import <QuartzCore/CAMetalLayer.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 CALayer *gio_layerFactory(void) {

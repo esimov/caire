@@ -16,6 +16,9 @@ import (
 )
 
 /*
+#cgo CFLAGS: -DGL_SILENCE_DEPRECATION -xobjective-c -fobjc-arc
+#cgo LDFLAGS: -framework OpenGL
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <AppKit/AppKit.h>

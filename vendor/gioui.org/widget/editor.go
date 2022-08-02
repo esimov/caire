@@ -49,6 +49,9 @@ type Editor struct {
 	InputHint key.InputHint
 	// MaxLen limits the editor content to a maximum length. Zero means no limit.
 	MaxLen int
+	// Filter is the list of characters allowed in the Editor. If Filter is empty,
+	// all characters are allowed.
+	Filter string
 
 	eventKey     int
 	font         text.Font
@@ -1235,12 +1238,21 @@ func (e *Editor) replace(start, end int, s string, addHistory bool) int {
 	startPos := e.closestPosition(combinedPos{runes: start})
 	endPos := e.closestPosition(combinedPos{runes: end})
 	startOff := e.runeOffset(startPos.runes)
-	sc := utf8.RuneCountInString(s)
 	el := e.Len()
-	for e.MaxLen > 0 && el+sc > e.MaxLen {
-		_, n := utf8.DecodeLastRuneInString(s)
-		s = s[:len(s)-n]
-		sc--
+	var sc int
+	idx := 0
+	for idx < len(s) {
+		if e.MaxLen > 0 && el+sc >= e.MaxLen {
+			s = s[:idx]
+			break
+		}
+		_, n := utf8.DecodeRuneInString(s[idx:])
+		if e.Filter != "" && !strings.Contains(e.Filter, s[idx:idx+n]) {
+			s = s[:idx] + s[idx+n:]
+			continue
+		}
+		idx += n
+		sc++
 	}
 	newEnd := startPos.runes + sc
 	replaceSize := endPos.runes - startPos.runes

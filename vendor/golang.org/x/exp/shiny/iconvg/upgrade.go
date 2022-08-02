@@ -673,12 +673,13 @@ func (u *upgrader) looksLikeParallelogram3(curr *[2]float32, args [][2]float32, 
 // E) form a parallelogram:
 //
 // E=A           B
-//    o---------o
-//     \         \
-//      \         \
-//       \         \
-//        o---------o
-//       D           C
+//
+//	o---------o
+//	 \         \
+//	  \         \
+//	   \         \
+//	    o---------o
+//	   D           C
 //
 // Specifically, it checks that (A == E) and ((A - B) == (D - C)). That last
 // equation can be rearranged as (A == (B - C + D)).
@@ -700,15 +701,17 @@ func (u *upgrader) looksLikeParallelogram4(curr *[2]float32, args [][2]float32) 
 // Let A± denote the two tangent vectors (A+ - A) and (A - A-) and likewise for
 // B±, C± and D±.
 //
-//     A+     B-
+//	A+     B-
+//
 // E=A  o    o   B
 // A- o---------o   B+
-//  o  \         \ o
-//      \    X    \
-//     o \         \  o
-//    D+  o---------o  C-
-//       D   o    o  C
-//          D-     C+
+//
+//	o  \         \ o
+//	    \    X    \
+//	   o \         \  o
+//	  D+  o---------o  C-
+//	     D   o    o  C
+//	        D-     C+
 //
 // See https://nigeltao.github.io/blog/2021/three-points-define-ellipse.html
 // for a better version of that ASCII art.

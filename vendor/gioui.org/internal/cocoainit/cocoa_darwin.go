@@ -5,7 +5,8 @@
 package cocoainit
 
 /*
-#cgo CFLAGS: -xobjective-c -fmodules -fobjc-arc
+#cgo CFLAGS: -xobjective-c -fobjc-arc
+#cgo LDFLAGS: -framework Foundation
 #import <Foundation/Foundation.h>
 
 static inline void activate_cocoa_multithreading() {

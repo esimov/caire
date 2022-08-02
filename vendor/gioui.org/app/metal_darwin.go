@@ -12,10 +12,11 @@ import (
 )
 
 /*
-#cgo CFLAGS: -Werror -xobjective-c -fmodules -fobjc-arc
+#cgo CFLAGS: -Werror -xobjective-c -fobjc-arc
+#cgo LDFLAGS: -framework QuartzCore -framework Metal
 
-@import Metal;
-@import QuartzCore.CAMetalLayer;
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 

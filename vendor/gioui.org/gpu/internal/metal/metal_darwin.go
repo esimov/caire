@@ -13,10 +13,8 @@ import (
 )
 
 /*
-#cgo CFLAGS: -Werror -xobjective-c -fmodules -fobjc-arc
-#cgo LDFLAGS: -framework CoreGraphics
-
-@import Metal;
+#cgo CFLAGS: -Werror -xobjective-c -fobjc-arc
+#cgo LDFLAGS: -framework CoreGraphics -framework Metal -framework Foundation
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Metal/Metal.h>

@@ -2,8 +2,7 @@
 
 // +build darwin,!ios,nometal
 
-@import AppKit;
-
+#import <AppKit/AppKit.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <OpenGL/OpenGL.h>
 #include "_cgo_export.h"
