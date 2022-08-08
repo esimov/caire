@@ -225,7 +225,8 @@ func (g *Gui) Run() error {
 						descBlue = !descBlue
 					}
 				}
-				g.draw(w, e, color.NRGBA{R: rc, G: gc, B: bc})
+				g.draw(gtx, color.NRGBA{R: rc, G: gc, B: bc})
+				e.Frame(gtx.Ops)
 			case system.DestroyEvent:
 				abortFn()
 				return e.Err
@@ -256,9 +257,9 @@ type (
 
 // draw draws the resized image in the GUI window (obtained from a channel)
 // and in case the debug mode is activated it prints out the seams.
-func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
-	g.ctx = layout.NewContext(g.ctx.Ops, e)
-	win.Invalidate()
+func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
+	g.ctx = gtx
+	op.InvalidateOp{}.Add(gtx.Ops)
 
 	c := g.setColor(g.cfg.color.background)
 	paint.Fill(g.ctx.Ops, c)
@@ -322,7 +323,6 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 									// Apply the pixel to dpi conversion formula in case
 									// the screen height is greather than the image height.
 									dpi = unit.Dp(float32(g.cfg.window.h) * 0.4 / float32(160))
-
 								}
 								g.DrawSeam(g.cp.ShapeType, float32(dpx), float32(dpy*dpi), 1)
 							}
@@ -343,19 +343,18 @@ func (g *Gui) draw(win *app.Window, e system.FrameEvent, bgCol color.NRGBA) {
 			msg = "Done, you may close this window!"
 			bgCol = color.NRGBA{R: 45, G: 45, B: 42, A: 0xff}
 		}
-		g.displayMessage(e, g.ctx, bgCol, msg)
+		g.displayMessage(g.ctx, bgCol, msg)
 	}
-	e.Frame(g.ctx.Ops)
 }
 
 // displayMessage show a static message when the image is resized both horizontally and vertically.
-func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol color.NRGBA, msg string) {
-	var th = material.NewTheme(gofont.Collection())
+func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) {
+	th := material.NewTheme(gofont.Collection())
 	th.Palette.Fg = color.NRGBA{R: 251, G: 254, B: 249, A: 0xff}
 	paint.ColorOp{Color: bgCol}.Add(ctx.Ops)
 
 	rect := image.Rectangle{
-		Max: image.Point{X: e.Size.X, Y: e.Size.Y},
+		Max: ctx.Constraints.Max,
 	}
 
 	defer clip.Rect(rect).Push(ctx.Ops).Pop()
@@ -369,7 +368,7 @@ func (g *Gui) displayMessage(e system.FrameEvent, ctx layout.Context, bgCol colo
 					tr := f32.Affine2D{}
 					dr := image.Rectangle{Max: gtx.Constraints.Min}
 
-					tr = tr.Rotate(f32.Pt(float32(e.Size.X/2), float32(e.Size.Y/2)), 0.005*-g.cfg.angle)
+					tr = tr.Rotate(f32.Pt(float32(ctx.Constraints.Max.X/2), float32(ctx.Constraints.Max.Y/2)), 0.005*-g.cfg.angle)
 					op.Affine(tr).Add(gtx.Ops)
 
 					since := time.Since(g.cfg.timeStamp)
