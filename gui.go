@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"gioui.org/app"
 	"gioui.org/f32"
 	"gioui.org/font/gofont"
+	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -179,10 +179,11 @@ func (g *Gui) Run() error {
 			case system.FrameEvent:
 				gtx := layout.NewContext(g.ctx.Ops, e)
 
-				// Gather and print all events captured by our input area since the previous frame.
-				for _, event := range gtx.Events(w) {
-					// Perform event handling here instead of in the outer type switch.
-					log.Printf("%#+v", event)
+				key.InputOp{Tag: w, Keys: key.NameEscape}.Add(gtx.Ops)
+				for _, ev := range gtx.Queue.Events(w) {
+					if e, ok := ev.(key.Event); ok && e.Name == key.NameEscape {
+						return nil
+					}
 				}
 
 				{ // red
