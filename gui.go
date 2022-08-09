@@ -228,7 +228,7 @@ func (g *Gui) Run() error {
 		case res := <-g.proc.wrk:
 			if res.done {
 				g.proc.isDone = true
-				w.Perform(system.ActionClose)
+				break
 			}
 			if resizeXY {
 				continue
