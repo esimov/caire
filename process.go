@@ -284,23 +284,14 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				p.NewHeight = p.NewWidth
 
 				newImg = p.calculateFitness(img, c)
-				if newImg != nil {
-					dst := image.NewNRGBA(newImg.Bounds())
-					draw.Draw(dst, newImg.Bounds(), newImg, image.Point{}, draw.Src)
-					img = dst
+				dst := image.NewNRGBA(newImg.Bounds())
+				draw.Draw(dst, newImg.Bounds(), newImg, image.Point{}, draw.Src)
+				img = dst
 
-					nw, nh := img.Bounds().Dx(), img.Bounds().Dy()
-					if nw > nh {
-						pw = nw - nh
-						ph = 0
-					} else {
-						ph = nh - nw
-						pw = 0
-					}
+				nw, nh := img.Bounds().Dx(), img.Bounds().Dy()
 
-					p.NewWidth = utils.Min(nw, nh)
-					p.NewHeight = p.NewWidth
-				}
+				p.NewWidth = utils.Min(nw, nh)
+				p.NewHeight = p.NewWidth
 			} else {
 				return nil, errors.New("please provide a new WIDTH and HEIGHT when using the square option")
 			}
@@ -406,7 +397,7 @@ func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 	c.Height = dy
 
 	if int(sw) < p.NewWidth || int(sh) < p.NewHeight {
-		img = p.calculateFitness(newImg, c)
+		newImg = p.calculateFitness(newImg, c)
 	}
 	return newImg
 }
