@@ -19,15 +19,13 @@ func Benchmark_Carver(b *testing.B) {
 	if err != nil {
 		b.Fatalf("error decoding image: %v", err)
 	}
-	img := p.imgToNRGBA(src)
-	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
-
-	c := NewCarver(dx, dy)
 	b.ResetTimer()
+
+	img := p.imgToNRGBA(src)
 
 	for i := 0; i < b.N; i++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
-		c = NewCarver(width, height)
+		c := NewCarver(width, height)
 		c.ComputeSeams(p, img)
 		seams := c.FindLowestEnergySeams(p)
 		img = c.RemoveSeam(img, seams, p.Debug)
