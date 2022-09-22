@@ -324,7 +324,7 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 									// the screen height is greather than the image height.
 									dpi = unit.Dp(float32(g.cfg.window.h) * 0.4 / float32(160))
 								}
-								g.DrawSeam(g.cp.ShapeType, float32(dpx), float32(dpy*dpi), 1)
+								g.DrawSeam(g.cp.ShapeType, float32(dpx), float32(dpy*dpi), float32(g.cp.ShapeStroke))
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}

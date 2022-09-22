@@ -51,3 +51,9 @@ jobs:
         run: |
           make
           go test -v ./... -run=. -cover
+          
+      - name: Collect Workflow Telemetry
+        uses: runforesight/foresight-workflow-kit-action@v1
+        if: success() || failure()
+        with:
+          api_key: c72ba9d2-2e6f-4d55-829b-13f0eb98436e
