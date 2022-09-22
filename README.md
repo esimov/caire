@@ -85,7 +85,7 @@ The following flags are supported:
 | `angle` | float | Plane rotated faces angle |
 | `mask` | string | Mask file path |
 | `rmask` | string | Remove mask file path |
-| `col` | string | Seam color (default `#ff0000`) |
+| `color` | string | Seam color (default `#ff0000`) |
 | `shape` | string | Shape type used for debugging: `circle`,`line` (default `circle`) |
 
 ## Face detection
