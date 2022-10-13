@@ -10,7 +10,7 @@ import (
 	pigo "github.com/esimov/pigo/core"
 )
 
-// maxFaceDetAttempts defines the maximum number of attempts of face detections,
+// maxFaceDetAttempts defines the maximum number of attempts of face detections
 const maxFaceDetAttempts = 20
 
 var (

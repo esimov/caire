@@ -129,14 +129,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		newHeight = p.NewHeight
 	}
 
-	if p.NewHeight != 0 && len(p.MaskPath) > 0 {
-		p.Mask = c.RotateImage90(p.Mask.(*image.NRGBA))
-	}
-
-	if p.NewHeight != 0 && len(p.RMaskPath) > 0 {
-		p.RMask = c.RotateImage90(p.RMask.(*image.NRGBA))
-	}
-
 	// shrinkHorizFn calls itself recursively to shrink the image horizontally.
 	// If the image is resized on both X and Y axis it calls the shrink and enlarge
 	// function intermitently up until the desired dimension is reached.
@@ -352,6 +344,13 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	if newHeight > 0 && p.NewHeight != c.Height {
 		if !resizeXY {
 			img = c.RotateImage90(img)
+
+			if len(p.MaskPath) > 0 {
+				p.Mask = c.RotateImage90(p.Mask.(*image.NRGBA))
+			}
+			if len(p.RMaskPath) > 0 {
+				p.RMask = c.RotateImage90(p.RMask.(*image.NRGBA))
+			}
 		}
 		if p.NewHeight > c.Height {
 			img, _ = enlargeVertFn(c, img)
@@ -360,6 +359,13 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		}
 		if !resizeXY {
 			img = c.RotateImage270(img)
+
+			if len(p.MaskPath) > 0 {
+				p.Mask = c.RotateImage270(p.Mask.(*image.NRGBA))
+			}
+			if len(p.RMaskPath) > 0 {
+				p.RMask = c.RotateImage270(p.RMask.(*image.NRGBA))
+			}
 		}
 	}
 	// Signal that the process is done and no more data is sent through the channel.

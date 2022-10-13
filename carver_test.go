@@ -118,7 +118,6 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 		les := c.FindLowestEnergySeams(p)
 		seams = append(seams, les)
 	}
-	img = c.RotateImage270(img)
 
 	for i := 0; i < len(seams); i++ {
 		for s := 0; s < len(seams[i]); s++ {
