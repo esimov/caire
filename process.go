@@ -385,7 +385,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	// Run the carver function if the desired image height is not identical with the rescaled image height.
 	if newHeight > 0 && p.NewHeight != c.Height {
 		if !resizeXY {
-			fmt.Println("heeeee")
 			img = c.RotateImage90(img)
 
 			if len(p.MaskPath) > 0 {
