@@ -190,13 +190,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = c.RotateImage90(img)
-
-			if len(p.MaskPath) > 0 {
-				p.Mask = c.RotateImage90(p.Mask.(*image.NRGBA))
-			}
-			if len(p.RMaskPath) > 0 {
-				p.RMask = c.RotateImage90(p.RMask.(*image.NRGBA))
-			}
 		}
 		if dx > p.NewHeight {
 			img, err = p.shrink(c, img)
@@ -205,13 +198,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			if resizeXY {
 				img = c.RotateImage270(img)
-
-				if len(p.MaskPath) > 0 {
-					p.Mask = c.RotateImage270(p.Mask.(*image.NRGBA))
-				}
-				if len(p.RMaskPath) > 0 {
-					p.RMask = c.RotateImage270(p.RMask.(*image.NRGBA))
-				}
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
@@ -225,13 +211,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		} else {
 			if resizeXY {
 				img = c.RotateImage270(img)
-
-				if len(p.MaskPath) > 0 {
-					p.Mask = c.RotateImage270(p.Mask.(*image.NRGBA))
-				}
-				if len(p.RMaskPath) > 0 {
-					p.RMask = c.RotateImage270(p.RMask.(*image.NRGBA))
-				}
 			}
 		}
 		rCount++
@@ -246,13 +225,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = c.RotateImage90(img)
-
-			if len(p.MaskPath) > 0 {
-				p.Mask = c.RotateImage90(p.Mask.(*image.NRGBA))
-			}
-			if len(p.RMaskPath) > 0 {
-				p.RMask = c.RotateImage90(p.RMask.(*image.NRGBA))
-			}
 		}
 		if dx < p.NewHeight {
 			img, err = p.enlarge(c, img)
@@ -261,13 +233,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			if resizeXY {
 				img = c.RotateImage270(img)
-
-				if len(p.MaskPath) > 0 {
-					p.Mask = c.RotateImage270(p.Mask.(*image.NRGBA))
-				}
-				if len(p.RMaskPath) > 0 {
-					p.RMask = c.RotateImage270(p.RMask.(*image.NRGBA))
-				}
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
@@ -281,13 +246,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		} else {
 			if resizeXY {
 				img = c.RotateImage270(img)
-
-				if len(p.MaskPath) > 0 {
-					p.Mask = c.RotateImage270(p.Mask.(*image.NRGBA))
-				}
-				if len(p.RMaskPath) > 0 {
-					p.RMask = c.RotateImage270(p.RMask.(*image.NRGBA))
-				}
 			}
 		}
 		rCount++
@@ -593,7 +551,9 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	c = NewCarver(width, height)
-	if err := c.ComputeSeams(p, img); err != nil {
+
+	_, err := c.ComputeSeams(p, img)
+	if err != nil {
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams(p)
@@ -628,11 +588,20 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	c = NewCarver(width, height)
-	if err := c.ComputeSeams(p, img); err != nil {
+
+	_, err := c.ComputeSeams(p, img)
+	if err != nil {
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams(p)
 	img = c.AddSeam(img, seams, p.Debug)
+
+	if len(p.MaskPath) > 0 {
+		p.Mask = c.AddSeam(p.Mask.(*image.NRGBA), seams, false)
+	}
+	if len(p.RMaskPath) > 0 {
+		p.RMask = c.AddSeam(p.RMask.(*image.NRGBA), seams, false)
+	}
 
 	if isGif {
 		p.encodeImgToGif(c, img, g)
