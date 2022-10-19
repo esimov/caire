@@ -396,8 +396,20 @@ func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 
 	if sw <= sh {
 		newImg = imaging.Resize(img, 0, int(sw), imaging.Lanczos)
+		if len(p.MaskPath) > 0 {
+			p.Mask = imaging.Resize(p.Mask, 0, int(sw), imaging.Lanczos)
+		}
+		if len(p.RMaskPath) > 0 {
+			p.RMask = imaging.Resize(p.RMask, 0, int(sw), imaging.Lanczos)
+		}
 	} else {
 		newImg = imaging.Resize(img, 0, int(sh), imaging.Lanczos)
+		if len(p.MaskPath) > 0 {
+			p.Mask = imaging.Resize(p.Mask, 0, int(sh), imaging.Lanczos)
+		}
+		if len(p.RMaskPath) > 0 {
+			p.RMask = imaging.Resize(p.RMask, 0, int(sh), imaging.Lanczos)
+		}
 	}
 	dx, dy := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
 	c.Width = dx
