@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"math"
 	"math/rand"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/esimov/caire/imop"
 	"github.com/esimov/caire/utils"
 )
 
@@ -38,7 +40,7 @@ const (
 
 var (
 	maxScreenX float32 = 1024
-	maxScreenY float32 = 768
+	maxScreenY float32 = 640
 
 	defaultBkgColor  = color.Transparent
 	defaultFillColor = color.Black
@@ -79,8 +81,20 @@ type Gui struct {
 		wrk <-chan worker
 		err chan<- error
 	}
-	cp  *Processor
-	ctx layout.Context
+	cp   *Processor
+	cop  *imop.Composite
+	bop  *imop.Blend
+	ctx  layout.Context
+	huds map[int]*hudCtrl
+	view struct {
+		huds layout.List
+	}
+}
+
+type hudCtrl struct {
+	visible widget.Bool
+	index   int
+	title   string
 }
 
 // NewGUI initializes the Gio interface.
@@ -92,10 +106,23 @@ func NewGUI(w, h int) *Gui {
 				Max: image.Pt(w, h),
 			},
 		},
+		cop:  imop.InitOp(),
+		bop:  imop.NewBlend(),
+		huds: make(map[int]*hudCtrl),
 	}
 	gui.initWindow(w, h)
 
 	return gui
+}
+
+func (g *Gui) Add(index int, title string, enabled bool) {
+	control := &hudCtrl{
+		index:   index,
+		title:   title,
+		visible: widget.Bool{},
+	}
+	control.visible.Value = enabled
+	g.huds[index] = control
 }
 
 // initWindow creates and initializes the GUI window.
@@ -148,6 +175,13 @@ func (g *Gui) Run() error {
 		unit.Dp(g.cfg.window.h),
 	))
 	g.cfg.timeStamp = time.Now()
+
+	if g.cp.Debug {
+		g.Add(0, "Show seams", true)
+		if len(g.cp.MaskPath) > 0 || len(g.cp.RMaskPath) > 0 || g.cp.FaceDetect {
+			g.Add(1, "Debug mask", false)
+		}
+	}
 
 	abortFn := func() {
 		var dx, dy int
@@ -241,6 +275,26 @@ func (g *Gui) Run() error {
 			}
 			g.proc.img = res.img
 			g.proc.seams = res.carver.Seams
+
+			if hud, ok := g.huds[1]; ok {
+				if hud.visible.Value {
+					srcBitmap := imop.NewBitmap(res.img.Bounds())
+					dstBitmap := imop.NewBitmap(res.img.Bounds())
+
+					uniform := image.NewNRGBA(res.img.Bounds())
+					col := color.RGBA{R: 0x2f, G: 0xf3, B: 0xe0, A: 0xff}
+					draw.Draw(uniform, uniform.Bounds(), &image.Uniform{col}, image.Point{}, draw.Src)
+
+					g.cop.Set(imop.DstIn)
+					g.cop.DrawBitmap(srcBitmap, res.debug, uniform, nil)
+
+					g.bop.Set(imop.Lighten)
+					g.cop.Set(imop.DstOver)
+					g.cop.DrawBitmap(dstBitmap, res.img, srcBitmap.Img, g.bop)
+
+					g.proc.img = dstBitmap.Img
+				}
+			}
 			if g.cp.vRes {
 				g.proc.img = res.carver.RotateImage270(g.proc.img.(*image.NRGBA))
 			}
@@ -261,6 +315,7 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 	g.ctx = gtx
 	op.InvalidateOp{}.Add(gtx.Ops)
 
+	th := material.NewTheme(gofont.Collection())
 	c := g.setColor(g.cfg.color.background)
 	paint.Fill(g.ctx.Ops, c)
 
@@ -268,10 +323,8 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 		src := paint.NewImageOp(g.proc.img)
 		src.Add(g.ctx.Ops)
 
-		layout.Flex{
-			Axis: layout.Horizontal,
-		}.Layout(g.ctx,
-			layout.Flexed(1, func(gtx C) D {
+		layout.Stack{}.Layout(g.ctx,
+			layout.Stacked(func(gtx C) D {
 				paint.FillShape(gtx.Ops, c,
 					clip.Rect{Max: g.ctx.Constraints.Max}.Op(),
 				)
@@ -283,52 +336,89 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 							Fit:   widget.Contain,
 						}.Layout(gtx)
 
-						if g.cp.Debug {
-							var ratio float32 = 1
-							tr := f32.Affine2D{}
-							screen := layout.FPt(g.ctx.Constraints.Max)
-							width, height := float32(g.proc.img.Bounds().Dx()), float32(g.proc.img.Bounds().Dy())
-							sw, sh := float32(screen.X), float32(screen.Y)
+						if hud, ok := g.huds[0]; ok {
+							if hud.visible.Value {
+								var ratio float32 = 1
+								tr := f32.Affine2D{}
+								screen := layout.FPt(g.ctx.Constraints.Max)
+								width, height := float32(g.proc.img.Bounds().Dx()), float32(g.proc.img.Bounds().Dy())
+								sw, sh := float32(screen.X), float32(screen.Y)
 
-							if sw > width {
-								ratio = sw / width
-								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(1, ratio))
-							} else if sh > height {
-								ratio = sh / height
-								tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(ratio, 1))
-							}
-
-							if g.cp.vRes {
-								angle := float32(270 * math.Pi / 180)
-								half := float32(math.Round(float64(sh*0.5-height*0.5) * 0.5))
-
-								ox := math.Abs(float64(sw - (sw - (sw/2 - sh/2))))
-								oy := math.Abs(float64(sh - (sh - (sw/2 - height/2 + half))))
-								tr = tr.Rotate(f32.Pt(sw/2, sh/2), -angle)
-
-								if screen.X > screen.Y {
-									tr = tr.Offset(f32.Pt(float32(ox), float32(oy)))
-								} else {
-									tr = tr.Offset(f32.Pt(float32(-ox), float32(-oy)))
+								if sw > width {
+									ratio = sw / width
+									tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(1, ratio))
+								} else if sh > height {
+									ratio = sh / height
+									tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(ratio, 1))
 								}
-							}
-							op.Affine(tr).Add(gtx.Ops)
 
-							for _, s := range g.proc.seams {
-								var dpi unit.Dp
-								dpx := unit.Dp(s.X)
-								dpy := unit.Dp(s.Y)
+								if g.cp.vRes {
+									angle := float32(270 * math.Pi / 180)
+									half := float32(math.Round(float64(sh*0.5-height*0.5) * 0.5))
 
-								if int(screen.Y) > len(g.proc.seams) {
-									// Apply the pixel to dpi conversion formula in case
-									// the screen height is greather than the image height.
-									dpi = unit.Dp(float32(g.cfg.window.h) * 0.4 / float32(160))
+									ox := math.Abs(float64(sw - (sw - (sw/2 - sh/2))))
+									oy := math.Abs(float64(sh - (sh - (sw/2 - height/2 + half))))
+									tr = tr.Rotate(f32.Pt(sw/2, sh/2), -angle)
+
+									if screen.X > screen.Y {
+										tr = tr.Offset(f32.Pt(float32(ox), float32(oy)))
+									} else {
+										tr = tr.Offset(f32.Pt(float32(-ox), float32(-oy)))
+									}
 								}
-								g.DrawSeam(g.cp.ShapeType, float32(dpx), float32(dpy*dpi), float32(g.cp.ShapeStroke))
+								op.Affine(tr).Add(gtx.Ops)
+
+								for _, s := range g.proc.seams {
+									dpx := unit.Dp(s.X)
+									dpy := unit.Dp(s.Y)
+
+									// Convert the image coordinates from pixel values to DP units.
+									dpi := unit.Dp(float32(g.cfg.window.h) / float32(320))
+									g.DrawSeam(g.cp.ShapeType, float32(dpx*dpi), float32(dpy*dpi), 2.0)
+								}
 							}
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Max}
 					})
+			}),
+		)
+	}
+	if g.cp.Debug {
+		layout.Stack{}.Layout(g.ctx,
+			layout.Stacked(func(gtx C) D {
+				hudHeight := 55
+				r := image.Rectangle{
+					Max: image.Point{
+						X: gtx.Constraints.Max.X,
+						Y: hudHeight,
+					},
+				}
+				op.Offset(image.Pt(0, gtx.Constraints.Max.Y-hudHeight)).Add(gtx.Ops)
+				return layout.Stack{}.Layout(gtx,
+					layout.Expanded(func(gtx C) D {
+						paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 255, B: 255, A: 127}, clip.Rect(r).Op())
+						return layout.Dimensions{Size: r.Max}
+					}),
+					layout.Stacked(func(gtx C) D {
+						border := image.Rectangle{
+							Max: image.Point{
+								X: gtx.Constraints.Max.X,
+								Y: gtx.Dp(unit.Dp(0.5)),
+							},
+						}
+						paint.FillShape(gtx.Ops, utils.HSL(0.45, 0.16, 0.35), clip.Rect(border).Op())
+						return layout.Dimensions{Size: r.Max}
+					}),
+					layout.Stacked(func(gtx C) D {
+						return g.view.huds.Layout(gtx, len(g.huds),
+							func(gtx layout.Context, index int) D {
+								if hud, ok := g.huds[index]; ok {
+									return material.CheckBox(th, &hud.visible, fmt.Sprintf("%v", hud.title)).Layout(gtx)
+								}
+								return D{}
+							})
+					}),
+				)
 			}),
 		)
 	}

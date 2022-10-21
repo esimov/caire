@@ -43,6 +43,7 @@ var (
 type worker struct {
 	carver *Carver
 	img    *image.NRGBA
+	debug  *image.NRGBA
 	done   bool
 }
 
@@ -70,12 +71,12 @@ type Processor struct {
 	Preview          bool
 	FaceDetect       bool
 	ShapeType        string
-	ShapeStroke      int
 	SeamColor        string
 	MaskPath         string
 	RMaskPath        string
-	Mask             image.Image
-	RMask            image.Image
+	Mask             *image.NRGBA
+	RMask            *image.NRGBA
+	GuiDebug         *image.NRGBA
 	FaceAngle        float64
 	PigoFaceDetector *pigo.Pigo
 	Spinner          *utils.Spinner
@@ -346,10 +347,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			img = c.RotateImage90(img)
 
 			if len(p.MaskPath) > 0 {
-				p.Mask = c.RotateImage90(p.Mask.(*image.NRGBA))
+				p.Mask = c.RotateImage90(p.Mask)
 			}
 			if len(p.RMaskPath) > 0 {
-				p.RMask = c.RotateImage90(p.RMask.(*image.NRGBA))
+				p.RMask = c.RotateImage90(p.RMask)
 			}
 		}
 		if p.NewHeight > c.Height {
@@ -361,10 +362,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			img = c.RotateImage270(img)
 
 			if len(p.MaskPath) > 0 {
-				p.Mask = c.RotateImage270(p.Mask.(*image.NRGBA))
+				p.Mask = c.RotateImage270(p.Mask)
 			}
 			if len(p.RMaskPath) > 0 {
-				p.RMask = c.RotateImage270(p.RMask.(*image.NRGBA))
+				p.RMask = c.RotateImage270(p.RMask)
 			}
 		}
 	}
@@ -439,15 +440,17 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		}
 	}
 
+	if p.NewWidth != 0 && p.NewHeight != 0 {
+		resizeXY = true
+	}
+
 	src, _, err := image.Decode(r)
 	if err != nil {
 		return err
 	}
-	img := p.imgToNRGBA(src)
 
-	if p.NewWidth != 0 && p.NewHeight != 0 {
-		resizeXY = true
-	}
+	img := p.imgToNRGBA(src)
+	p.GuiDebug = image.NewNRGBA(img.Bounds())
 
 	if len(p.MaskPath) > 0 {
 		mf, err := os.Open(p.MaskPath)
@@ -467,7 +470,8 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("could not decode the mask file: %v", err)
 		}
-		p.Mask = p.imgToNRGBA(mask)
+		p.Mask = p.Dither(p.imgToNRGBA(mask))
+		p.GuiDebug = p.Mask
 	}
 
 	if len(p.RMaskPath) > 0 {
@@ -489,6 +493,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			return fmt.Errorf("could not decode the mask file: %v", err)
 		}
 		p.RMask = p.imgToNRGBA(rmask)
+		p.GuiDebug = p.RMask
 	}
 
 	if p.Preview {
@@ -564,18 +569,19 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	c = NewCarver(width, height)
 
-	_, err := c.ComputeSeams(p, img)
-	if err != nil {
+	if _, err := c.ComputeSeams(p, img); err != nil {
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams(p)
 	img = c.RemoveSeam(img, seams, p.Debug)
 
 	if len(p.MaskPath) > 0 {
-		p.Mask = c.RemoveSeam(p.Mask.(*image.NRGBA), seams, false)
+		p.Mask = c.RemoveSeam(p.Mask, seams, false)
+		draw.Draw(p.GuiDebug, img.Bounds(), p.Mask, image.Point{}, draw.Over)
 	}
 	if len(p.RMaskPath) > 0 {
-		p.RMask = c.RemoveSeam(p.RMask.(*image.NRGBA), seams, false)
+		p.RMask = c.RemoveSeam(p.RMask, seams, false)
+		draw.Draw(p.GuiDebug, img.Bounds(), p.RMask, image.Point{}, draw.Over)
 	}
 
 	if isGif {
@@ -587,6 +593,7 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 		case imgWorker <- worker{
 			carver: c,
 			img:    img,
+			debug:  p.GuiDebug,
 			done:   false,
 		}:
 		case <-errs:
@@ -601,18 +608,19 @@ func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	c = NewCarver(width, height)
 
-	_, err := c.ComputeSeams(p, img)
-	if err != nil {
+	if _, err := c.ComputeSeams(p, img); err != nil {
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams(p)
 	img = c.AddSeam(img, seams, p.Debug)
 
 	if len(p.MaskPath) > 0 {
-		p.Mask = c.AddSeam(p.Mask.(*image.NRGBA), seams, false)
+		p.Mask = c.AddSeam(p.Mask, seams, false)
+		p.GuiDebug = p.Mask
 	}
 	if len(p.RMaskPath) > 0 {
-		p.RMask = c.AddSeam(p.RMask.(*image.NRGBA), seams, false)
+		p.RMask = c.AddSeam(p.RMask, seams, false)
+		p.GuiDebug = p.RMask
 	}
 
 	if isGif {
@@ -624,6 +632,7 @@ func (p *Processor) enlarge(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 		case imgWorker <- worker{
 			carver: c,
 			img:    img,
+			debug:  p.GuiDebug,
 			done:   false,
 		}:
 		case <-errs:

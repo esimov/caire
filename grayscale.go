@@ -20,3 +20,28 @@ func (p *Processor) Grayscale(src *image.NRGBA) *image.NRGBA {
 	}
 	return dst
 }
+
+// Dither converts an image to
+func (p *Processor) Dither(src *image.NRGBA) *image.NRGBA {
+	var (
+		bounds   = src.Bounds()
+		dithered = image.NewNRGBA(bounds)
+		dx       = bounds.Dx()
+		dy       = bounds.Dy()
+	)
+
+	for x := 0; x < dx; x++ {
+		for y := 0; y < dy; y++ {
+			r, g, b, _ := src.At(x, y).RGBA()
+			threshold := func() color.Color {
+				if r > 127 && g > 127 && b > 127 {
+					return color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+				}
+				return color.NRGBA{A: 0x00}
+			}
+			dithered.Set(x, y, threshold())
+		}
+	}
+
+	return dithered
+}

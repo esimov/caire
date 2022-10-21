@@ -68,6 +68,7 @@ func (c *Carver) set(x, y int, px float64) {
 // 	  with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
 	var srcImg *image.NRGBA
+	p.GuiDebug = image.NewNRGBA(img.Bounds())
 
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel = c.SobelDetector(img, float64(p.SobelThreshold))
@@ -174,13 +175,15 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 	// We need to trick the sobel detector to consider them as important image parts.
 	for _, face := range dets {
 		if face.Q > 5.0 {
+			scale := int(float64(face.Scale) / 1.7)
 			rect := image.Rect(
-				face.Col-face.Scale/2,
-				face.Row-face.Scale/2,
-				face.Col+face.Scale/2,
-				face.Row+face.Scale/2,
+				face.Col-scale,
+				face.Row-scale,
+				face.Col+scale,
+				face.Row+scale,
 			)
 			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			draw.Draw(p.GuiDebug, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
 	}
 
