@@ -6,12 +6,12 @@ import (
 )
 
 func TestResize_ShrinkImageWidth(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
-	newWidth := ImgWidth / 2
+	newWidth := imgWidth / 2
 
 	p.NewWidth = newWidth
-	p.NewHeight = ImgHeight
+	p.NewHeight = imgHeight
 
 	for x := 0; x < newWidth; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
@@ -28,11 +28,11 @@ func TestResize_ShrinkImageWidth(t *testing.T) {
 }
 
 func TestResize_ShrinkImageHeight(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
-	newHeight := ImgHeight / 2
+	newHeight := imgHeight / 2
 
-	p.NewWidth = ImgWidth
+	p.NewWidth = imgWidth
 	p.NewHeight = newHeight
 
 	img = c.RotateImage90(img)
@@ -52,13 +52,13 @@ func TestResize_ShrinkImageHeight(t *testing.T) {
 }
 
 func TestResize_EnlargeImageWidth(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	origImgWidth := img.Bounds().Dx()
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
-	newWidth := ImgWidth * 2
+	newWidth := imgWidth * 2
 
 	p.NewWidth = newWidth
-	p.NewHeight = ImgHeight
+	p.NewHeight = imgHeight
 
 	for x := 0; x < newWidth; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
@@ -75,12 +75,12 @@ func TestResize_EnlargeImageWidth(t *testing.T) {
 }
 
 func TestResize_EnlargeImageHeight(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	origImgHeigth := img.Bounds().Dy()
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
-	newHeight := ImgHeight * 2
+	newHeight := imgHeight * 2
 
-	p.NewWidth = ImgWidth
+	p.NewWidth = imgWidth
 	p.NewHeight = newHeight
 
 	img = c.RotateImage90(img)

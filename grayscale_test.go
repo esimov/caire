@@ -6,13 +6,8 @@ import (
 	"testing"
 )
 
-const (
-	ImgWidth  = 10
-	ImgHeight = 10
-)
-
 func TestImage_GrayscaleMode(t *testing.T) {
-	img := image.NewRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	for i := 0; i < img.Bounds().Dx(); i++ {
 		for j := 0; j < img.Bounds().Dy(); j++ {
 			img.Set(i, j, color.RGBA{177, 177, 177, 255})

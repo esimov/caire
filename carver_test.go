@@ -12,12 +12,17 @@ import (
 	pigo "github.com/esimov/pigo/core"
 )
 
+const (
+	imgWidth  = 10
+	imgHeight = 10
+)
+
 var p *Processor
 
 func init() {
 	p = &Processor{
-		NewWidth:       ImgWidth,
-		NewHeight:      ImgHeight,
+		NewWidth:       imgWidth,
+		NewHeight:      imgHeight,
 		BlurRadius:     1,
 		SobelThreshold: 4,
 		Percentage:     false,
@@ -30,11 +35,11 @@ func TestCarver_EnergySeamShouldNotBeDetected(t *testing.T) {
 	var seams [][]Seam
 	var totalEnergySeams int
 
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 
 	var c = NewCarver(dx, dy)
-	for x := 0; x < ImgWidth; x++ {
+	for x := 0; x < imgWidth; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
@@ -56,7 +61,7 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 	var seams [][]Seam
 	var totalEnergySeams int
 
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.Point{}, draw.Src)
 
 	// Replace the pixel colors in a single row from 0xff to 0xdd. 5 is an arbitrary value.
@@ -72,7 +77,7 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 	}
 
 	var c = NewCarver(dx, dy)
-	for x := 0; x < ImgWidth; x++ {
+	for x := 0; x < imgWidth; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
@@ -94,7 +99,7 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 	var seams [][]Seam
 	var totalEnergySeams int
 
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.Point{}, draw.Src)
 
 	// Replace the pixel colors in a single column from 0xff to 0xdd. 5 is an arbitrary value.
@@ -111,7 +116,7 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 
 	var c = NewCarver(dx, dy)
 	img = c.RotateImage90(img)
-	for x := 0; x < ImgHeight; x++ {
+	for x := 0; x < imgHeight; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
 		c.ComputeSeams(p, img)
@@ -130,7 +135,7 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 }
 
 func TestCarver_RemoveSeam(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	bounds := img.Bounds()
 
 	// We choose to fill up the background with an uniform white color
@@ -169,7 +174,7 @@ func TestCarver_RemoveSeam(t *testing.T) {
 }
 
 func TestCarver_AddSeam(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	bounds := img.Bounds()
 
 	// We choose to fill up the background with an uniform white color
@@ -208,7 +213,7 @@ func TestCarver_AddSeam(t *testing.T) {
 }
 
 func TestCarver_ComputeSeams(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, ImgWidth, ImgHeight))
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 
 	// We choose to fill up the background with an uniform white color
 	// Afterwards we'll replace the colors in a single row with lower intensity ones.
@@ -253,9 +258,8 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	c := NewCarver(dx, dy)
-	gray := p.Grayscale(img)
 	// Transform the image to a pixel array.
-	pixels := c.rgbToGrayscale(gray)
+	pixels := c.rgbToGrayscale(img)
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
@@ -310,7 +314,6 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	// Transform the image to a pixel array.
 	pixels := c.rgbToGrayscale(img)
 
-	img = p.Grayscale(img)
 	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
 	img = c.StackBlur(sobel, uint32(p.BlurRadius))
 
