@@ -115,6 +115,7 @@ func NewGUI(w, h int) *Gui {
 	return gui
 }
 
+// Add adds a new hud control for dubugging.
 func (g *Gui) Add(index int, title string, enabled bool) {
 	control := &hudCtrl{
 		index:   index,
@@ -286,11 +287,11 @@ func (g *Gui) Run() error {
 					draw.Draw(uniform, uniform.Bounds(), &image.Uniform{col}, image.Point{}, draw.Src)
 
 					g.cop.Set(imop.DstIn)
-					g.cop.DrawBitmap(srcBitmap, res.debug, uniform, nil)
+					g.cop.Draw(srcBitmap, res.debug, uniform, nil)
 
 					g.bop.Set(imop.Lighten)
 					g.cop.Set(imop.DstOver)
-					g.cop.DrawBitmap(dstBitmap, res.img, srcBitmap.Img, g.bop)
+					g.cop.Draw(dstBitmap, res.img, srcBitmap.Img, g.bop)
 
 					g.proc.img = dstBitmap.Img
 				}

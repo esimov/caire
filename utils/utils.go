@@ -34,7 +34,7 @@ func Abs[T constraints.Signed | constraints.Float](x T) T {
 	return x
 }
 
-// Contains returns true if the value is present in the collection.
+// Contains returns true if a value is available in the collection.
 func Contains[T comparable](slice []T, value T) bool {
 	for _, v := range slice {
 		if v == value {

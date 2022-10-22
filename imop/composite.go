@@ -1,3 +1,13 @@
+// Package imop implements the Porter-Duff composition operations
+// used for mixing a graphic element with its backdrop.
+// Porter and Duff presented in their paper 12 different composition operation,
+// but the image/draw core package implements only the source-over-destination and source.
+// This package is aimed to overcome the missing composite operations.
+
+// It is mainly used to debug the seam carving operation correctness
+// with face detection and image mask enabled.
+// When the GUI mode and the debugging option is activated it will show
+// the image mask and the detected faces rectangles in a distinct color.
 package imop
 
 import (
@@ -20,24 +30,29 @@ const (
 	Xor     = "xor"
 )
 
+// Bitmap holds an image type as a placeholder for the Porter-Duff composition
+// operations which can be used as a source or destination image.
 type Bitmap struct {
 	Img *image.NRGBA
 }
 
+// Composite defines a struct with the active and all the supported composition operations.
 type Composite struct {
-	current string
-	ops     []string
+	currentOp string
+	ops       []string
 }
 
+// NewBitmap initializes a new Bitmap.
 func NewBitmap(rect image.Rectangle) *Bitmap {
 	return &Bitmap{
 		Img: image.NewNRGBA(rect),
 	}
 }
 
+// InitOp initializes a new composition operation.
 func InitOp() *Composite {
 	return &Composite{
-		current: Copy,
+		currentOp: Copy,
 		ops: []string{
 			Copy,
 			SrcOver,
@@ -53,11 +68,15 @@ func InitOp() *Composite {
 	}
 }
 
+// Set changes the current composition operation.
 func (op *Composite) Set(cop string) {
-	op.current = cop
+	op.currentOp = cop
 }
 
-func (op *Composite) DrawBitmap(bitmap *Bitmap, src, dst *image.NRGBA, blend *Blend) {
+// Draw applies the currently active Ported-Duff composition operation formula,
+// taking as parameter the source and the destination image and draws the result into the bitmap.
+// If a blend mode is activated it will plug in the alpha blending formula also into the equation.
+func (op *Composite) Draw(bitmap *Bitmap, src, dst *image.NRGBA, blend *Blend) {
 	dx, dy := src.Bounds().Dx(), src.Bounds().Dy()
 	if bitmap == nil {
 		bitmap = NewBitmap(src.Bounds())
@@ -68,7 +87,7 @@ func (op *Composite) DrawBitmap(bitmap *Bitmap, src, dst *image.NRGBA, blend *Bl
 		rn, gn, bn, an float64
 	)
 
-	if utils.Contains(op.ops, op.current) {
+	if utils.Contains(op.ops, op.currentOp) {
 		for x := 0; x < dx; x++ {
 			for y := 0; y < dy; y++ {
 				r1, g1, b1, a1 := src.At(x, y).RGBA()
@@ -88,7 +107,12 @@ func (op *Composite) DrawBitmap(bitmap *Bitmap, src, dst *image.NRGBA, blend *Bl
 				abn := float64(ab) / 255
 
 				// applying the alpha composition formula
-				switch op.current {
+				switch op.currentOp {
+				case Copy:
+					rn = asn * rsn
+					gn = asn * gsn
+					bn = asn * bsn
+					an = 1
 				case SrcOver:
 					rn = asn*rsn + abn*rbn*(1-asn)
 					gn = asn*gsn + abn*gbn*(1-asn)

@@ -21,7 +21,7 @@ func (p *Processor) Grayscale(src *image.NRGBA) *image.NRGBA {
 	return dst
 }
 
-// Dither converts an image to
+// Dither converts an image to black and white image, where the white is fully transparent.
 func (p *Processor) Dither(src *image.NRGBA) *image.NRGBA {
 	var (
 		bounds   = src.Bounds()
