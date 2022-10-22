@@ -289,7 +289,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 
 func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	p.FaceDetect = true
-	p.BlurRadius = 2
+	p.BlurRadius = 10
 
 	sampleImg := filepath.Join("./testdata", "sample.jpg")
 	f, err := os.Open(sampleImg)
