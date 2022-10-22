@@ -287,6 +287,9 @@ func (g *Gui) Run() error {
 					draw.Draw(uniform, uniform.Bounds(), &image.Uniform{col}, image.Point{}, draw.Src)
 
 					g.cop.Set(imop.DstIn)
+					if len(g.cp.RMaskPath) > 0 {
+						g.cop.Set(imop.SrcIn)
+					}
 					g.cop.Draw(srcBitmap, res.debug, uniform, nil)
 
 					g.bop.Set(imop.Lighten)

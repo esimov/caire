@@ -152,21 +152,20 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			x := i % width
 			y := (i - x) / width
 
-			r, g, b, a := p.RMask.At(x, y).RGBA()
+			r, g, b, _ := p.RMask.At(x, y).RGBA()
+			// Replace the white pixels with black.
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-				sobel.Set(x, y, color.White)
+				if isFaceDetected {
+					// Reduce the brightness of the mask with a small factor if human faces are detected.
+					// This way we can avoid the seam carver to remove
+					// the pixels inside the detected human faces.
+					sobel.Set(x, y, color.RGBA{R: 25, G: 25, B: 25, A: 255})
+				} else {
+					sobel.Set(x, y, color.Black)
+				}
+				p.GuiDebug.Set(x, y, color.Black)
 			} else {
-				sr, sg, sb, _ := sobel.At(x, y).RGBA()
-				r = uint32(utils.Min(int(sr>>8+sr>>8/2), 0xff))
-				g = uint32(utils.Min(int(sg>>8+sg>>8/2), 0xff))
-				b = uint32(utils.Min(int(sb>>8+sb>>8/2), 0xff))
-
-				sobel.Set(x, y, color.RGBA{
-					R: uint8(r),
-					G: uint8(g),
-					B: uint8(b),
-					A: uint8(a >> 8),
-				})
+				p.GuiDebug.Set(x, y, color.Transparent)
 			}
 		}
 	}
