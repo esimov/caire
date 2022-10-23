@@ -42,7 +42,7 @@ Key features which differentiates this library from the other existing open sour
 - [x] Support for proportional scaling
 - [x] Support for protective mask
 - [x] Support for removal mask
-- [x] GUI debug mode support
+- [x] [GUI debug mode support](#masks-support)
 
 ## Install
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
@@ -160,10 +160,14 @@ Also the library supports the **`-square`** option. When this option is used the
 
 When an image is resized on both the X and Y axis, the algorithm will first try to rescale it prior resizing, but also will preserve the image aspect ratio. The seam carving algorithm is applied only to the remaining points. Ex. : given an image of dimensions 2048x1536 if we want to resize to the 1024x500, the tool first rescale the image to 1024x768 and then will remove only the remaining 268px.
 
-#### Masks support:
+### Masks support:
 
 - `-mask`: The path to the protective mask. The mask should be in binary format and have the same size as the input image. White areas represent regions where no seams should be carved.
 - `-rmask`: The path to the removal mask. The mask should be in binary format and have the same size as the input image. White areas represent regions to be removed.
+
+Mask | Mask removal
+:-: | :-:
+<video src='https://user-images.githubusercontent.com/883386/197390778-59deee5f-ffc0-4fab-9df6-9ef1a6d9aab6.mp4' width=180/> | <video src='https://user-images.githubusercontent.com/883386/197391021-2a27507f-fc90-4508-9676-49a309fd1772.mp4' width=180/>
 
 ### Caire integrations
 - [x] Caire can be used as a serverless function via OpenFaaS: https://github.com/esimov/caire-openfaas
