@@ -363,6 +363,61 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	}
 }
 
+func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
+	p.FaceDetect = true
+	p.BlurRadius = 10
+	p.NewHeight = 200
+
+	sampleImg := filepath.Join("./testdata", "sample.jpg")
+	f, err := os.Open(sampleImg)
+	if err != nil {
+		t.Fatalf("could not load sample image: %v", err)
+	}
+	defer f.Close()
+
+	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
+	if err != nil {
+		t.Fatalf("error unpacking the cascade file: %v", err)
+	}
+
+	src, _, err := image.Decode(f)
+	if err != nil {
+		t.Fatalf("error decoding image: %v", err)
+	}
+	img := p.imgToNRGBA(src)
+	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
+
+	c := NewCarver(dx, dy)
+	// Transform the image to a pixel array.
+	pixels := c.rgbToGrayscale(img)
+	cParams := pigo.CascadeParams{
+		MinSize:     100,
+		MaxSize:     utils.Max(dx, dy),
+		ShiftFactor: 0.1,
+		ScaleFactor: 1.1,
+
+		ImageParams: pigo.ImageParams{
+			Pixels: pixels,
+			Rows:   dy,
+			Cols:   dx,
+			Dim:    dx,
+		},
+	}
+
+	// Run the classifier over the obtained leaf nodes and return the detection results.
+	// The result contains quadruplets representing the row, column, scale and detection score.
+	faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
+
+	// Calculate the intersection over union (IoU) of two clusters.
+	faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
+
+	for _, face := range faces {
+		if p.NewHeight < face.Scale {
+			t.Errorf("Should not resize image without face deformation.")
+		}
+	}
+}
+
 // findNonZeroValue utility function to check if the slice contains values other then zeros.
 func findNonZeroValue(points []float64) bool {
 	var found = false

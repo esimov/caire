@@ -178,7 +178,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			(p.NewWidth != 0 && p.NewWidth < face.Scale) {
 			return nil, fmt.Errorf("%s %s",
 				"cannot resize the image to the specified dimension without face deformation.\n",
-				"\tremove the face detection option in case you still wish to resize the image.")
+				"\tRemove the face detection option in case you still wish to resize the image.")
 		}
 		if face.Q > 5.0 {
 			scale := int(float64(face.Scale) / 1.7)
