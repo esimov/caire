@@ -42,6 +42,7 @@ Key features which differentiates this library from the other existing open sour
 - [x] Support for proportional scaling
 - [x] Support for protective mask
 - [x] Support for removal mask
+- [x] GUI debug mode support
 
 ## Install
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
