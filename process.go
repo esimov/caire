@@ -492,7 +492,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("could not decode the mask file: %v", err)
 		}
-		p.RMask = p.imgToNRGBA(rmask)
+		p.RMask = p.Dither(p.imgToNRGBA(rmask))
 		p.GuiDebug = p.RMask
 	}
 

@@ -287,9 +287,6 @@ func (g *Gui) Run() error {
 					draw.Draw(uniform, uniform.Bounds(), &image.Uniform{col}, image.Point{}, draw.Src)
 
 					g.cop.Set(imop.DstIn)
-					if len(g.cp.RMaskPath) > 0 {
-						g.cop.Set(imop.SrcIn)
-					}
 					g.cop.Draw(srcBitmap, res.debug, uniform, nil)
 
 					g.bop.Set(imop.Lighten)
@@ -377,8 +374,9 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 									dpy := unit.Dp(s.Y)
 
 									// Convert the image coordinates from pixel values to DP units.
-									dpi := unit.Dp(float32(g.cfg.window.h) / float32(320))
-									g.DrawSeam(g.cp.ShapeType, float32(dpx*dpi), float32(dpy*dpi), 2.0)
+									dpiy := unit.Dp(float32(g.cfg.window.w) / float32(300))
+									dpix := unit.Dp(float32(g.cfg.window.h) / float32(300))
+									g.DrawSeam(g.cp.ShapeType, float32(dpx*dpix), float32(dpy*dpiy), 2.0)
 								}
 							}
 						}
