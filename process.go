@@ -335,9 +335,15 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	// Run the carver function if the desired image width is not identical with the rescaled image width.
 	if newWidth > 0 && p.NewWidth != c.Width {
 		if p.NewWidth > c.Width {
-			img, _ = enlargeHorizFn(c, img)
+			img, err = enlargeHorizFn(c, img)
+			if err != nil {
+				return nil, err
+			}
 		} else {
-			img, _ = shrinkHorizFn(c, img)
+			img, err = shrinkHorizFn(c, img)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -354,9 +360,15 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 		}
 		if p.NewHeight > c.Height {
-			img, _ = enlargeVertFn(c, img)
+			img, err = enlargeVertFn(c, img)
+			if err != nil {
+				return nil, err
+			}
 		} else {
-			img, _ = shrinkVertFn(c, img)
+			img, err = shrinkVertFn(c, img)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if !resizeXY {
 			img = c.RotateImage270(img)
@@ -570,6 +582,7 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	c = NewCarver(width, height)
 
 	if _, err := c.ComputeSeams(p, img); err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams(p)
