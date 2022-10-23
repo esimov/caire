@@ -167,14 +167,13 @@ When an image is resized on both the X and Y axis, the algorithm will first try 
 
 Mask | Mask removal
 :-: | :-:
-<video src='https://user-images.githubusercontent.com/883386/197390778-59deee5f-ffc0-4fab-9df6-9ef1a6d9aab6.mp4' width=180/> | <video src='https://user-images.githubusercontent.com/883386/197391021-2a27507f-fc90-4508-9676-49a309fd1772.mp4' width=180/>
+<video src='https://user-images.githubusercontent.com/883386/197398124-2a00b3b0-b717-440e-908a-1ad2ea3efb79.mp4' width=180/> | <video src='https://user-images.githubusercontent.com/883386/197397857-7b785d7c-2f80-4aed-a5d2-75c429389060.mp4' width=180/>
 
 ### Caire integrations
 - [x] Caire can be used as a serverless function via OpenFaaS: https://github.com/esimov/caire-openfaas
 - [x] Caire can also be used as a `snap` function (https://snapcraft.io/caire): `$ snap run caire --h`
 
 <a href="https://snapcraft.io/caire"><img src="https://raw.githubusercontent.com/snapcore/snap-store-badges/master/EN/%5BEN%5D-snap-store-white-uneditable.png" alt="snapcraft caire"></a>
-
 
 ## Results
 
