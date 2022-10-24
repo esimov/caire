@@ -145,12 +145,21 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			if p.NewHeight > 0 && p.NewHeight != dy {
 				if p.NewHeight <= dy {
-					img, _ = shrinkVertFn(c, img)
+					img, err = shrinkVertFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				} else {
-					img, _ = enlargeVertFn(c, img)
+					img, err = enlargeVertFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				}
 			} else {
-				img, _ = shrinkHorizFn(c, img)
+				img, err = shrinkHorizFn(c, img)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		rCount++
@@ -168,12 +177,21 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			if p.NewHeight > 0 && p.NewHeight != dy {
 				if p.NewHeight <= dy {
-					img, _ = shrinkVertFn(c, img)
+					img, err = shrinkVertFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				} else {
-					img, _ = enlargeVertFn(c, img)
+					img, err = enlargeVertFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				}
 			} else {
-				img, _ = enlargeHorizFn(c, img)
+				img, err = enlargeHorizFn(c, img)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		rCount++
@@ -202,12 +220,21 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
-					img, _ = shrinkHorizFn(c, img)
+					img, err = shrinkHorizFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				} else {
-					img, _ = enlargeHorizFn(c, img)
+					img, err = enlargeHorizFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				}
 			} else {
-				img, _ = shrinkVertFn(c, img)
+				img, err = shrinkVertFn(c, img)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			if resizeXY {
@@ -237,12 +264,21 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
-					img, _ = shrinkHorizFn(c, img)
+					img, err = shrinkHorizFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				} else {
-					img, _ = enlargeHorizFn(c, img)
+					img, err = enlargeHorizFn(c, img)
+					if err != nil {
+						return nil, err
+					}
 				}
 			} else {
-				img, _ = enlargeVertFn(c, img)
+				img, err = enlargeVertFn(c, img)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			if resizeXY {
@@ -582,7 +618,6 @@ func (p *Processor) shrink(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 	c = NewCarver(width, height)
 
 	if _, err := c.ComputeSeams(p, img); err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	seams := c.FindLowestEnergySeams(p)

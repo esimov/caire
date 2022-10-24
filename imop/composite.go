@@ -96,6 +96,7 @@ func (op *Composite) Draw(bitmap *Bitmap, src, dst *image.NRGBA, blend *Blend) {
 				rs, gs, bs, as := r1>>8, g1>>8, b1>>8, a1>>8
 				rb, gb, bb, ab := r2>>8, g2>>8, b2>>8, a2>>8
 
+				// normalize the values.
 				rsn := float64(rs) / 255
 				gsn := float64(gs) / 255
 				bsn := float64(bs) / 255
