@@ -3,7 +3,7 @@
 [![build](https://github.com/esimov/caire/actions/workflows/build.yml/badge.svg)](https://github.com/esimov/caire/actions/workflows/build.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/esimov/caire.svg)](https://pkg.go.dev/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
-[![release](https://img.shields.io/badge/release-v1.4.4-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.4)
+[![release](https://img.shields.io/badge/release-v1.4.5-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.5)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.4.4-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![caire](https://snapcraft.io/caire/badge.svg)](https://snapcraft.io/caire)
 
@@ -167,7 +167,7 @@ When an image is resized on both the X and Y axis, the algorithm will first try 
 
 Mask | Mask removal
 :-: | :-:
-<video src='https://user-images.githubusercontent.com/883386/197398124-2a00b3b0-b717-440e-908a-1ad2ea3efb79.mp4' width=180/> | <video src='https://user-images.githubusercontent.com/883386/197397857-7b785d7c-2f80-4aed-a5d2-75c429389060.mp4' width=180/>
+<video src='https://user-images.githubusercontent.com/883386/197509861-86733da8-0846-419a-95eb-4fb5a97607d5.mp4' width=180/> | <video src='https://user-images.githubusercontent.com/883386/197397857-7b785d7c-2f80-4aed-a5d2-75c429389060.mp4' width=180/>
 
 ### Caire integrations
 - [x] Caire can be used as a serverless function via OpenFaaS: https://github.com/esimov/caire-openfaas
