@@ -1,13 +1,13 @@
 // Package imop implements the Porter-Duff composition operations
 // used for mixing a graphic element with its backdrop.
-// Porter and Duff presented in their paper 12 different composition operation,
-// but the image/draw core package implements only the source-over-destination and source.
-// This package is aimed to overcome the missing composite operations.
+// Porter and Duff presented in their paper 12 different composition operation, but the
+// core image/draw core package implements only the source-over-destination and source.
+// This package implements all of the 12 composite operation together with some blending modes.
 
-// It is mainly used to debug the seam carving operation correctness
-// with face detection and image mask enabled.
+// This package is used mainly to debug the seam carving operation
+// when the face detection option and the image mask is enabled.
 // When the GUI mode and the debugging option is activated it will show
-// the image mask and the detected faces rectangles in a distinct color.
+// the image mask and the detected faces in a distinct color.
 package imop
 
 import (
@@ -18,7 +18,9 @@ import (
 )
 
 const (
+	Clear   = "clear"
 	Copy    = "copy"
+	Dest    = "dst"
 	SrcOver = "src_over"
 	DstOver = "dst_over"
 	SrcIn   = "src_in"
@@ -109,11 +111,18 @@ func (op *Composite) Draw(bitmap *Bitmap, src, dst *image.NRGBA, blend *Blend) {
 
 				// applying the alpha composition formula
 				switch op.currentOp {
+				case Clear:
+					rn, gn, bn, an = 0, 0, 0, 0
 				case Copy:
 					rn = asn * rsn
 					gn = asn * gsn
 					bn = asn * bsn
-					an = 1
+					an = asn * asn
+				case Dest:
+					rn = abn * rbn
+					gn = abn * gbn
+					bn = abn * bbn
+					an = abn * abn
 				case SrcOver:
 					rn = asn*rsn + abn*rbn*(1-asn)
 					gn = asn*gsn + abn*gbn*(1-asn)
