@@ -33,13 +33,11 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-
       - name: Install Linux Dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev
-
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -51,3 +49,17 @@ jobs:
         run: |
           make
           go test -v ./... -run=. -cover
+      - name: Collect Workflow Telemetry
+        uses: runforesight/foresight-workflow-kit-action@v1
+        if: success() || failure()
+        with:
+          api_key: c72ba9d2-2e6f-4d55-829b-13f0eb98436e
+
+      - name: Analyze Test and/or Coverage Results
+        uses: runforesight/foresight-test-kit-action@v1
+        if: success() || failure()
+        with:
+          api_key: c72ba9d2-2e6f-4d55-829b-13f0eb98436e
+          test_format: JSON
+          test_framework: GOLANG
+          coverage_format: GOLANG
