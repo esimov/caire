@@ -62,4 +62,5 @@ jobs:
           api_key: c72ba9d2-2e6f-4d55-829b-13f0eb98436e
           test_format: JSON
           test_framework: GOLANG
+          test_path: ./...
           coverage_format: GOLANG
