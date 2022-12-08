@@ -8,3 +8,5 @@ uninstall:
 	@rm -f /usr/local/bin/caire
 package:
 	@NOCOPY=1 ./build.sh package
+test:
+	go test -v ./... -race -cover -run=. -count=1

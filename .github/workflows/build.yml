@@ -44,11 +44,9 @@ jobs:
       - name: Download Go modules
         run: go mod download
 
-      - name: Build project
-        id: makefile
+      - name: Run Tests        
         run: |
-          make
-          go test -v ./... -run=. -cover
+          make test          
       - name: Collect Workflow Telemetry
         uses: runforesight/foresight-workflow-kit-action@v1
         if: ${{ always() }}
