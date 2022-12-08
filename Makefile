@@ -9,4 +9,4 @@ uninstall:
 package:
 	@NOCOPY=1 ./build.sh package
 test:
-	go test -v ./... -race -cover -run=. -count=1
+	go test -v -json ./... -run=. > ./test-report.json -coverprofile=coverage.out
