@@ -3,13 +3,39 @@
 [![build](https://github.com/esimov/caire/actions/workflows/build.yml/badge.svg)](https://github.com/esimov/caire/actions/workflows/build.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/esimov/caire.svg)](https://pkg.go.dev/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
+[![Foresight Docs](https://api-public.service.runforesight.com/api/v1/badge/success?repoId=548f4490-ec30-4aa2-b3d5-ae3db3263b27)](https://docs.runforesight.com/)
 [![release](https://img.shields.io/badge/release-v1.4.5-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.5)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.4.5-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![caire](https://snapcraft.io/caire/badge.svg)](https://snapcraft.io/caire)
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper.
 
-### How does it work
+## Sponsors
+
+<table width="100%">
+<tr>
+<td>
+  <img width="1000" height="0">
+  <a href="https://www.runforesight.com/?utm_source=caire&utm_medium=sponsorship">
+  <img src="https://www.thundra.io/hubfs/RunForesight/GitHub%20Sponsorship%20banners/power-up-github.png"
+alt="Foresight" width="260" align="right">
+  </a>
+
+<h3>Foresight: Increase CI/CD Health & Test Performance</h3>
+
+  <p>
+Foresight provides full visibility and deep insights into the health
+and performance of your tests and CI pipelines. Assess the risk of
+changes, resolve bottlenecks, reduce build times, and deliver
+high-quality software at speed with Foresight.
+  </p>
+
+[Sign up now!](https://runforesight.com/?utm_source=caire&utm_medium=sponsorship)
+</td>
+</tr>
+</table>
+
+## How does it work
 * An energy map (edge detection) is generated from the provided image.
 * The algorithm tries to find the least important parts of the image taking into account the lowest energy values.
 * Using a dynamic programming approach the algorithm will generate individual seams across the image from top to down, or from left to right (depending on the horizontal or vertical resizing) and will allocate for each seam a custom value, the least important pixels having the lowest energy cost and the most important ones having the highest cost.
