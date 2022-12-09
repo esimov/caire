@@ -1,6 +1,8 @@
 *.jpg
 *.png
 *.jpeg
+coverage.out
+test-report.json
 /packages
 !/testdata/*.png
 !/testdata/*.jpg
