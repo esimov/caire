@@ -11,7 +11,7 @@ import (
 // MessageType is a custom type used as a placeholder for various message types.
 type MessageType int
 
-// The message types used accross the CLI application.
+// The message types used across the CLI application.
 const (
 	DefaultMessage MessageType = iota
 	SuccessMessage
@@ -19,7 +19,7 @@ const (
 	StatusMessage
 )
 
-// Colors used accross the CLI application.
+// Colors used across the CLI application.
 const (
 	DefaultColor = "\x1b[0m"
 	StatusColor  = "\x1b[36m"

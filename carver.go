@@ -26,10 +26,10 @@ var (
 
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
-	Width  int
-	Height int
 	Points []float64
 	Seams  []Seam
+	Width  int
+	Height int
 }
 
 // Seam struct contains the seam pixel coordinates.
@@ -41,10 +41,10 @@ type Seam struct {
 // NewCarver returns an initialized Carver structure.
 func NewCarver(width, height int) *Carver {
 	return &Carver{
-		width,
-		height,
 		make([]float64, width*height),
 		nil,
+		width,
+		height,
 	}
 }
 
@@ -61,12 +61,13 @@ func (c *Carver) set(x, y int, px float64) {
 }
 
 // ComputeSeams compute the minimum energy level based on the following logic:
-// 	- traverse the image from the second row to the last row
-// 	  and compute the cumulative minimum energy M for all possible
-//	  connected seams for each entry (i, j).
 //
-//	- the minimum energy level is calculated by summing up the current pixel value
-// 	  with the minimum pixel value of the neighboring pixels from the previous row.
+//   - traverse the image from the second row to the last row
+//     and compute the cumulative minimum energy M for all possible
+//     connected seams for each entry (i, j).
+//
+//   - the minimum energy level is calculated by summing up the current pixel value
+//     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
 	var srcImg *image.NRGBA
 	p.GuiDebug = image.NewNRGBA(img.Bounds())

@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	// The starting colors for the linear gradient, used when the image is resized both horzontally and vertically.
+	// The starting colors for the linear gradient, used when the image is resized both horizontally and vertically.
 	// In this case the preview mode is deactivated and a dynamic gradient overlay is shown.
 	redStart   = 137
 	greenStart = 47
@@ -115,7 +115,7 @@ func NewGUI(w, h int) *Gui {
 	return gui
 }
 
-// Add adds a new hud control for dubugging.
+// Add adds a new hud control for debugging.
 func (g *Gui) Add(index int, title string, enabled bool) {
 	control := &hudCtrl{
 		index:   index,
@@ -148,7 +148,7 @@ func (g *Gui) initWindow(w, h int) {
 	g.cfg.window.title = "Preview"
 }
 
-// getWindowSize returns the resized image dimmension.
+// getWindowSize returns the resized image dimension.
 func (g *Gui) getWindowSize() (float32, float32) {
 	w, h := g.cfg.window.w, g.cfg.window.h
 	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
@@ -339,17 +339,16 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 
 						if hud, ok := g.huds[0]; ok {
 							if hud.visible.Value {
-								var ratio float32 = 1
 								tr := f32.Affine2D{}
 								screen := layout.FPt(g.ctx.Constraints.Max)
 								width, height := float32(g.proc.img.Bounds().Dx()), float32(g.proc.img.Bounds().Dy())
 								sw, sh := float32(screen.X), float32(screen.Y)
 
 								if sw > width {
-									ratio = sw / width
+									ratio := sw / width
 									tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(1, ratio))
 								} else if sh > height {
-									ratio = sh / height
+									ratio := sh / height
 									tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(ratio, 1))
 								}
 

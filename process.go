@@ -32,14 +32,14 @@ var (
 )
 
 var (
-	resizeXY = false // the image is resized both verticlaly and horizontally
+	resizeXY = false // the image is resized both vertically and horizontally
 	isGif    = false
 
 	imgWorker = make(chan worker) // channel used to transfer the image to the GUI
 	errs      = make(chan error)
 )
 
-// worker struct contains all the information needed for transfering the resized image to the Gio GUI.
+// worker struct contains all the information needed for transferring the resized image to the Gio GUI.
 type worker struct {
 	carver *Carver
 	img    *image.NRGBA
@@ -132,8 +132,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 	// shrinkHorizFn calls itself recursively to shrink the image horizontally.
 	// If the image is resized on both X and Y axis it calls the shrink and enlarge
-	// function intermitently up until the desired dimension is reached.
-	// We are opting for this solution instead of resizing the image secventially,
+	// function intermittently up until the desired dimension is reached.
+	// We are opting for this solution instead of resizing the image sequentially,
 	// because this way the horizontal and vertical seams are merged together seamlessly.
 	shrinkHorizFn = func(c *Carver, img *image.NRGBA) (*image.NRGBA, error) {
 		p.vRes = false

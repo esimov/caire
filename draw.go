@@ -19,7 +19,7 @@ const (
 )
 
 // DrawSeam visualizes the seam carver in action when the preview mode is activated.
-// It receives as parameters the shape type, the seam (x,y) coordinates and a dimmension.
+// It receives as parameters the shape type, the seam (x,y) coordinates and a dimension.
 func (g *Gui) DrawSeam(shape string, x, y, dim float32) {
 	r := getRatio(g.cfg.window.w, g.cfg.window.h)
 

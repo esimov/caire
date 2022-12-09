@@ -17,7 +17,7 @@ func (p *Processor) showPreview(
 	gui.cp = p
 	gui.proc.wrk = imgWorker
 
-	// Run the Gio GUI app in a seperate goroutine
+	// Run the Gio GUI app in a separate goroutine
 	go func() {
 		if err := gui.Run(); err != nil {
 			errChan <- err
