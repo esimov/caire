@@ -10,6 +10,7 @@ import (
 
 	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -32,6 +33,8 @@ func init() {
 }
 
 func TestCarver_EnergySeamShouldNotBeDetected(t *testing.T) {
+	assert := assert.New(t)
+
 	var seams [][]Seam
 	var totalEnergySeams int
 
@@ -52,12 +55,12 @@ func TestCarver_EnergySeamShouldNotBeDetected(t *testing.T) {
 			totalEnergySeams += seams[i][s].X
 		}
 	}
-	if totalEnergySeams != 0 {
-		t.Errorf("Energy seam shouldn't been detected")
-	}
+	assert.Equal(0, totalEnergySeams)
 }
 
 func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
+	assert := assert.New(t)
+
 	var seams [][]Seam
 	var totalEnergySeams int
 
@@ -90,12 +93,13 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 			totalEnergySeams += seams[i][s].X
 		}
 	}
-	if totalEnergySeams == 0 {
-		t.Errorf("The seam detector should have detected a horizontal energy seam")
-	}
+
+	assert.Greater(totalEnergySeams, 0)
 }
 
 func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
+	assert := assert.New(t)
+
 	var seams [][]Seam
 	var totalEnergySeams int
 
@@ -129,12 +133,12 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 			totalEnergySeams += seams[i][s].X
 		}
 	}
-	if totalEnergySeams == 0 {
-		t.Errorf("The seam detector should have detected a vertical energy seam")
-	}
+	assert.Greater(totalEnergySeams, 0)
 }
 
 func TestCarver_RemoveSeam(t *testing.T) {
+	assert := assert.New(t)
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	bounds := img.Bounds()
 
@@ -155,7 +159,7 @@ func TestCarver_RemoveSeam(t *testing.T) {
 	img = c.RemoveSeam(img, seams, false)
 
 	isEq := true
-	// The test should pass if the detector correctly finds the row wich pixel values are of lower intensity.
+	// The test should pass if the detector correctly finds the row which pixel values are of lower intensity.
 	for x := 0; x < dx; x++ {
 		for y := 0; y < dy; y++ {
 			// In case the seam detector correctly recognize the modified line as of low importance
@@ -168,12 +172,12 @@ func TestCarver_RemoveSeam(t *testing.T) {
 			}
 		}
 	}
-	if isEq {
-		t.Errorf("Seam should have been removed")
-	}
+	assert.False(isEq)
 }
 
 func TestCarver_AddSeam(t *testing.T) {
+	assert := assert.New(t)
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	bounds := img.Bounds()
 
@@ -196,7 +200,7 @@ func TestCarver_AddSeam(t *testing.T) {
 	dx, dy = img.Bounds().Dx(), img.Bounds().Dy()
 
 	isEq := true
-	// The test should pass if the detector correctly finds the row wich has lower intensity colors.
+	// The test should pass if the detector correctly finds the row which has lower intensity colors.
 	for x := 0; x < dx; x++ {
 		for y := 0; y < dy; y++ {
 			r0, g0, b0, _ := origImg.At(x, y).RGBA()
@@ -207,12 +211,12 @@ func TestCarver_AddSeam(t *testing.T) {
 			}
 		}
 	}
-	if isEq {
-		t.Errorf("Seam should have been added")
-	}
+	assert.False(isEq)
 }
 
 func TestCarver_ComputeSeams(t *testing.T) {
+	assert := assert.New(t)
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 
 	// We choose to fill up the background with an uniform white color
@@ -230,12 +234,13 @@ func TestCarver_ComputeSeams(t *testing.T) {
 	c.ComputeSeams(p, img)
 
 	otherThenZero := findNonZeroValue(c.Points)
-	if !otherThenZero {
-		t.Errorf("The seams computation should have been returned a slice of points with values other then zeros")
-	}
+
+	assert.True(otherThenZero)
 }
 
 func TestCarver_ShouldDetectFace(t *testing.T) {
+	assert := assert.New(t)
+
 	p.FaceDetect = true
 
 	sampleImg := filepath.Join("./testdata", "sample.jpg")
@@ -282,9 +287,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	// Calculate the intersection over union (IoU) of two clusters.
 	faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
 
-	if len(faces) == 0 {
-		t.Errorf("Expected 1 face to be detected, got %d.", len(faces))
-	}
+	assert.Equal(1, len(faces))
 }
 
 func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {

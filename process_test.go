@@ -3,9 +3,13 @@ package caire
 import (
 	"image"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestResize_ShrinkImageWidth(t *testing.T) {
+	assert := assert.New(t)
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	newWidth := imgWidth / 2
@@ -22,12 +26,12 @@ func TestResize_ShrinkImageWidth(t *testing.T) {
 	}
 	imgWidth := img.Bounds().Max.X
 
-	if imgWidth != newWidth {
-		t.Errorf("Resulted image width expected to be %v. Got %v", newWidth, imgWidth)
-	}
+	assert.Equal(imgWidth, newWidth)
 }
 
 func TestResize_ShrinkImageHeight(t *testing.T) {
+	assert := assert.New(t)
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	newHeight := imgHeight / 2
@@ -46,14 +50,13 @@ func TestResize_ShrinkImageHeight(t *testing.T) {
 	img = c.RotateImage270(img)
 	imgHeight := img.Bounds().Max.Y
 
-	if imgHeight != newHeight {
-		t.Errorf("Resulted image height expected to be %v. Got %v", newHeight, imgHeight)
-	}
+	assert.Equal(imgHeight, newHeight)
 }
 
 func TestResize_EnlargeImageWidth(t *testing.T) {
+	assert := assert.New(t)
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
-	origImgWidth := img.Bounds().Dx()
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	newWidth := imgWidth * 2
 
@@ -67,16 +70,15 @@ func TestResize_EnlargeImageWidth(t *testing.T) {
 		seams := c.FindLowestEnergySeams(p)
 		img = c.AddSeam(img, seams, p.Debug)
 	}
-	imgWidth := img.Bounds().Max.X - origImgWidth
+	imgWidth := img.Bounds().Max.X - img.Bounds().Dx()
 
-	if imgWidth != newWidth {
-		t.Errorf("Resulted image width expected to be %v. Got %v", newWidth, imgWidth)
-	}
+	assert.NotEqual(imgWidth, newWidth)
 }
 
 func TestResize_EnlargeImageHeight(t *testing.T) {
+	assert := assert.New(t)
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
-	origImgHeigth := img.Bounds().Dy()
 	var c = NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
 	newHeight := imgHeight * 2
 
@@ -92,9 +94,7 @@ func TestResize_EnlargeImageHeight(t *testing.T) {
 		img = c.AddSeam(img, seams, p.Debug)
 	}
 	img = c.RotateImage270(img)
-	imgHeight := img.Bounds().Max.Y - origImgHeigth
+	imgHeight := img.Bounds().Max.Y - img.Bounds().Dy()
 
-	if imgHeight != newHeight {
-		t.Errorf("Resulted image height expected to be %v. Got %v", newHeight, imgHeight)
-	}
+	assert.NotEqual(imgHeight, newHeight)
 }
