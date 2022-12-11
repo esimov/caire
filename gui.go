@@ -277,8 +277,8 @@ func (g *Gui) Run() error {
 			g.proc.img = res.img
 			g.proc.seams = res.carver.Seams
 
-			if hud, ok := g.huds[1]; ok {
-				if hud.visible.Value {
+			if mask, ok := g.huds[1]; ok {
+				if mask.visible.Value {
 					srcBitmap := imop.NewBitmap(res.img.Bounds())
 					dstBitmap := imop.NewBitmap(res.img.Bounds())
 
@@ -289,7 +289,7 @@ func (g *Gui) Run() error {
 					g.cop.Set(imop.DstIn)
 					g.cop.Draw(srcBitmap, res.debug, uniform, nil)
 
-					g.bop.Set(imop.Lighten)
+					g.bop.Set(imop.ColorMode)
 					g.cop.Set(imop.DstOver)
 					g.cop.Draw(dstBitmap, res.img, srcBitmap.Img, g.bop)
 
@@ -337,8 +337,8 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 							Fit:   widget.Contain,
 						}.Layout(gtx)
 
-						if hud, ok := g.huds[0]; ok {
-							if hud.visible.Value {
+						if seam, ok := g.huds[0]; ok {
+							if seam.visible.Value {
 								tr := f32.Affine2D{}
 								screen := layout.FPt(g.ctx.Constraints.Max)
 								width, height := float32(g.proc.img.Bounds().Dx()), float32(g.proc.img.Bounds().Dy())
