@@ -127,7 +127,7 @@ The image below illustrates the application capabilities for human face detectio
 
 <p align="center"><img alt="GUI preview" title="GUI preview" src="https://github.com/esimov/caire/raw/master/gui_preview.gif"></p>
 
-A GUI preview mode is also incorporated into the library for in time process visualization. The Gio GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) .
+A GUI preview mode is also incorporated into the library for in time process visualization. The [Gio](http://gioui.org/) GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) .
 
 The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivated.
 
