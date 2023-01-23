@@ -316,7 +316,12 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 	g.ctx = gtx
 	op.InvalidateOp{}.Add(gtx.Ops)
 
+	defaultColor := color.NRGBA{R: 0x2d, G: 0x23, B: 0x2e, A: 0xff}
 	th := material.NewTheme(gofont.Collection())
+	th.TextSize = unit.Sp(12)
+	th.Palette.ContrastBg = defaultColor
+	th.FingerSize = 10
+
 	c := g.setColor(g.cfg.color.background)
 	paint.Fill(g.ctx.Ops, c)
 
@@ -387,17 +392,17 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 	if g.cp.Debug {
 		layout.Stack{}.Layout(g.ctx,
 			layout.Stacked(func(gtx C) D {
-				hudHeight := 55
+				hudHeight := 40
 				r := image.Rectangle{
 					Max: image.Point{
 						X: gtx.Constraints.Max.X,
 						Y: hudHeight,
 					},
 				}
-				op.Offset(image.Pt(0, gtx.Constraints.Max.Y-hudHeight)).Add(gtx.Ops)
+				defer op.Offset(image.Pt(0, gtx.Constraints.Max.Y-hudHeight)).Push(gtx.Ops).Pop()
 				return layout.Stack{}.Layout(gtx,
 					layout.Expanded(func(gtx C) D {
-						paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 255, B: 255, A: 127}, clip.Rect(r).Op())
+						paint.FillShape(gtx.Ops, color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xcc}, clip.Rect(r).Op())
 						return layout.Dimensions{Size: r.Max}
 					}),
 					layout.Stacked(func(gtx C) D {
@@ -407,14 +412,16 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 								Y: gtx.Dp(unit.Dp(0.5)),
 							},
 						}
-						paint.FillShape(gtx.Ops, utils.HSL(0.45, 0.16, 0.35), clip.Rect(border).Op())
+						paint.FillShape(gtx.Ops, color.NRGBA{R: 0x3B, G: 0x41, B: 0x3C, A: 0xaa}, clip.Rect(border).Op())
 						return layout.Dimensions{Size: r.Max}
 					}),
 					layout.Stacked(func(gtx C) D {
 						return g.view.huds.Layout(gtx, len(g.huds),
 							func(gtx layout.Context, index int) D {
 								if hud, ok := g.huds[index]; ok {
-									return material.CheckBox(th, &hud.visible, fmt.Sprintf("%v", hud.title)).Layout(gtx)
+									checkbox := material.CheckBox(th, &hud.visible, fmt.Sprintf("%v", hud.title))
+									checkbox.Size = 20
+									return checkbox.Layout(gtx)
 								}
 								return D{}
 							})
