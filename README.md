@@ -4,7 +4,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/esimov/caire.svg)](https://pkg.go.dev/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
 [![Foresight Docs](https://api-public.service.runforesight.com/api/v1/badge/success?repoId=548f4490-ec30-4aa2-b3d5-ae3db3263b27)](https://docs.runforesight.com/)
-[![release](https://img.shields.io/badge/release-v1.4.5-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.5)
+[![release](https://img.shields.io/badge/release-v1.4.6-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.4.6)
 [![homebrew](https://img.shields.io/badge/homebrew-v1.4.5-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![caire](https://snapcraft.io/caire/badge.svg)](https://snapcraft.io/caire)
 
