@@ -175,6 +175,7 @@ func (g *Gui) Run() error {
 		unit.Dp(g.cfg.window.w),
 		unit.Dp(g.cfg.window.h),
 	))
+	w.Perform(system.ActionCenter)
 	g.cfg.timeStamp = time.Now()
 
 	if g.cp.Debug {
