@@ -52,15 +52,4 @@ jobs:
       - name: Run Tests
         id: makefile
         run: |
-          make test          
-      - name: Analyze Test and/or Coverage Results
-        if: always()
-        uses: runforesight/foresight-test-kit-action@v1
-        with:
-          api_key: ${{ secrets.FORESIGHT_PROJECT_WALL_APIKEY }}
-          test_framework: golang
-          test_format: json
-          test_path: ./test-report.json
-          coverage_format: golang
-          coverage_path: |
-              coverage.out
+          make test
