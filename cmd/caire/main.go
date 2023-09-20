@@ -331,7 +331,7 @@ func processor(in, out string, proc *caire.Processor) error {
 	successMsg = fmt.Sprintf("%s %s %s",
 		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
 		utils.DecorateText("⇢", utils.DefaultMessage),
-		utils.DecorateText("the image has been resized sucessfully ✔", utils.SuccessMessage),
+		utils.DecorateText("the image has been resized successfully ✔", utils.SuccessMessage),
 	)
 
 	errorMsg = fmt.Sprintf("%s %s %s",
