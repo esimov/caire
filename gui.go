@@ -18,6 +18,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -84,6 +85,7 @@ type Gui struct {
 	cp   *Processor
 	cop  *imop.Composite
 	bop  *imop.Blend
+	th   *material.Theme
 	ctx  layout.Context
 	huds map[int]*hudCtrl
 	view struct {
@@ -99,6 +101,8 @@ type hudCtrl struct {
 
 // NewGUI initializes the Gio interface.
 func NewGUI(w, h int) *Gui {
+	defaultColor := color.NRGBA{R: 0x2d, G: 0x23, B: 0x2e, A: 0xff}
+
 	gui := &Gui{
 		ctx: layout.Context{
 			Ops: new(op.Ops),
@@ -109,7 +113,13 @@ func NewGUI(w, h int) *Gui {
 		cop:  imop.InitOp(),
 		bop:  imop.NewBlend(),
 		huds: make(map[int]*hudCtrl),
+		th:   material.NewTheme(),
 	}
+	gui.th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
+	gui.th.TextSize = unit.Sp(12)
+	gui.th.Palette.ContrastBg = defaultColor
+	gui.th.FingerSize = 10
+
 	gui.initWindow(w, h)
 
 	return gui
@@ -317,12 +327,6 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 	g.ctx = gtx
 	op.InvalidateOp{}.Add(gtx.Ops)
 
-	defaultColor := color.NRGBA{R: 0x2d, G: 0x23, B: 0x2e, A: 0xff}
-	th := material.NewTheme(gofont.Collection())
-	th.TextSize = unit.Sp(12)
-	th.Palette.ContrastBg = defaultColor
-	th.FingerSize = 10
-
 	c := g.setColor(g.cfg.color.background)
 	paint.Fill(g.ctx.Ops, c)
 
@@ -420,7 +424,7 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 						return g.view.huds.Layout(gtx, len(g.huds),
 							func(gtx layout.Context, index int) D {
 								if hud, ok := g.huds[index]; ok {
-									checkbox := material.CheckBox(th, &hud.visible, fmt.Sprintf("%v", hud.title))
+									checkbox := material.CheckBox(g.th, &hud.visible, fmt.Sprintf("%v", hud.title))
 									checkbox.Size = 20
 									return checkbox.Layout(gtx)
 								}
@@ -448,8 +452,7 @@ func (g *Gui) draw(gtx layout.Context, bgCol color.NRGBA) {
 
 // displayMessage show a static message when the image is resized both horizontally and vertically.
 func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) {
-	th := material.NewTheme(gofont.Collection())
-	th.Palette.Fg = color.NRGBA{R: 251, G: 254, B: 249, A: 0xff}
+	g.th.Palette.Fg = color.NRGBA{R: 251, G: 254, B: 249, A: 0xff}
 	paint.ColorOp{Color: bgCol}.Add(ctx.Ops)
 
 	rect := image.Rectangle{
@@ -505,7 +508,10 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 		layout.Stacked(func(gtx C) D {
 			return layout.UniformInset(unit.Dp(4)).Layout(ctx, func(gtx C) D {
 				return layout.Center.Layout(ctx, func(gtx C) D {
-					return material.Label(th, unit.Sp(40), msg).Layout(gtx)
+					m := material.Label(g.th, unit.Sp(40), msg)
+					m.Alignment = text.Middle
+
+					return m.Layout(gtx)
 				})
 			})
 		}),
@@ -517,7 +523,7 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 
 			return layout.Inset{Top: 70}.Layout(ctx, func(gtx C) D {
 				return layout.Center.Layout(ctx, func(gtx C) D {
-					return material.Label(th, unit.Sp(13), info).Layout(gtx)
+					return material.Label(g.th, unit.Sp(13), info).Layout(gtx)
 				})
 			})
 		}),

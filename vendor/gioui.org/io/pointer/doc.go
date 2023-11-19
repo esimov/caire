@@ -8,7 +8,7 @@ object such as a finger.
 The InputOp operation is used to declare a handler ready for pointer
 events. Use an event.Queue to receive events.
 
-Types
+# Types
 
 Only events that match a specified list of types are delivered to a handler.
 
@@ -25,7 +25,7 @@ Leave, or Scroll):
 
 Cancel events are always delivered.
 
-Hit areas
+# Hit areas
 
 Clip operations from package op/clip are used for specifying
 hit areas where subsequent InputOps are active.
@@ -43,7 +43,7 @@ of multiple area operations is the intersection of the areas.
 BUG: Clip operations other than clip.Rect and clip.Ellipse are approximated
 with their bounding boxes.
 
-Matching events
+# Matching events
 
 Areas form an implicit tree, with input handlers as leaves. The children of
 an area is every area and handler added between its Push and corresponding Pop.
@@ -77,7 +77,7 @@ the matching repeats with the parent area.
 In the example above, all events will go to h2 because it and h1 are siblings
 and none are pass-through.
 
-Pass-through
+# Pass-through
 
 The PassOp operations controls the pass-through setting. All handlers added
 inside one or more PassOp scopes are marked pass-through.
@@ -87,7 +87,7 @@ the user touches the side, both the (transparent) drawer handle and the
 interface below should receive pointer events. This effect is achieved by
 marking the drawer handle pass-through.
 
-Disambiguation
+# Disambiguation
 
 When more than one handler matches a pointer event, the event queue
 follows a set of rules for distributing the event.
@@ -110,7 +110,7 @@ The losing handlers are notified by a Cancel event.
 
 For multiple grabbing handlers, the foremost handler wins.
 
-Priorities
+# Priorities
 
 Handlers know their position in a matching set of a pointer through
 event priorities. The Shared priority is for matching sets with

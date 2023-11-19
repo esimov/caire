@@ -136,6 +136,10 @@ func (x *Context) LoadKeymap(format int, fd int, size int) error {
 
 func (x *Context) Modifiers() key.Modifiers {
 	var mods key.Modifiers
+	if x.state == nil {
+		return mods
+	}
+
 	if C.xkb_state_mod_name_is_active(x.state, (*C.char)(unsafe.Pointer(&_XKB_MOD_NAME_CTRL[0])), C.XKB_STATE_MODS_EFFECTIVE) == 1 {
 		mods |= key.ModCtrl
 	}
@@ -219,6 +223,9 @@ func (x *Context) charsForKeycode(keyCode C.xkb_keycode_t) []byte {
 }
 
 func (x *Context) IsRepeatKey(keyCode uint32) bool {
+	if x.state == nil {
+		return false
+	}
 	kc := C.xkb_keycode_t(keyCode)
 	return C.xkb_keymap_key_repeats(x.keyMap, kc) == 1
 }
@@ -235,6 +242,9 @@ func convertKeysym(s C.xkb_keysym_t) (string, bool) {
 	if 'a' <= s && s <= 'z' {
 		return string(rune(s - 'a' + 'A')), true
 	}
+	if C.XKB_KEY_KP_0 <= s && s <= C.XKB_KEY_KP_9 {
+		return string(rune(s - C.XKB_KEY_KP_0 + '0')), true
+	}
 	if ' ' < s && s <= '~' {
 		return string(rune(s)), true
 	}
@@ -248,8 +258,6 @@ func convertKeysym(s C.xkb_keysym_t) (string, bool) {
 		n = key.NameRightArrow
 	case C.XKB_KEY_Return:
 		n = key.NameReturn
-	case C.XKB_KEY_KP_Enter:
-		n = key.NameEnter
 	case C.XKB_KEY_Up:
 		n = key.NameUpArrow
 	case C.XKB_KEY_Down:
@@ -290,9 +298,9 @@ func convertKeysym(s C.xkb_keysym_t) (string, bool) {
 		n = key.NameF11
 	case C.XKB_KEY_F12:
 		n = key.NameF12
-	case C.XKB_KEY_Tab, C.XKB_KEY_KP_Tab, C.XKB_KEY_ISO_Left_Tab:
+	case C.XKB_KEY_Tab, C.XKB_KEY_ISO_Left_Tab:
 		n = key.NameTab
-	case 0x20, C.XKB_KEY_KP_Space:
+	case 0x20:
 		n = key.NameSpace
 	case C.XKB_KEY_Control_L, C.XKB_KEY_Control_R:
 		n = key.NameCtrl
@@ -302,6 +310,64 @@ func convertKeysym(s C.xkb_keysym_t) (string, bool) {
 		n = key.NameAlt
 	case C.XKB_KEY_Super_L, C.XKB_KEY_Super_R:
 		n = key.NameSuper
+
+	case C.XKB_KEY_KP_Space:
+		n = key.NameSpace
+	case C.XKB_KEY_KP_Tab:
+		n = key.NameTab
+	case C.XKB_KEY_KP_Enter:
+		n = key.NameEnter
+	case C.XKB_KEY_KP_F1:
+		n = key.NameF1
+	case C.XKB_KEY_KP_F2:
+		n = key.NameF2
+	case C.XKB_KEY_KP_F3:
+		n = key.NameF3
+	case C.XKB_KEY_KP_F4:
+		n = key.NameF4
+	case C.XKB_KEY_KP_Home:
+		n = key.NameHome
+	case C.XKB_KEY_KP_Left:
+		n = key.NameLeftArrow
+	case C.XKB_KEY_KP_Up:
+		n = key.NameUpArrow
+	case C.XKB_KEY_KP_Right:
+		n = key.NameRightArrow
+	case C.XKB_KEY_KP_Down:
+		n = key.NameDownArrow
+	case C.XKB_KEY_KP_Prior:
+		// not supported
+		return "", false
+	case C.XKB_KEY_KP_Next:
+		// not supported
+		return "", false
+	case C.XKB_KEY_KP_End:
+		n = key.NameEnd
+	case C.XKB_KEY_KP_Begin:
+		n = key.NameHome
+	case C.XKB_KEY_KP_Insert:
+		// not supported
+		return "", false
+	case C.XKB_KEY_KP_Delete:
+		n = key.NameDeleteForward
+	case C.XKB_KEY_KP_Multiply:
+		n = "*"
+	case C.XKB_KEY_KP_Add:
+		n = "+"
+	case C.XKB_KEY_KP_Separator:
+		// not supported
+		return "", false
+	case C.XKB_KEY_KP_Subtract:
+		n = "-"
+	case C.XKB_KEY_KP_Decimal:
+		// TODO(dh): does a German keyboard layout also translate the numpad key to XKB_KEY_KP_DECIMAL? Because in
+		// German, the decimal is a comma, not a period.
+		n = "."
+	case C.XKB_KEY_KP_Divide:
+		n = "/"
+	case C.XKB_KEY_KP_Equal:
+		n = "="
+
 	default:
 		return "", false
 	}

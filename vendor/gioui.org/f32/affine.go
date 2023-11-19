@@ -3,8 +3,8 @@
 package f32
 
 import (
-	"fmt"
 	"math"
+	"strconv"
 )
 
 // Affine2D represents an affine 2D transformation. The zero value of Affine2D
@@ -148,5 +148,25 @@ func (a Affine2D) shear(radiansX, radiansY float32) Affine2D {
 
 func (a Affine2D) String() string {
 	sx, hx, ox, hy, sy, oy := a.Elems()
-	return fmt.Sprintf("[[%f %f %f] [%f %f %f]]", sx, hx, ox, hy, sy, oy)
+
+	// precision 6, one period, negative sign and space per number
+	const prec = 6
+	const charsPerFloat = prec + 2 + 1
+	s := make([]byte, 0, 6*charsPerFloat+6)
+
+	s = append(s, '[', '[')
+	s = strconv.AppendFloat(s, float64(sx), 'g', prec, 32)
+	s = append(s, ' ')
+	s = strconv.AppendFloat(s, float64(hx), 'g', prec, 32)
+	s = append(s, ' ')
+	s = strconv.AppendFloat(s, float64(ox), 'g', prec, 32)
+	s = append(s, ']', ' ', '[')
+	s = strconv.AppendFloat(s, float64(hy), 'g', prec, 32)
+	s = append(s, ' ')
+	s = strconv.AppendFloat(s, float64(sy), 'g', prec, 32)
+	s = append(s, ' ')
+	s = strconv.AppendFloat(s, float64(oy), 'g', prec, 32)
+	s = append(s, ']', ']')
+
+	return string(s)
 }

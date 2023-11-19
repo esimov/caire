@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Unlicense OR MIT
 
-//go:build ((linux && !android) || freebsd) && !nowayland
+//go:build ((linux && !android) || freebsd) && !nowayland && !noopengl
 // +build linux,!android freebsd
 // +build !nowayland
+// +build !noopengl
 
 package app
 

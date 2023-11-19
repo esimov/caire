@@ -25,8 +25,10 @@ type Clickable struct {
 	prevClicks int
 	history    []Press
 
-	keyTag  struct{}
-	focused bool
+	keyTag       struct{}
+	requestFocus bool
+	focused      bool
+	pressedKey   string
 }
 
 // Click represents a click.
@@ -80,6 +82,11 @@ func (b *Clickable) Pressed() bool {
 	return b.click.Pressed()
 }
 
+// Focus requests the input focus for the element.
+func (b *Clickable) Focus() {
+	b.requestFocus = true
+}
+
 // Focused reports whether b has focus.
 func (b *Clickable) Focused() bool {
 	return b.focused
@@ -115,6 +122,10 @@ func (b *Clickable) Layout(gtx layout.Context, w layout.Widget) layout.Dimension
 			keys = ""
 		}
 		key.InputOp{Tag: &b.keyTag, Keys: keys}.Add(gtx.Ops)
+		if b.requestFocus {
+			key.FocusOp{Tag: &b.keyTag}.Add(gtx.Ops)
+			b.requestFocus = false
+		}
 	} else {
 		b.focused = false
 	}
@@ -168,17 +179,30 @@ func (b *Clickable) update(gtx layout.Context) {
 		switch e := e.(type) {
 		case key.FocusEvent:
 			b.focused = e.Focus
+			if !b.focused {
+				b.pressedKey = ""
+			}
 		case key.Event:
-			if !b.focused || e.State != key.Release {
+			if !b.focused {
 				break
 			}
 			if e.Name != key.NameReturn && e.Name != key.NameSpace {
 				break
 			}
-			b.clicks = append(b.clicks, Click{
-				Modifiers: e.Modifiers,
-				NumClicks: 1,
-			})
+			switch e.State {
+			case key.Press:
+				b.pressedKey = e.Name
+			case key.Release:
+				if b.pressedKey != e.Name {
+					break
+				}
+				// only register a key as a click if the key was pressed and released while this button was focused
+				b.pressedKey = ""
+				b.clicks = append(b.clicks, Click{
+					Modifiers: e.Modifiers,
+					NumClicks: 1,
+				})
+			}
 		}
 	}
 }

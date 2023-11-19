@@ -192,12 +192,6 @@ func (c *Click) Events(q event.Queue) []ClickEvent {
 			}
 			c.pressed = false
 			if !c.entered || c.hovered {
-				if e.Time-c.clickedAt < doubleClickDuration {
-					c.clicks++
-				} else {
-					c.clicks = 1
-				}
-				c.clickedAt = e.Time
 				events = append(events, ClickEvent{Type: TypeClick, Position: e.Position.Round(), Source: e.Source, Modifiers: e.Modifiers, NumClicks: c.clicks})
 			} else {
 				events = append(events, ClickEvent{Type: TypeCancel})
@@ -224,7 +218,13 @@ func (c *Click) Events(q event.Queue) []ClickEvent {
 				break
 			}
 			c.pressed = true
-			events = append(events, ClickEvent{Type: TypePress, Position: e.Position.Round(), Source: e.Source, Modifiers: e.Modifiers})
+			if e.Time-c.clickedAt < doubleClickDuration {
+				c.clicks++
+			} else {
+				c.clicks = 1
+			}
+			c.clickedAt = e.Time
+			events = append(events, ClickEvent{Type: TypePress, Position: e.Position.Round(), Source: e.Source, Modifiers: e.Modifiers, NumClicks: c.clicks})
 		case pointer.Leave:
 			if !c.pressed {
 				c.pid = e.PointerID

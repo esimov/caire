@@ -44,6 +44,14 @@ type LinearGradientOp struct {
 type PaintOp struct {
 }
 
+// OpacityStack represents an opacity applied to all painting operations
+// until Pop is called.
+type OpacityStack struct {
+	id      ops.StackID
+	macroID int
+	ops     *ops.Ops
+}
+
 // NewImageOp creates an ImageOp backed by src.
 //
 // NewImageOp assumes the backing image is immutable, and may cache a
@@ -144,4 +152,32 @@ func FillShape(ops *op.Ops, c color.NRGBA, shape clip.Op) {
 func Fill(ops *op.Ops, c color.NRGBA) {
 	ColorOp{Color: c}.Add(ops)
 	PaintOp{}.Add(ops)
+}
+
+// PushOpacity creates a drawing layer with an opacity in the range [0;1].
+// The layer includes every subsequent drawing operation until [OpacityStack.Pop]
+// is called.
+//
+// The layer is drawn in two steps. First, the layer operations are
+// drawn to a separate image. Then, the image is blended on top of
+// the frame, with the opacity used as the blending factor.
+func PushOpacity(o *op.Ops, opacity float32) OpacityStack {
+	if opacity > 1 {
+		opacity = 1
+	}
+	if opacity < 0 {
+		opacity = 0
+	}
+	id, macroID := ops.PushOp(&o.Internal, ops.OpacityStack)
+	data := ops.Write(&o.Internal, ops.TypePushOpacityLen)
+	bo := binary.LittleEndian
+	data[0] = byte(ops.TypePushOpacity)
+	bo.PutUint32(data[1:], math.Float32bits(opacity))
+	return OpacityStack{ops: &o.Internal, id: id, macroID: macroID}
+}
+
+func (t OpacityStack) Pop() {
+	ops.PopOp(t.ops, ops.OpacityStack, t.id, t.macroID)
+	data := ops.Write(t.ops, ops.TypePopOpacityLen)
+	data[0] = byte(ops.TypePopOpacity)
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Unlicense OR MIT
 
 /*
-
 Package op implements operations for updating a user interface.
 
 Gio programs use operations, or ops, for describing their user
@@ -28,7 +27,7 @@ Drawing a colored square:
 	paint.PaintOp{Rect: ...}.Add(ops)
 	e.Frame(ops)
 
-State
+# State
 
 An Ops list can be viewed as a very simple virtual machine: it has state such
 as transformation and color and execution flow can be controlled with macros.
@@ -61,7 +60,6 @@ The MacroOp records a list of operations to be executed later:
 
 	// replay the recorded operations:
 	call.Add(ops)
-
 */
 package op
 

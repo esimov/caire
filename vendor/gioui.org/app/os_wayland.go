@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -95,7 +94,10 @@ type wlDisplay struct {
 
 	// Notification pipe fds.
 	notify struct {
-		read, write int
+		read int
+
+		mu    sync.Mutex
+		write int
 	}
 
 	repeat repeatState
@@ -374,6 +376,11 @@ func (d *wlDisplay) createNativeWindow(options []Option) (*window, error) {
 		w.destroy()
 		return nil, errors.New("wayland: xdg_surface_get_toplevel failed")
 	}
+
+	id := C.CString(ID)
+	defer C.free(unsafe.Pointer(id))
+	C.xdg_toplevel_set_app_id(w.topLvl, id)
+
 	cursorTheme := C.CString(os.Getenv("XCURSOR_THEME"))
 	defer C.free(unsafe.Pointer(cursorTheme))
 	cursorSize := 32
@@ -899,18 +906,7 @@ func gio_onPointerButton(data unsafe.Pointer, p *C.struct_wl_pointer, serial, t,
 	default:
 		return
 	}
-	var typ pointer.Type
-	switch state {
-	case 0:
-		w.pointerBtns &^= btn
-		typ = pointer.Release
-		// Move or resize gestures no longer applies.
-		w.inCompositor = false
-	case 1:
-		w.pointerBtns |= btn
-		typ = pointer.Press
-	}
-	if typ == pointer.Press && btn == pointer.ButtonPrimary {
+	if state == 1 && btn == pointer.ButtonPrimary {
 		if _, edge := w.systemGesture(); edge != 0 {
 			w.resize(serial, edge)
 			return
@@ -923,6 +919,17 @@ func gio_onPointerButton(data unsafe.Pointer, p *C.struct_wl_pointer, serial, t,
 				return
 			}
 		}
+	}
+	var typ pointer.Type
+	switch state {
+	case 0:
+		w.pointerBtns &^= btn
+		typ = pointer.Release
+		// Move or resize gestures no longer applies.
+		w.inCompositor = false
+	case 1:
+		w.pointerBtns |= btn
+		typ = pointer.Press
 	}
 	w.flushScroll()
 	w.resetFling()
@@ -949,7 +956,12 @@ func gio_onPointerAxis(data unsafe.Pointer, p *C.struct_wl_pointer, t, axis C.ui
 	case C.WL_POINTER_AXIS_HORIZONTAL_SCROLL:
 		w.scroll.dist.X += v
 	case C.WL_POINTER_AXIS_VERTICAL_SCROLL:
-		w.scroll.dist.Y += v
+		// horizontal scroll if shift + mousewheel(up/down) pressed.
+		if w.disp.xkb.Modifiers() == key.ModShift {
+			w.scroll.dist.X += v
+		} else {
+			w.scroll.dist.Y += v
+		}
 	}
 }
 
@@ -999,7 +1011,12 @@ func gio_onPointerAxisDiscrete(data unsafe.Pointer, p *C.struct_wl_pointer, axis
 	case C.WL_POINTER_AXIS_HORIZONTAL_SCROLL:
 		w.scroll.steps.X += int(discrete)
 	case C.WL_POINTER_AXIS_VERTICAL_SCROLL:
-		w.scroll.steps.Y += int(discrete)
+		// horizontal scroll if shift + mousewheel(up/down) pressed.
+		if w.disp.xkb.Modifiers() == key.ModShift {
+			w.scroll.steps.X += int(discrete)
+		} else {
+			w.scroll.steps.Y += int(discrete)
+		}
 	}
 }
 
@@ -1013,7 +1030,7 @@ func (w *window) ReadClipboard() {
 	// Don't let slow clipboard transfers block event loop.
 	go func() {
 		defer r.Close()
-		data, _ := ioutil.ReadAll(r)
+		data, _ := io.ReadAll(r)
 		w.clipReads <- clipboard.Event{Text: string(data)}
 		w.Wakeup()
 	}()
@@ -1079,6 +1096,7 @@ func (w *window) Configure(options []Option) {
 		w.setWindowConstraints()
 	}
 	w.w.Event(ConfigEvent{Config: w.config})
+	w.redraw = true
 }
 
 func (w *window) setWindowConstraints() {
@@ -1427,6 +1445,11 @@ func (w *window) SetAnimating(anim bool) {
 // Wakeup wakes up the event loop through the notification pipe.
 func (d *wlDisplay) wakeup() {
 	oneByte := make([]byte, 1)
+	d.notify.mu.Lock()
+	defer d.notify.mu.Unlock()
+	if d.notify.write == 0 {
+		return
+	}
 	if _, err := syscall.Write(d.notify.write, oneByte); err != nil && err != syscall.EAGAIN {
 		panic(fmt.Errorf("failed to write to pipe: %v", err))
 	}
@@ -1731,14 +1754,14 @@ func (w *window) EditorStateChanged(old, new editorState) {}
 
 func (w *window) NewContext() (context, error) {
 	var firstErr error
-	if f := newWaylandVulkanContext; f != nil {
+	if f := newWaylandEGLContext; f != nil {
 		c, err := f(w)
 		if err == nil {
 			return c, nil
 		}
 		firstErr = err
 	}
-	if f := newWaylandEGLContext; f != nil {
+	if f := newWaylandVulkanContext; f != nil {
 		c, err := f(w)
 		if err == nil {
 			return c, nil
@@ -1805,10 +1828,12 @@ func newWLDisplay() (*wlDisplay, error) {
 }
 
 func (d *wlDisplay) destroy() {
+	d.notify.mu.Lock()
 	if d.notify.write != 0 {
 		syscall.Close(d.notify.write)
 		d.notify.write = 0
 	}
+	d.notify.mu.Unlock()
 	if d.notify.read != 0 {
 		syscall.Close(d.notify.read)
 		d.notify.read = 0

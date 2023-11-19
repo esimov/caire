@@ -3,10 +3,11 @@
 uniform sampler2D tex;
 
 out vec4 fragColor;
+in float opacity;
 in vec2 vUV;
 
 void main()
 {
-    fragColor = texture(tex, vUV);
+    fragColor = texture(tex, vUV) * opacity;
 }
 

@@ -13,7 +13,7 @@ var (
 	Shader_blit_frag = [...]shader.Sources{
 		{
 			Name:   "blit.frag",
-			Inputs: []shader.InputLocation{{Name: "vUV", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}},
+			Inputs: []shader.InputLocation{{Name: "vUV", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}, {Name: "opacity", Location: 1, Semantic: "TEXCOORD", SemanticIndex: 1, Type: 0x0, Size: 1}},
 			Uniforms: shader.UniformsReflection{
 				Locations: []shader.UniformLocation{{Name: "_color.color", Type: 0x0, Size: 4, Offset: 112}},
 				Size:      16,
@@ -21,7 +21,7 @@ var (
 		},
 		{
 			Name:   "blit.frag",
-			Inputs: []shader.InputLocation{{Name: "vUV", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}},
+			Inputs: []shader.InputLocation{{Name: "vUV", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}, {Name: "opacity", Location: 1, Semantic: "TEXCOORD", SemanticIndex: 1, Type: 0x0, Size: 1}},
 			Uniforms: shader.UniformsReflection{
 				Locations: []shader.UniformLocation{{Name: "_gradient.color1", Type: 0x0, Size: 4, Offset: 96}, {Name: "_gradient.color2", Type: 0x0, Size: 4, Offset: 112}},
 				Size:      32,
@@ -29,7 +29,7 @@ var (
 		},
 		{
 			Name:     "blit.frag",
-			Inputs:   []shader.InputLocation{{Name: "vUV", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}},
+			Inputs:   []shader.InputLocation{{Name: "vUV", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}, {Name: "opacity", Location: 1, Semantic: "TEXCOORD", SemanticIndex: 1, Type: 0x0, Size: 1}},
 			Textures: []shader.TextureBinding{{Name: "tex", Binding: 0}},
 		},
 	}
@@ -79,8 +79,8 @@ var (
 		Name:   "blit.vert",
 		Inputs: []shader.InputLocation{{Name: "pos", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}, {Name: "uv", Location: 1, Semantic: "TEXCOORD", SemanticIndex: 1, Type: 0x0, Size: 2}},
 		Uniforms: shader.UniformsReflection{
-			Locations: []shader.UniformLocation{{Name: "_block.transform", Type: 0x0, Size: 4, Offset: 0}, {Name: "_block.uvTransformR1", Type: 0x0, Size: 4, Offset: 16}, {Name: "_block.uvTransformR2", Type: 0x0, Size: 4, Offset: 32}},
-			Size:      48,
+			Locations: []shader.UniformLocation{{Name: "_block.transform", Type: 0x0, Size: 4, Offset: 0}, {Name: "_block.uvTransformR1", Type: 0x0, Size: 4, Offset: 16}, {Name: "_block.uvTransformR2", Type: 0x0, Size: 4, Offset: 32}, {Name: "_block.opacity", Type: 0x0, Size: 1, Offset: 48}, {Name: "_block.fbo", Type: 0x0, Size: 1, Offset: 52}},
+			Size:      56,
 		},
 	}
 	//go:embed zblit.vert.0.spirv
@@ -209,8 +209,8 @@ var (
 		Name:   "cover.vert",
 		Inputs: []shader.InputLocation{{Name: "pos", Location: 0, Semantic: "TEXCOORD", SemanticIndex: 0, Type: 0x0, Size: 2}, {Name: "uv", Location: 1, Semantic: "TEXCOORD", SemanticIndex: 1, Type: 0x0, Size: 2}},
 		Uniforms: shader.UniformsReflection{
-			Locations: []shader.UniformLocation{{Name: "_block.transform", Type: 0x0, Size: 4, Offset: 0}, {Name: "_block.uvCoverTransform", Type: 0x0, Size: 4, Offset: 16}, {Name: "_block.uvTransformR1", Type: 0x0, Size: 4, Offset: 32}, {Name: "_block.uvTransformR2", Type: 0x0, Size: 4, Offset: 48}},
-			Size:      64,
+			Locations: []shader.UniformLocation{{Name: "_block.transform", Type: 0x0, Size: 4, Offset: 0}, {Name: "_block.uvCoverTransform", Type: 0x0, Size: 4, Offset: 16}, {Name: "_block.uvTransformR1", Type: 0x0, Size: 4, Offset: 32}, {Name: "_block.uvTransformR2", Type: 0x0, Size: 4, Offset: 48}, {Name: "_block.fbo", Type: 0x0, Size: 1, Offset: 64}},
+			Size:      68,
 		},
 	}
 	//go:embed zcover.vert.0.spirv

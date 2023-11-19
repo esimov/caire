@@ -72,6 +72,7 @@ type Functions struct {
 	_flush                             js.Value
 	_framebufferRenderbuffer           js.Value
 	_framebufferTexture2D              js.Value
+	_generateMipmap                    js.Value
 	_getRenderbufferParameteri         js.Value
 	_getFramebufferAttachmentParameter js.Value
 	_getParameter                      js.Value
@@ -167,6 +168,7 @@ func NewFunctions(ctx Context, forceES bool) (*Functions, error) {
 		_flush:                             _bind(webgl, `flush`),
 		_framebufferRenderbuffer:           _bind(webgl, `framebufferRenderbuffer`),
 		_framebufferTexture2D:              _bind(webgl, `framebufferTexture2D`),
+		_generateMipmap:                    _bind(webgl, `generateMipmap`),
 		_getRenderbufferParameteri:         _bind(webgl, `getRenderbufferParameteri`),
 		_getFramebufferAttachmentParameter: _bind(webgl, `getFramebufferAttachmentParameter`),
 		_getParameter:                      _bind(webgl, `getParameter`),
@@ -299,7 +301,12 @@ func (f *Functions) BufferSubData(target Enum, offset int, src []byte) {
 	f._bufferSubData.Invoke(int(target), offset, f.byteArrayOf(src))
 }
 func (f *Functions) CheckFramebufferStatus(target Enum) Enum {
-	return Enum(f._checkFramebufferStatus.Invoke(int(target)).Int())
+	status := Enum(f._checkFramebufferStatus.Invoke(int(target)).Int())
+	if status != FRAMEBUFFER_COMPLETE && f.Ctx.Call("isContextLost").Bool() {
+		// If the context is lost, we say that everything is fine. That saves internal/opengl/opengl.go from panic.
+		return FRAMEBUFFER_COMPLETE
+	}
+	return status
 }
 func (f *Functions) Clear(mask Enum) {
 	f._clear.Invoke(int(mask))
@@ -413,6 +420,9 @@ func (f *Functions) FramebufferRenderbuffer(target, attachment, renderbuffertarg
 }
 func (f *Functions) FramebufferTexture2D(target, attachment, texTarget Enum, t Texture, level int) {
 	f._framebufferTexture2D.Invoke(int(target), int(attachment), int(texTarget), js.Value(t), level)
+}
+func (f *Functions) GenerateMipmap(target Enum) {
+	f._generateMipmap.Invoke(int(target))
 }
 func (f *Functions) GetError() Enum {
 	// Avoid slow getError calls. See gio#179.
@@ -633,6 +643,10 @@ func paramVal(v js.Value) int {
 		}
 	case js.TypeNumber:
 		return v.Int()
+	case js.TypeUndefined:
+		return 0
+	case js.TypeNull:
+		return 0
 	default:
 		panic("unknown parameter type")
 	}

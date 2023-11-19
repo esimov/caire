@@ -4,10 +4,11 @@ precision highp int;
 
 uniform mediump sampler2D tex;
 
+varying highp float opacity;
 varying highp vec2 vUV;
 
 void main()
 {
-    gl_FragData[0] = texture2D(tex, vUV);
+    gl_FragData[0] = texture2D(tex, vUV) * opacity;
 }
 

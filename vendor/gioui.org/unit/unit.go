@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Unlicense OR MIT
 
 /*
-
 Package unit implements device independent units.
 
 Device independent pixel, or dp, is the unit for sizes independent of
@@ -16,7 +15,6 @@ size vary between platforms and displays.
 To maintain a constant visual size across platforms and displays, always
 use dps or sps to define user interfaces. Only use pixels for derived
 values.
-
 */
 package unit
 
@@ -60,6 +58,16 @@ func (c Metric) DpToSp(v Dp) Sp {
 // SpToDp converts v sp to dp.
 func (c Metric) SpToDp(v Sp) Dp {
 	return Dp(float32(v) * nonZero(c.PxPerSp) / nonZero(c.PxPerDp))
+}
+
+// PxToSp converts v px to sp.
+func (c Metric) PxToSp(v int) Sp {
+	return Sp(float32(v) / nonZero(c.PxPerSp))
+}
+
+// PxToDp converts v px to dp.
+func (c Metric) PxToDp(v int) Dp {
+	return Dp(float32(v) / nonZero(c.PxPerDp))
 }
 
 func nonZero(v float32) float32 {

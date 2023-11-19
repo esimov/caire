@@ -5,10 +5,11 @@ package shaping
 import (
 	"unicode"
 
-	"github.com/benoitkugler/textlayout/harfbuzz"
 	"github.com/go-text/typesetting/di"
 	"github.com/go-text/typesetting/font"
+	"github.com/go-text/typesetting/harfbuzz"
 	"github.com/go-text/typesetting/language"
+	"github.com/go-text/typesetting/opentype/loader"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -24,6 +25,11 @@ type Input struct {
 	// Face is the font face to render the text in.
 	Face font.Face
 
+	// FontFeatures activates or deactivates optional features
+	// provided by the font.
+	// The settings are applied to the whole [Text].
+	FontFeatures []FontFeature
+
 	// Size is the requested size of the font.
 	// More generally, it is a scale factor applied to the resulting metrics.
 	// For instance, given a device resolution (in dpi) and a point size (like 14), the `Size` to
@@ -35,6 +41,25 @@ type Input struct {
 
 	// Language is an identifier for the language of the text.
 	Language language.Language
+}
+
+// FontFeature sets one font feature.
+//
+// A font feature is an optionnal behavior a font might expose,
+// identified by a 4 bytes [Tag].
+// Most features are disabled by default; setting a non zero [Value]
+// enables it.
+//
+// An exemple of font feature is the replacement of fractions (like 1/2, 3/4)
+// by specialized glyphs, which would be activated by using
+//
+//	FontFeature{Tag: loader.MustNewTag("frac"), Value: 1}
+//
+// See also https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist
+// and https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_fonts/OpenType_fonts_guide
+type FontFeature struct {
+	Tag   loader.Tag
+	Value uint32
 }
 
 // Fontmap provides a general mechanism to select

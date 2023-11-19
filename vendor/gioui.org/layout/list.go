@@ -4,6 +4,7 @@ package layout
 
 import (
 	"image"
+	"math"
 
 	"gioui.org/gesture"
 	"gioui.org/op"
@@ -353,4 +354,36 @@ func (l *List) layout(ops *op.Ops, macro op.MacroOp) Dimensions {
 
 	call.Add(ops)
 	return Dimensions{Size: dims}
+}
+
+// ScrollBy scrolls the list by a relative amount of items.
+//
+// Fractional scrolling may be inaccurate for items of differing
+// dimensions. This includes scrolling by integer amounts if the current
+// l.Position.Offset is non-zero.
+func (l *List) ScrollBy(num float32) {
+	// Split number of items into integer and fractional parts
+	i, f := math.Modf(float64(num))
+
+	// Scroll by integer amount of items
+	l.Position.First += int(i)
+
+	// Adjust Offset to account for fractional items. If Offset gets so large that it amounts to an entire item, then
+	// the layout code will handle that for us and adjust First and Offset accordingly.
+	itemHeight := float64(l.Position.Length) / float64(l.len)
+	l.Position.Offset += int(math.Round(itemHeight * f))
+
+	// First and Offset can go out of bounds, but the layout code knows how to handle that.
+
+	// Ensure that the list pays attention to the Offset field when the scrollbar drag
+	// is started while the bar is at the end of the list. Without this, the scrollbar
+	// cannot be dragged away from the end.
+	l.Position.BeforeEnd = true
+}
+
+// ScrollTo scrolls to the specified item.
+func (l *List) ScrollTo(n int) {
+	l.Position.First = n
+	l.Position.Offset = 0
+	l.Position.BeforeEnd = true
 }

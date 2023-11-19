@@ -6,7 +6,7 @@ package app
 #include <Foundation/Foundation.h>
 
 __attribute__ ((visibility ("hidden"))) void gio_wakeupMainThread(void);
-__attribute__ ((visibility ("hidden"))) CFTypeRef gio_createDisplayLink(uintptr_t handle);
+__attribute__ ((visibility ("hidden"))) CFTypeRef gio_createDisplayLink(void);
 __attribute__ ((visibility ("hidden"))) void gio_releaseDisplayLink(CFTypeRef dl);
 __attribute__ ((visibility ("hidden"))) int gio_startDisplayLink(CFTypeRef dl);
 __attribute__ ((visibility ("hidden"))) int gio_stopDisplayLink(CFTypeRef dl);
@@ -42,7 +42,7 @@ static CFTypeRef newNSString(unichar *chars, NSUInteger length) {
 import "C"
 import (
 	"errors"
-	"runtime/cgo"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode/utf16"
@@ -69,6 +69,9 @@ type displayLink struct {
 	// with atomic.
 	running uint32
 }
+
+// displayLinks maps CFTypeRefs to *displayLinks.
+var displayLinks sync.Map
 
 var mainFuncs = make(chan func(), 1)
 
@@ -128,18 +131,18 @@ func NewDisplayLink(callback func()) (*displayLink, error) {
 		states:   make(chan bool),
 		dids:     make(chan uint64),
 	}
-	h := cgo.NewHandle(d)
-	dl := C.gio_createDisplayLink(C.uintptr_t(h))
+	dl := C.gio_createDisplayLink()
 	if dl == 0 {
 		return nil, errors.New("app: failed to create display link")
 	}
-	go d.run(dl, h)
+	go d.run(dl)
 	return d, nil
 }
 
-func (d *displayLink) run(dl C.CFTypeRef, h cgo.Handle) {
+func (d *displayLink) run(dl C.CFTypeRef) {
 	defer C.gio_releaseDisplayLink(dl)
-	defer h.Delete()
+	displayLinks.Store(dl, d)
+	defer displayLinks.Delete(dl)
 	var stopTimer *time.Timer
 	var tchan <-chan time.Time
 	started := false
@@ -200,10 +203,14 @@ func (d *displayLink) SetDisplayID(did uint64) {
 }
 
 //export gio_onFrameCallback
-func gio_onFrameCallback(dl C.CFTypeRef, handle C.uintptr_t) {
-	d := cgo.Handle(handle).Value().(*displayLink)
-	if atomic.LoadUint32(&d.running) != 0 {
-		d.callback()
+func gio_onFrameCallback(ref C.CFTypeRef) {
+	d, exists := displayLinks.Load(ref)
+	if !exists {
+		return
+	}
+	dl := d.(*displayLink)
+	if atomic.LoadUint32(&dl.running) != 0 {
+		dl.callback()
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"math/bits"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -58,6 +59,7 @@ type Texture struct {
 
 	width   int
 	height  int
+	mipmap  bool
 	foreign bool
 }
 
@@ -219,17 +221,33 @@ func (b *Backend) NewTexture(format driver.TextureFormat, width, height int, min
 	default:
 		return nil, fmt.Errorf("unsupported texture format %d", format)
 	}
+	bindFlags := convBufferBinding(bindings)
+	miscFlags := uint32(0)
+	mipmap := minFilter == driver.FilterLinearMipmapLinear
+	nmipmaps := 1
+	if mipmap {
+		// Flags required by ID3D11DeviceContext::GenerateMips.
+		bindFlags |= d3d11.BIND_SHADER_RESOURCE | d3d11.BIND_RENDER_TARGET
+		miscFlags |= d3d11.RESOURCE_MISC_GENERATE_MIPS
+		dim := width
+		if height > dim {
+			dim = height
+		}
+		log2 := 32 - bits.LeadingZeros32(uint32(dim)) - 1
+		nmipmaps = log2 + 1
+	}
 	tex, err := b.dev.CreateTexture2D(&d3d11.TEXTURE2D_DESC{
 		Width:     uint32(width),
 		Height:    uint32(height),
-		MipLevels: 1,
+		MipLevels: uint32(nmipmaps),
 		ArraySize: 1,
 		Format:    d3dfmt,
 		SampleDesc: d3d11.DXGI_SAMPLE_DESC{
 			Count:   1,
 			Quality: 0,
 		},
-		BindFlags: convBufferBinding(bindings),
+		BindFlags: bindFlags,
+		MiscFlags: miscFlags,
 	})
 	if err != nil {
 		return nil, err
@@ -247,6 +265,8 @@ func (b *Backend) NewTexture(format driver.TextureFormat, width, height int, min
 			filter = d3d11.FILTER_MIN_MAG_MIP_POINT
 		case minFilter == driver.FilterLinear && magFilter == driver.FilterLinear:
 			filter = d3d11.FILTER_MIN_MAG_LINEAR_MIP_POINT
+		case minFilter == driver.FilterLinearMipmapLinear && magFilter == driver.FilterLinear:
+			filter = d3d11.FILTER_MIN_MAG_MIP_LINEAR
 		default:
 			d3d11.IUnknownRelease(unsafe.Pointer(tex), tex.Vtbl.Release)
 			return nil, fmt.Errorf("unsupported texture filter combination %d, %d", minFilter, magFilter)
@@ -325,7 +345,7 @@ func (b *Backend) NewTexture(format driver.TextureFormat, width, height int, min
 			return nil, err
 		}
 	}
-	return &Texture{backend: b, format: d3dfmt, tex: tex, sampler: sampler, resView: resView, uaView: uaView, renderTarget: fbo, bindings: bindings, width: width, height: height}, nil
+	return &Texture{backend: b, format: d3dfmt, tex: tex, sampler: sampler, resView: resView, uaView: uaView, renderTarget: fbo, bindings: bindings, width: width, height: height, mipmap: mipmap}, nil
 }
 
 func (b *Backend) newInputLayout(vertexShader shader.Sources, layout []driver.InputDesc) (*d3d11.InputLayout, error) {
@@ -609,6 +629,9 @@ func (t *Texture) Upload(offset, size image.Point, pixels []byte, stride int) {
 	}
 	res := (*d3d11.Resource)(unsafe.Pointer(t.tex))
 	t.backend.ctx.UpdateSubresource(res, dst, uint32(stride), uint32(len(pixels)), pixels)
+	if t.mipmap {
+		t.backend.ctx.GenerateMips(t.resView)
+	}
 }
 
 func (t *Texture) Release() {

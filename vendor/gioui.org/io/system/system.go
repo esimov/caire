@@ -59,17 +59,24 @@ type StageEvent struct {
 type Stage uint8
 
 const (
-	// StagePaused is the Stage for inactive Windows.
-	// Inactive Windows don't receive FrameEvents.
+	// StagePaused is the stage for windows that have no on-screen representation.
+	// Paused windows don't receive FrameEvent.
 	StagePaused Stage = iota
-	// StateRunning is for active Windows.
+	// StageInactive is the stage for windows that are visible, but not active.
+	// Inactive windows receive FrameEvent.
+	StageInactive
+	// StageRunning is for active and visible Windows.
+	// Running windows receive FrameEvent.
 	StageRunning
 )
 
+// String implements fmt.Stringer.
 func (l Stage) String() string {
 	switch l {
 	case StagePaused:
 		return "StagePaused"
+	case StageInactive:
+		return "StageInactive"
 	case StageRunning:
 		return "StageRunning"
 	default:

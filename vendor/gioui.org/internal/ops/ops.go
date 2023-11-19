@@ -19,6 +19,17 @@ type Ops struct {
 	data []byte
 	// refs hold external references for operations.
 	refs []interface{}
+	// stringRefs provides space for string references, pointers to which will
+	// be stored in refs. Storing a string directly in refs would cause a heap
+	// allocation, to store the string header in an interface value. The backing
+	// array of stringRefs, on the other hand, gets reused between calls to
+	// reset, making string references free on average.
+	//
+	// Appending to stringRefs might reallocate the backing array, which will
+	// leave pointers to the old array in refs. This temporarily causes a slight
+	// increase in memory usage, but this, too, amortizes away as the capacity
+	// of stringRefs approaches its stable maximum.
+	stringRefs []string
 	// nextStateID is the id allocated for the next
 	// StateOp.
 	nextStateID int
@@ -40,9 +51,10 @@ const (
 	TypeMacro OpType = iota + firstOpIndex
 	TypeCall
 	TypeDefer
-	TypePushTransform
 	TypeTransform
 	TypePopTransform
+	TypePushOpacity
+	TypePopOpacity
 	TypeInvalidate
 	TypeImage
 	TypePaint
@@ -111,6 +123,7 @@ const (
 	ClipStack StackKind = iota
 	TransStack
 	PassStack
+	OpacityStack
 	_StackKind
 )
 
@@ -124,9 +137,10 @@ const (
 	TypeMacroLen            = 1 + 4 + 4
 	TypeCallLen             = 1 + 4 + 4 + 4 + 4
 	TypeDeferLen            = 1
-	TypePushTransformLen    = 1 + 4*6
 	TypeTransformLen        = 1 + 1 + 4*6
 	TypePopTransformLen     = 1
+	TypePushOpacityLen      = 1 + 4
+	TypePopOpacityLen       = 1
 	TypeRedrawLen           = 1 + 8
 	TypeImageLen            = 1
 	TypePaintLen            = 1
@@ -183,8 +197,12 @@ func Reset(o *Ops) {
 	for i := range o.refs {
 		o.refs[i] = nil
 	}
+	for i := range o.stringRefs {
+		o.stringRefs[i] = ""
+	}
 	o.data = o.data[:0]
 	o.refs = o.refs[:0]
+	o.stringRefs = o.stringRefs[:0]
 	o.nextStateID = 0
 	o.version++
 }
@@ -265,9 +283,23 @@ func Write1(o *Ops, n int, ref1 interface{}) []byte {
 	return o.data[len(o.data)-n:]
 }
 
+func Write1String(o *Ops, n int, ref1 string) []byte {
+	o.data = append(o.data, make([]byte, n)...)
+	o.stringRefs = append(o.stringRefs, ref1)
+	o.refs = append(o.refs, &o.stringRefs[len(o.stringRefs)-1])
+	return o.data[len(o.data)-n:]
+}
+
 func Write2(o *Ops, n int, ref1, ref2 interface{}) []byte {
 	o.data = append(o.data, make([]byte, n)...)
 	o.refs = append(o.refs, ref1, ref2)
+	return o.data[len(o.data)-n:]
+}
+
+func Write2String(o *Ops, n int, ref1 interface{}, ref2 string) []byte {
+	o.data = append(o.data, make([]byte, n)...)
+	o.stringRefs = append(o.stringRefs, ref2)
+	o.refs = append(o.refs, ref1, &o.stringRefs[len(o.stringRefs)-1])
 	return o.data[len(o.data)-n:]
 }
 
@@ -354,6 +386,14 @@ func DecodeTransform(data []byte) (t f32.Affine2D, push bool) {
 	return f32.NewAffine2D(a, b, c, d, e, f), push
 }
 
+func DecodeOpacity(data []byte) float32 {
+	if OpType(data[0]) != TypePushOpacity {
+		panic("invalid op")
+	}
+	bo := binary.LittleEndian
+	return math.Float32frombits(bo.Uint32(data[1:]))
+}
+
 // DecodeSave decodes the state id of a save op.
 func DecodeSave(data []byte) int {
 	if OpType(data[0]) != TypeSave {
@@ -381,9 +421,10 @@ var opProps = [0x100]opProp{
 	TypeMacro:            {Size: TypeMacroLen, NumRefs: 0},
 	TypeCall:             {Size: TypeCallLen, NumRefs: 1},
 	TypeDefer:            {Size: TypeDeferLen, NumRefs: 0},
-	TypePushTransform:    {Size: TypePushTransformLen, NumRefs: 0},
 	TypeTransform:        {Size: TypeTransformLen, NumRefs: 0},
 	TypePopTransform:     {Size: TypePopTransformLen, NumRefs: 0},
+	TypePushOpacity:      {Size: TypePushOpacityLen, NumRefs: 0},
+	TypePopOpacity:       {Size: TypePopOpacityLen, NumRefs: 0},
 	TypeInvalidate:       {Size: TypeRedrawLen, NumRefs: 0},
 	TypeImage:            {Size: TypeImageLen, NumRefs: 2},
 	TypePaint:            {Size: TypePaintLen, NumRefs: 0},
@@ -440,12 +481,14 @@ func (t OpType) String() string {
 		return "Call"
 	case TypeDefer:
 		return "Defer"
-	case TypePushTransform:
-		return "PushTransform"
 	case TypeTransform:
 		return "Transform"
 	case TypePopTransform:
 		return "PopTransform"
+	case TypePushOpacity:
+		return "PushOpacity"
+	case TypePopOpacity:
+		return "PopOpacity"
 	case TypeInvalidate:
 		return "Invalidate"
 	case TypeImage:

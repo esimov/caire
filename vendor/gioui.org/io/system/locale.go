@@ -34,6 +34,15 @@ func (d TextDirection) Progression() TextProgression {
 	return TextProgression((d & (1 << progressionShift)) >> progressionShift)
 }
 
+func (d TextDirection) String() string {
+	switch d {
+	case RTL:
+		return "RTL"
+	default:
+		return "LTR"
+	}
+}
+
 // TextAxis defines the layout axis of text.
 type TextAxis byte
 

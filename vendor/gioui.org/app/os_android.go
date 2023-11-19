@@ -154,7 +154,7 @@ type window struct {
 
 	dpi       int
 	fontScale float32
-	insets    image.Rectangle
+	insets    pixelInsets
 
 	stage     system.Stage
 	started   bool
@@ -193,6 +193,10 @@ var gioView struct {
 	restartInput       C.jmethodID
 	updateSelection    C.jmethodID
 	updateCaret        C.jmethodID
+}
+
+type pixelInsets struct {
+	top, bottom, left, right int
 }
 
 // ViewEvent is sent whenever the Window's underlying Android view
@@ -310,7 +314,7 @@ const (
 )
 
 func (w *window) NewContext() (context, error) {
-	funcs := []func(w *window) (context, error){newAndroidVulkanContext, newAndroidGLESContext}
+	funcs := []func(w *window) (context, error){newAndroidGLESContext, newAndroidVulkanContext}
 	var firstErr error
 	for _, f := range funcs {
 		if f == nil {
@@ -334,20 +338,6 @@ func (w *window) NewContext() (context, error) {
 func dataDir() (string, error) {
 	dataDirOnce.Do(func() {
 		dataPath = <-dataDirChan
-		// Set XDG_CACHE_HOME to make os.UserCacheDir work.
-		if _, exists := os.LookupEnv("XDG_CACHE_HOME"); !exists {
-			cachePath := filepath.Join(dataPath, "cache")
-			os.Setenv("XDG_CACHE_HOME", cachePath)
-		}
-		// Set XDG_CONFIG_HOME to make os.UserConfigDir work.
-		if _, exists := os.LookupEnv("XDG_CONFIG_HOME"); !exists {
-			cfgPath := filepath.Join(dataPath, "config")
-			os.Setenv("XDG_CONFIG_HOME", cfgPath)
-		}
-		// Set HOME to make os.UserHomeDir work.
-		if _, exists := os.LookupEnv("HOME"); !exists {
-			os.Setenv("HOME", dataPath)
-		}
 	})
 	return dataPath, nil
 }
@@ -385,6 +375,22 @@ func Java_org_gioui_Gio_runGoMain(env *C.JNIEnv, class C.jclass, jdataDir C.jbyt
 	}
 	n := C.jni_GetArrayLength(env, jdataDir)
 	dataDir := C.GoStringN((*C.char)(unsafe.Pointer(dirBytes)), n)
+
+	// Set XDG_CACHE_HOME to make os.UserCacheDir work.
+	if _, exists := os.LookupEnv("XDG_CACHE_HOME"); !exists {
+		cachePath := filepath.Join(dataDir, "cache")
+		os.Setenv("XDG_CACHE_HOME", cachePath)
+	}
+	// Set XDG_CONFIG_HOME to make os.UserConfigDir work.
+	if _, exists := os.LookupEnv("XDG_CONFIG_HOME"); !exists {
+		cfgPath := filepath.Join(dataDir, "config")
+		os.Setenv("XDG_CONFIG_HOME", cfgPath)
+	}
+	// Set HOME to make os.UserHomeDir work.
+	if _, exists := os.LookupEnv("HOME"); !exists {
+		os.Setenv("HOME", dataDir)
+	}
+
 	dataDirChan <- dataDir
 	C.jni_ReleaseByteArrayElements(env, jdataDir, dirBytes)
 
@@ -548,7 +554,7 @@ func Java_org_gioui_GioView_onLowMemory(env *C.JNIEnv, class C.jclass) {
 func Java_org_gioui_GioView_onConfigurationChanged(env *C.JNIEnv, class C.jclass, view C.jlong) {
 	w := cgo.Handle(view).Value().(*window)
 	w.loadConfig(env, class)
-	if w.stage >= system.StageRunning {
+	if w.stage >= system.StageInactive {
 		w.draw(env, true)
 	}
 }
@@ -559,7 +565,7 @@ func Java_org_gioui_GioView_onFrameCallback(env *C.JNIEnv, class C.jclass, view 
 	if !exist {
 		return
 	}
-	if w.stage < system.StageRunning {
+	if w.stage < system.StageInactive {
 		return
 	}
 	if w.animating {
@@ -586,8 +592,13 @@ func Java_org_gioui_GioView_onFocusChange(env *C.JNIEnv, class C.jclass, view C.
 //export Java_org_gioui_GioView_onWindowInsets
 func Java_org_gioui_GioView_onWindowInsets(env *C.JNIEnv, class C.jclass, view C.jlong, top, right, bottom, left C.jint) {
 	w := cgo.Handle(view).Value().(*window)
-	w.insets = image.Rect(int(left), int(top), int(right), int(bottom))
-	if w.stage >= system.StageRunning {
+	w.insets = pixelInsets{
+		top:    int(top),
+		bottom: int(bottom),
+		left:   int(left),
+		right:  int(right),
+	}
+	if w.stage >= system.StageInactive {
 		w.draw(env, true)
 	}
 }
@@ -827,10 +838,10 @@ func (w *window) draw(env *C.JNIEnv, sync bool) {
 	ppdp := float32(w.dpi) * inchPrDp
 	dppp := unit.Dp(1.0 / ppdp)
 	insets := system.Insets{
-		Top:    unit.Dp(w.insets.Min.Y) * dppp,
-		Bottom: unit.Dp(w.insets.Max.Y) * dppp,
-		Left:   unit.Dp(w.insets.Min.X) * dppp,
-		Right:  unit.Dp(w.insets.Max.X) * dppp,
+		Top:    unit.Dp(w.insets.top) * dppp,
+		Bottom: unit.Dp(w.insets.bottom) * dppp,
+		Left:   unit.Dp(w.insets.left) * dppp,
+		Right:  unit.Dp(w.insets.right) * dppp,
 	}
 	w.callbacks.Event(frameEvent{
 		FrameEvent: system.FrameEvent{
@@ -1053,6 +1064,12 @@ func Java_org_gioui_GioView_imeSnippetStart(env *C.JNIEnv, class C.jclass, handl
 //export Java_org_gioui_GioView_imeSetSnippet
 func Java_org_gioui_GioView_imeSetSnippet(env *C.JNIEnv, class C.jclass, handle C.jlong, start, end C.jint) {
 	w := cgo.Handle(handle).Value().(*window)
+	if start < 0 {
+		start = 0
+	}
+	if end < start {
+		end = start
+	}
 	r := key.Range{Start: int(start), End: int(end)}
 	w.callbacks.SetEditorSnippet(r)
 }
@@ -1135,6 +1152,7 @@ func (w *window) SetInputHint(mode key.InputHint) {
 		TYPE_CLASS_TEXT                   = 1
 		TYPE_TEXT_VARIATION_EMAIL_ADDRESS = 32
 		TYPE_TEXT_VARIATION_URI           = 16
+		TYPE_TEXT_VARIATION_PASSWORD      = 128
 		TYPE_TEXT_FLAG_CAP_SENTENCES      = 16384
 		TYPE_TEXT_FLAG_AUTO_CORRECT       = 32768
 
@@ -1158,6 +1176,8 @@ func (w *window) SetInputHint(mode key.InputHint) {
 			m = TYPE_CLASS_TEXT | TYPE_TEXT_VARIATION_URI
 		case key.HintTelephone:
 			m = TYPE_CLASS_PHONE
+		case key.HintPassword:
+			m = TYPE_CLASS_TEXT | TYPE_TEXT_VARIATION_PASSWORD
 		default:
 			m = TYPE_CLASS_TEXT
 		}

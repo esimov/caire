@@ -13,6 +13,8 @@ layout(push_constant) uniform Block {
 	vec4 uvCoverTransform;
 	vec4 uvTransformR1;
 	vec4 uvTransformR2;
+	// fbo is set if blitting to a FBO, otherwise the window.
+	float fbo;
 } _block;
 
 layout(location = 0) in vec2 pos;
@@ -24,7 +26,11 @@ layout(location = 1) out vec2 vUV;
 
 void main() {
 	vec2 p = vec2(pos*_block.transform.xy + _block.transform.zw);
-    gl_Position = vec4(transform3x2(windowTransform, vec3(p, 0)), 1);
+	if (_block.fbo != 0.0) {
+		gl_Position = vec4(transform3x2(fboTransform, vec3(p, 0)), 1);
+	} else {
+		gl_Position = vec4(transform3x2(windowTransform, vec3(p, 0)), 1);
+	}
 	vUV = transform3x2(m3x2(_block.uvTransformR1.xyz, _block.uvTransformR2.xyz), vec3(uv,1)).xy;
 	vec3 uv3 = vec3(uv, 1.0);
 	vCoverUV = (uv3*vec3(_block.uvCoverTransform.xy, 1.0)+vec3(_block.uvCoverTransform.zw, 0.0)).xy;

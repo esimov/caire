@@ -30,7 +30,7 @@ func (h ReadOp) Add(o *op.Ops) {
 }
 
 func (h WriteOp) Add(o *op.Ops) {
-	data := ops.Write1(&o.Internal, ops.TypeClipboardWriteLen, &h.Text)
+	data := ops.Write1String(&o.Internal, ops.TypeClipboardWriteLen, h.Text)
 	data[0] = byte(ops.TypeClipboardWrite)
 }
 

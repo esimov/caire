@@ -9,10 +9,11 @@ struct Gradient
 uniform Gradient _gradient;
 
 out vec4 fragColor;
+in float opacity;
 in vec2 vUV;
 
 void main()
 {
-    fragColor = mix(_gradient.color1, _gradient.color2, vec4(clamp(vUV.x, 0.0, 1.0)));
+    fragColor = mix(_gradient.color1, _gradient.color2, vec4(clamp(vUV.x, 0.0, 1.0))) * opacity;
 }
 

@@ -159,16 +159,30 @@ func (s *Scrollbar) AddDrag(ops *op.Ops) {
 	s.drag.Add(ops)
 }
 
-// IndicatorHovered returns whether the scroll indicator is currently being
+// IndicatorHovered reports whether the scroll indicator is currently being
 // hovered by the pointer.
 func (s *Scrollbar) IndicatorHovered() bool {
 	return s.indicator.Hovered()
+}
+
+// TrackHovered reports whether the scroll track is being hovered by the
+// pointer.
+func (s *Scrollbar) TrackHovered() bool {
+	return s.track.Hovered()
 }
 
 // ScrollDistance returns the normalized distance that the scrollbar
 // moved during the last call to Layout as a value in the range [-1,1].
 func (s *Scrollbar) ScrollDistance() float32 {
 	return s.delta
+}
+
+// Dragging reports whether the user is currently performing a drag gesture
+// on the indicator. Note that this can return false while ScrollDistance is nonzero
+// if the user scrolls using a different control than the scrollbar (like a mouse
+// wheel).
+func (s *Scrollbar) Dragging() bool {
+	return s.dragging
 }
 
 // List holds the persistent state for a layout.List that has a

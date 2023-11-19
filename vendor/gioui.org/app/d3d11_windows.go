@@ -20,7 +20,7 @@ type d3d11Context struct {
 	width, height int
 }
 
-const debug = false
+const debugDirectX = false
 
 func init() {
 	drivers = append(drivers, gpuAPI{
@@ -28,7 +28,7 @@ func init() {
 		initializer: func(w *window) (context, error) {
 			hwnd, _, _ := w.HWND()
 			var flags uint32
-			if debug {
+			if debugDirectX {
 				flags |= d3d11.CREATE_DEVICE_DEBUG
 			}
 			dev, ctx, _, err := d3d11.CreateDevice(
@@ -122,7 +122,7 @@ func (c *d3d11Context) Release() {
 		d3d11.IUnknownRelease(unsafe.Pointer(c.dev), c.dev.Vtbl.Release)
 	}
 	*c = d3d11Context{}
-	if debug {
+	if debugDirectX {
 		d3d11.ReportLiveObjects()
 	}
 }

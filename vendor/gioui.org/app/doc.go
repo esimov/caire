@@ -6,7 +6,7 @@ functionality for running graphical user interfaces.
 
 See https://gioui.org for instructions to set up and run Gio programs.
 
-Windows
+# Windows
 
 Create a new Window by calling NewWindow. On mobile platforms or when Gio
 is embedded in another project, NewWindow merely connects with a previously
@@ -34,7 +34,7 @@ For example:
 A program must keep receiving events from the event channel until
 DestroyEvent is received.
 
-Main
+# Main
 
 The Main function must be called from a program's main function, to hand over
 control of the main thread to operating systems that need it.
@@ -56,14 +56,13 @@ For example, to display a blank but otherwise functional window:
 		app.Main()
 	}
 
-
-Event queue
+# Event queue
 
 A FrameEvent's Queue method returns an event.Queue implementation that distributes
 incoming events to the event handlers declared in the last frame.
 See the gioui.org/io/event package for more information about event handlers.
 
-Permissions
+# Permissions
 
 The packages under gioui.org/app/permission should be imported
 by a Gio program or by one of its dependencies to indicate that specific

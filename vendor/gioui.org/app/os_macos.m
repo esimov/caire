@@ -45,11 +45,6 @@ __attribute__ ((visibility ("hidden"))) CALayer *gio_layerFactory(void);
 	NSWindow *window = (NSWindow *)[notification object];
 	gio_onFocus((__bridge CFTypeRef)window.contentView, 0);
 }
-- (void)windowWillClose:(NSNotification *)notification {
-	NSWindow *window = (NSWindow *)[notification object];
-	window.delegate = nil;
-	gio_onClose((__bridge CFTypeRef)window.contentView);
-}
 @end
 
 static void handleMouse(NSView *view, NSEvent *event, int typ, CGFloat dx, CGFloat dy) {
@@ -86,16 +81,15 @@ static void handleMouse(NSView *view, NSEvent *event, int typ, CGFloat dx, CGFlo
 	layer.delegate = self;
 	return layer;
 }
+- (void)viewDidMoveToWindow {
+	if (self.window == nil) {
+		gio_onClose((__bridge CFTypeRef)self);
+	}
+}
 - (void)mouseDown:(NSEvent *)event {
 	handleMouse(self, event, MOUSE_DOWN, 0, 0);
 }
 - (void)mouseUp:(NSEvent *)event {
-	handleMouse(self, event, MOUSE_UP, 0, 0);
-}
-- (void)middleMouseDown:(NSEvent *)event {
-	handleMouse(self, event, MOUSE_DOWN, 0, 0);
-}
-- (void)middletMouseUp:(NSEvent *)event {
 	handleMouse(self, event, MOUSE_UP, 0, 0);
 }
 - (void)rightMouseDown:(NSEvent *)event {
@@ -104,10 +98,22 @@ static void handleMouse(NSView *view, NSEvent *event, int typ, CGFloat dx, CGFlo
 - (void)rightMouseUp:(NSEvent *)event {
 	handleMouse(self, event, MOUSE_UP, 0, 0);
 }
+- (void)otherMouseDown:(NSEvent *)event {
+	handleMouse(self, event, MOUSE_DOWN, 0, 0);
+}
+- (void)otherMouseUp:(NSEvent *)event {
+	handleMouse(self, event, MOUSE_UP, 0, 0);
+}
 - (void)mouseMoved:(NSEvent *)event {
 	handleMouse(self, event, MOUSE_MOVE, 0, 0);
 }
 - (void)mouseDragged:(NSEvent *)event {
+	handleMouse(self, event, MOUSE_MOVE, 0, 0);
+}
+- (void)rightMouseDragged:(NSEvent *)event {
+	handleMouse(self, event, MOUSE_MOVE, 0, 0);
+}
+- (void)otherMouseDragged:(NSEvent *)event {
 	handleMouse(self, event, MOUSE_MOVE, 0, 0);
 }
 - (void)scrollWheel:(NSEvent *)event {
@@ -193,14 +199,14 @@ static void handleMouse(NSView *view, NSEvent *event, int typ, CGFloat dx, CGFlo
 static GioWindowDelegate *globalWindowDel;
 
 static CVReturn displayLinkCallback(CVDisplayLinkRef dl, const CVTimeStamp *inNow, const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *handle) {
-	gio_onFrameCallback(dl, (uintptr_t)handle);
+	gio_onFrameCallback(dl);
 	return kCVReturnSuccess;
 }
 
-CFTypeRef gio_createDisplayLink(uintptr_t handle) {
+CFTypeRef gio_createDisplayLink(void) {
 	CVDisplayLinkRef dl;
 	CVDisplayLinkCreateWithActiveCGDisplays(&dl);
-	CVDisplayLinkSetOutputCallback(dl, displayLinkCallback, (void *)(handle));
+	CVDisplayLinkSetOutputCallback(dl, displayLinkCallback, nil);
 	return dl;
 }
 
@@ -357,7 +363,6 @@ CFTypeRef gio_createWindow(CFTypeRef viewRef, CGFloat width, CGFloat height, CGF
 		NSView *view = (__bridge NSView *)viewRef;
 		[window setContentView:view];
 		[window makeFirstResponder:view];
-		window.releasedWhenClosed = NO;
 		window.delegate = globalWindowDel;
 		return (__bridge_retained CFTypeRef)window;
 	}

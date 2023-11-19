@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math/bits"
 
 	"gioui.org/gpu/internal/driver"
 	"gioui.org/internal/vk"
@@ -75,6 +76,7 @@ type Texture struct {
 	sampler    vk.Sampler
 	fbo        vk.Framebuffer
 	format     vk.Format
+	mipmaps    int
 	layout     vk.ImageLayout
 	passLayout vk.ImageLayout
 	width      int
@@ -155,7 +157,7 @@ func newVulkanDevice(api driver.Vulkan) (driver.Device, error) {
 	if props&reqs == reqs {
 		b.caps |= driver.FeatureFloatRenderTargets
 	}
-	reqs = vk.FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT | vk.FORMAT_FEATURE_SAMPLED_IMAGE_BIT
+	reqs = vk.FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT | vk.FORMAT_FEATURE_SAMPLED_IMAGE_BIT | vk.FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
 	props = vk.GetPhysicalDeviceFormatProperties(b.physDev, vk.FORMAT_R8G8B8A8_SRGB)
 	if props&reqs == reqs {
 		b.caps |= driver.FeatureSRGB
@@ -292,19 +294,31 @@ func (b *Backend) NewTexture(format driver.TextureFormat, width, height int, min
 		usage |= vk.IMAGE_USAGE_STORAGE_BIT
 	}
 	filterFor := func(f driver.TextureFilter) vk.Filter {
-		switch minFilter {
-		case driver.FilterLinear:
+		switch f {
+		case driver.FilterLinear, driver.FilterLinearMipmapLinear:
 			return vk.FILTER_LINEAR
 		case driver.FilterNearest:
 			return vk.FILTER_NEAREST
 		}
 		panic("unknown filter")
 	}
-	sampler, err := vk.CreateSampler(b.dev, filterFor(minFilter), filterFor(magFilter))
+	mipmapMode := vk.SAMPLER_MIPMAP_MODE_NEAREST
+	mipmap := minFilter == driver.FilterLinearMipmapLinear
+	nmipmaps := 1
+	if mipmap {
+		mipmapMode = vk.SAMPLER_MIPMAP_MODE_LINEAR
+		dim := width
+		if height > dim {
+			dim = height
+		}
+		log2 := 32 - bits.LeadingZeros32(uint32(dim)) - 1
+		nmipmaps = log2 + 1
+	}
+	sampler, err := vk.CreateSampler(b.dev, filterFor(minFilter), filterFor(magFilter), mipmapMode)
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	img, mem, err := vk.CreateImage(b.physDev, b.dev, vkfmt, width, height, usage)
+	img, mem, err := vk.CreateImage(b.physDev, b.dev, vkfmt, width, height, nmipmaps, usage)
 	if err != nil {
 		vk.DestroySampler(b.dev, sampler)
 		return nil, mapErr(err)
@@ -316,7 +330,7 @@ func (b *Backend) NewTexture(format driver.TextureFormat, width, height int, min
 		vk.FreeMemory(b.dev, mem)
 		return nil, mapErr(err)
 	}
-	t := &Texture{backend: b, img: img, mem: mem, view: view, sampler: sampler, layout: vk.IMAGE_LAYOUT_UNDEFINED, passLayout: passLayout, width: width, height: height, format: vkfmt}
+	t := &Texture{backend: b, img: img, mem: mem, view: view, sampler: sampler, layout: vk.IMAGE_LAYOUT_UNDEFINED, passLayout: passLayout, width: width, height: height, format: vkfmt, mipmaps: nmipmaps}
 	if bindings&driver.BufferBindingFramebuffer != 0 {
 		pass, err := vk.CreateRenderPass(b.dev, vkfmt, vk.ATTACHMENT_LOAD_OP_DONT_CARE,
 			vk.IMAGE_LAYOUT_UNDEFINED, vk.IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nil)
@@ -646,6 +660,40 @@ func (t *Texture) Upload(offset, size image.Point, pixels []byte, stride int) {
 		vk.ACCESS_TRANSFER_WRITE_BIT,
 	)
 	vk.CmdCopyBufferToImage(cmdBuf, stage.buf, t.img, t.layout, op)
+	// Build mipmaps by repeating linear blits.
+	w, h := t.width, t.height
+	for i := 1; i < t.mipmaps; i++ {
+		nw, nh := w/2, h/2
+		if nh < 1 {
+			nh = 1
+		}
+		if nw < 1 {
+			nw = 1
+		}
+		// Transition previous (source) level.
+		b := vk.BuildImageMemoryBarrier(
+			t.img,
+			vk.ACCESS_TRANSFER_WRITE_BIT, vk.ACCESS_TRANSFER_READ_BIT,
+			vk.IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vk.IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			i-1, 1,
+		)
+		vk.CmdPipelineBarrier(cmdBuf, vk.PIPELINE_STAGE_TRANSFER_BIT, vk.PIPELINE_STAGE_TRANSFER_BIT, vk.DEPENDENCY_BY_REGION_BIT, nil, nil, []vk.ImageMemoryBarrier{b})
+		// Blit to this mipmap level.
+		blit := vk.BuildImageBlit(0, 0, 0, 0, w, h, nw, nh, i-1, i)
+		vk.CmdBlitImage(cmdBuf, t.img, vk.IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, t.img, vk.IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, []vk.ImageBlit{blit}, vk.FILTER_LINEAR)
+		w, h = nw, nh
+	}
+	if t.mipmaps > 1 {
+		// Add barrier for last blit.
+		b := vk.BuildImageMemoryBarrier(
+			t.img,
+			vk.ACCESS_TRANSFER_WRITE_BIT, vk.ACCESS_TRANSFER_READ_BIT,
+			vk.IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vk.IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			t.mipmaps-1, 1,
+		)
+		vk.CmdPipelineBarrier(cmdBuf, vk.PIPELINE_STAGE_TRANSFER_BIT, vk.PIPELINE_STAGE_TRANSFER_BIT, vk.DEPENDENCY_BY_REGION_BIT, nil, nil, []vk.ImageMemoryBarrier{b})
+		t.layout = vk.IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+	}
 }
 
 func (t *Texture) Release() {
@@ -756,6 +804,7 @@ func (t *Texture) imageBarrier(cmdBuf vk.CommandBuffer, layout vk.ImageLayout, s
 		t.img,
 		t.scope.access, access,
 		t.layout, layout,
+		0, vk.REMAINING_MIP_LEVELS,
 	)
 	vk.CmdPipelineBarrier(cmdBuf, srcStage, stage, vk.DEPENDENCY_BY_REGION_BIT, nil, nil, []vk.ImageMemoryBarrier{b})
 	t.layout = layout

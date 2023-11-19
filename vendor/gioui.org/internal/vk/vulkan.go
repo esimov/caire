@@ -303,6 +303,10 @@ static VkResult vkResetDescriptorPool(PFN_vkResetDescriptorPool f, VkDevice devi
 	return f(device, descriptorPool, flags);
 }
 
+static void vkCmdBlitImage(PFN_vkCmdBlitImage f, VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageBlit* pRegions, VkFilter filter) {
+	f(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
+}
+
 static void vkCmdCopyImage(PFN_vkCmdCopyImage f, VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageCopy *pRegions) {
 	f(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
@@ -415,6 +419,7 @@ type (
 	Queue                 = C.VkQueue
 	IndexType             = C.VkIndexType
 	Image                 = C.VkImage
+	ImageBlit             = C.VkImageBlit
 	ImageCopy             = C.VkImageCopy
 	ImageLayout           = C.VkImageLayout
 	ImageMemoryBarrier    = C.VkImageMemoryBarrier
@@ -482,9 +487,10 @@ const (
 	FORMAT_R32G32B32_SFLOAT    Format = C.VK_FORMAT_R32G32B32_SFLOAT
 	FORMAT_R32G32B32A32_SFLOAT Format = C.VK_FORMAT_R32G32B32A32_SFLOAT
 
-	FORMAT_FEATURE_COLOR_ATTACHMENT_BIT       FormatFeatureFlags = C.VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT
-	FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT FormatFeatureFlags = C.VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT
-	FORMAT_FEATURE_SAMPLED_IMAGE_BIT          FormatFeatureFlags = C.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
+	FORMAT_FEATURE_COLOR_ATTACHMENT_BIT            FormatFeatureFlags = C.VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT
+	FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT      FormatFeatureFlags = C.VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT
+	FORMAT_FEATURE_SAMPLED_IMAGE_BIT               FormatFeatureFlags = C.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
+	FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT FormatFeatureFlags = C.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
 
 	IMAGE_USAGE_SAMPLED_BIT          ImageUsageFlags = C.VK_IMAGE_USAGE_SAMPLED_BIT
 	IMAGE_USAGE_COLOR_ATTACHMENT_BIT ImageUsageFlags = C.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
@@ -574,6 +580,11 @@ const (
 
 	QUEUE_GRAPHICS_BIT QueueFlags = C.VK_QUEUE_GRAPHICS_BIT
 	QUEUE_COMPUTE_BIT  QueueFlags = C.VK_QUEUE_COMPUTE_BIT
+
+	SAMPLER_MIPMAP_MODE_NEAREST SamplerMipmapMode = C.VK_SAMPLER_MIPMAP_MODE_NEAREST
+	SAMPLER_MIPMAP_MODE_LINEAR  SamplerMipmapMode = C.VK_SAMPLER_MIPMAP_MODE_LINEAR
+
+	REMAINING_MIP_LEVELS = -1
 )
 
 var (
@@ -654,6 +665,7 @@ var funcs struct {
 	vkFreeDescriptorSets                     C.PFN_vkFreeDescriptorSets
 	vkUpdateDescriptorSets                   C.PFN_vkUpdateDescriptorSets
 	vkResetDescriptorPool                    C.PFN_vkResetDescriptorPool
+	vkCmdBlitImage                           C.PFN_vkCmdBlitImage
 	vkCmdCopyImage                           C.PFN_vkCmdCopyImage
 	vkCreateComputePipelines                 C.PFN_vkCreateComputePipelines
 	vkCreateFence                            C.PFN_vkCreateFence
@@ -794,6 +806,7 @@ func vkInit() error {
 		funcs.vkFreeDescriptorSets = must("vkFreeDescriptorSets")
 		funcs.vkUpdateDescriptorSets = must("vkUpdateDescriptorSets")
 		funcs.vkResetDescriptorPool = must("vkResetDescriptorPool")
+		funcs.vkCmdBlitImage = must("vkCmdBlitImage")
 		funcs.vkCmdCopyImage = must("vkCmdCopyImage")
 		funcs.vkCreateComputePipelines = must("vkCreateComputePipelines")
 		funcs.vkCreateFence = must("vkCreateFence")
@@ -1376,6 +1389,13 @@ func CmdBindDescriptorSets(cmdBuf CommandBuffer, point PipelineBindPoint, layout
 	C.vkCmdBindDescriptorSets(funcs.vkCmdBindDescriptorSets, cmdBuf, point, layout, C.uint32_t(firstSet), C.uint32_t(len(sets)), &sets[0], 0, nil)
 }
 
+func CmdBlitImage(cmdBuf CommandBuffer, src Image, srcLayout ImageLayout, dst Image, dstLayout ImageLayout, regions []ImageBlit, filter Filter) {
+	if len(regions) == 0 {
+		return
+	}
+	C.vkCmdBlitImage(funcs.vkCmdBlitImage, cmdBuf, src, srcLayout, dst, dstLayout, C.uint32_t(len(regions)), &regions[0], filter)
+}
+
 func CmdCopyImage(cmdBuf CommandBuffer, src Image, srcLayout ImageLayout, dst Image, dstLayout ImageLayout, regions []ImageCopy) {
 	if len(regions) == 0 {
 		return
@@ -1394,7 +1414,7 @@ func CmdDispatch(cmdBuf CommandBuffer, x, y, z int) {
 	C.vkCmdDispatch(funcs.vkCmdDispatch, cmdBuf, C.uint32_t(x), C.uint32_t(y), C.uint32_t(z))
 }
 
-func CreateImage(pd PhysicalDevice, d Device, format Format, width, height int, usage ImageUsageFlags) (Image, DeviceMemory, error) {
+func CreateImage(pd PhysicalDevice, d Device, format Format, width, height, mipmaps int, usage ImageUsageFlags) (Image, DeviceMemory, error) {
 	inf := C.VkImageCreateInfo{
 		sType:     C.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		imageType: C.VK_IMAGE_TYPE_2D,
@@ -1404,7 +1424,7 @@ func CreateImage(pd PhysicalDevice, d Device, format Format, width, height int, 
 			height: C.uint32_t(height),
 			depth:  1,
 		},
-		mipLevels:     1,
+		mipLevels:     C.uint32_t(mipmaps),
 		arrayLayers:   1,
 		samples:       C.VK_SAMPLE_COUNT_1_BIT,
 		tiling:        C.VK_IMAGE_TILING_OPTIMAL,
@@ -1451,11 +1471,13 @@ func FreeMemory(d Device, mem DeviceMemory) {
 	C.vkFreeMemory(funcs.vkFreeMemory, d, mem, nil)
 }
 
-func CreateSampler(d Device, minFilter, magFilter Filter) (Sampler, error) {
+func CreateSampler(d Device, minFilter, magFilter Filter, mipmapMode SamplerMipmapMode) (Sampler, error) {
 	inf := C.VkSamplerCreateInfo{
 		sType:        C.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 		minFilter:    minFilter,
 		magFilter:    magFilter,
+		mipmapMode:   mipmapMode,
+		maxLod:       C.VK_LOD_CLAMP_NONE,
 		addressModeU: C.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 		addressModeV: C.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 	}
@@ -1905,7 +1927,7 @@ func BuildViewport(x, y, width, height float32) Viewport {
 	}
 }
 
-func BuildImageMemoryBarrier(img Image, srcMask, dstMask AccessFlags, oldLayout, newLayout ImageLayout) ImageMemoryBarrier {
+func BuildImageMemoryBarrier(img Image, srcMask, dstMask AccessFlags, oldLayout, newLayout ImageLayout, baseMip, numMips int) ImageMemoryBarrier {
 	return C.VkImageMemoryBarrier{
 		sType:         C.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		srcAccessMask: srcMask,
@@ -1914,9 +1936,10 @@ func BuildImageMemoryBarrier(img Image, srcMask, dstMask AccessFlags, oldLayout,
 		newLayout:     newLayout,
 		image:         img,
 		subresourceRange: C.VkImageSubresourceRange{
-			aspectMask: C.VK_IMAGE_ASPECT_COLOR_BIT,
-			levelCount: C.VK_REMAINING_MIP_LEVELS,
-			layerCount: C.VK_REMAINING_ARRAY_LAYERS,
+			aspectMask:   C.VK_IMAGE_ASPECT_COLOR_BIT,
+			baseMipLevel: C.uint32_t(baseMip),
+			levelCount:   C.uint32_t(numMips),
+			layerCount:   C.VK_REMAINING_ARRAY_LAYERS,
 		},
 	}
 }
@@ -1978,6 +2001,29 @@ func BuildImageCopy(srcX, srcY, dstX, dstY, width, height int) ImageCopy {
 			width:  C.uint32_t(width),
 			height: C.uint32_t(height),
 			depth:  1,
+		},
+	}
+}
+
+func BuildImageBlit(srcX, srcY, dstX, dstY, srcWidth, srcHeight, dstWidth, dstHeight, srcMip, dstMip int) ImageBlit {
+	return C.VkImageBlit{
+		srcOffsets: [2]C.VkOffset3D{
+			{C.int32_t(srcX), C.int32_t(srcY), 0},
+			{C.int32_t(srcWidth), C.int32_t(srcHeight), 1},
+		},
+		srcSubresource: C.VkImageSubresourceLayers{
+			aspectMask: C.VK_IMAGE_ASPECT_COLOR_BIT,
+			layerCount: 1,
+			mipLevel:   C.uint32_t(srcMip),
+		},
+		dstOffsets: [2]C.VkOffset3D{
+			{C.int32_t(dstX), C.int32_t(dstY), 0},
+			{C.int32_t(dstWidth), C.int32_t(dstHeight), 1},
+		},
+		dstSubresource: C.VkImageSubresourceLayers{
+			aspectMask: C.VK_IMAGE_ASPECT_COLOR_BIT,
+			layerCount: 1,
+			mipLevel:   C.uint32_t(dstMip),
 		},
 	}
 }

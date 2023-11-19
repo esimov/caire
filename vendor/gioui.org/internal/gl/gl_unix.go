@@ -72,6 +72,7 @@ typedef void (*_glFlush)(void);
 typedef void (*_glFramebufferRenderbuffer)(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
 typedef void (*_glFramebufferTexture2D)(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
 typedef void (*_glGenBuffers)(GLsizei n, GLuint *buffers);
+typedef void (*_glGenerateMipmap)(GLenum target);
 typedef void (*_glGenFramebuffers)(GLsizei n, GLuint *framebuffers);
 typedef void (*_glGenRenderbuffers)(GLsizei n, GLuint *renderbuffers);
 typedef void (*_glGenTextures)(GLsizei n, GLuint *textures);
@@ -284,6 +285,10 @@ static void glFramebufferTexture2D(_glFramebufferTexture2D f, GLenum target, GLe
 
 static void glGenBuffers(_glGenBuffers f, GLsizei n, GLuint *buffers) {
 	f(n, buffers);
+}
+
+static void glGenerateMipmap(_glGenerateMipmap f, GLenum target) {
+	f(target);
 }
 
 static void glGenFramebuffers(_glGenFramebuffers f, GLsizei n, GLuint *framebuffers) {
@@ -561,6 +566,7 @@ type Functions struct {
 	glFramebufferRenderbuffer             C._glFramebufferRenderbuffer
 	glFramebufferTexture2D                C._glFramebufferTexture2D
 	glGenBuffers                          C._glGenBuffers
+	glGenerateMipmap                      C._glGenerateMipmap
 	glGenFramebuffers                     C._glGenFramebuffers
 	glGenRenderbuffers                    C._glGenRenderbuffers
 	glGenTextures                         C._glGenTextures
@@ -723,6 +729,7 @@ func (f *Functions) load(forceES bool) error {
 	f.glFramebufferRenderbuffer = must("glFramebufferRenderbuffer")
 	f.glFramebufferTexture2D = must("glFramebufferTexture2D")
 	f.glGenBuffers = must("glGenBuffers")
+	f.glGenerateMipmap = must("glGenerateMipmap")
 	f.glGenFramebuffers = must("glGenFramebuffers")
 	f.glGenRenderbuffers = must("glGenRenderbuffers")
 	f.glGenTextures = must("glGenTextures")
@@ -1046,6 +1053,10 @@ func (f *Functions) FramebufferRenderbuffer(target, attachment, renderbuffertarg
 
 func (f *Functions) FramebufferTexture2D(target, attachment, texTarget Enum, t Texture, level int) {
 	C.glFramebufferTexture2D(f.glFramebufferTexture2D, C.GLenum(target), C.GLenum(attachment), C.GLenum(texTarget), C.GLuint(t.V), C.GLint(level))
+}
+
+func (f *Functions) GenerateMipmap(target Enum) {
+	C.glGenerateMipmap(f.glGenerateMipmap, C.GLenum(target))
 }
 
 func (c *Functions) GetBinding(pname Enum) Object {

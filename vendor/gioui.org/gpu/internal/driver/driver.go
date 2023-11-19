@@ -166,6 +166,7 @@ const (
 const (
 	FilterNearest TextureFilter = iota
 	FilterLinear
+	FilterLinearMipmapLinear
 )
 
 const (

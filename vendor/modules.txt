@@ -1,13 +1,13 @@
-# gioui.org v0.0.0-20220801181544-dbbae0519e24
-## explicit; go 1.17
+# gioui.org v0.3.1
+## explicit; go 1.19
 gioui.org/app
 gioui.org/app/internal/log
 gioui.org/app/internal/windows
 gioui.org/app/internal/xkb
 gioui.org/f32
+gioui.org/font
 gioui.org/font/gofont
 gioui.org/font/opentype
-gioui.org/font/opentype/internal
 gioui.org/gesture
 gioui.org/gpu
 gioui.org/gpu/internal/d3d11
@@ -18,6 +18,7 @@ gioui.org/gpu/internal/vulkan
 gioui.org/internal/byteslice
 gioui.org/internal/cocoainit
 gioui.org/internal/d3d11
+gioui.org/internal/debug
 gioui.org/internal/egl
 gioui.org/internal/f32
 gioui.org/internal/f32color
@@ -47,24 +48,11 @@ gioui.org/widget/material
 # gioui.org/cpu v0.0.0-20210817075930-8d6a761490d2
 ## explicit; go 1.17
 gioui.org/cpu
-# gioui.org/shader v1.0.6
+# gioui.org/shader v1.0.8
 ## explicit; go 1.16
 gioui.org/shader
 gioui.org/shader/gio
 gioui.org/shader/piet
-# github.com/benoitkugler/textlayout v0.1.1
-## explicit; go 1.17
-github.com/benoitkugler/textlayout/fonts
-github.com/benoitkugler/textlayout/fonts/binaryreader
-github.com/benoitkugler/textlayout/fonts/glyphsnames
-github.com/benoitkugler/textlayout/fonts/psinterpreter
-github.com/benoitkugler/textlayout/fonts/simpleencodings
-github.com/benoitkugler/textlayout/fonts/truetype
-github.com/benoitkugler/textlayout/fonts/type1C
-github.com/benoitkugler/textlayout/graphite
-github.com/benoitkugler/textlayout/harfbuzz
-github.com/benoitkugler/textlayout/language
-github.com/benoitkugler/textlayout/unicodedata
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -74,37 +62,42 @@ github.com/disintegration/imaging
 # github.com/esimov/pigo v1.4.5
 ## explicit; go 1.12
 github.com/esimov/pigo/core
-# github.com/gioui/uax v0.2.1-0.20220325163150-e3d987515a12
-## explicit; go 1.16
-github.com/gioui/uax
-github.com/gioui/uax/internal/tracing
-github.com/gioui/uax/segment
-github.com/gioui/uax/uax14
-# github.com/go-text/typesetting v0.0.0-20220411150340-35994bc27a7b
-## explicit; go 1.15
+# github.com/go-text/typesetting v0.0.0-20230803102845-24e03d8b5372
+## explicit; go 1.17
 github.com/go-text/typesetting/di
 github.com/go-text/typesetting/font
+github.com/go-text/typesetting/fontscan
+github.com/go-text/typesetting/harfbuzz
 github.com/go-text/typesetting/language
+github.com/go-text/typesetting/opentype/api
+github.com/go-text/typesetting/opentype/api/font
+github.com/go-text/typesetting/opentype/api/font/cff
+github.com/go-text/typesetting/opentype/api/font/cff/interpreter
+github.com/go-text/typesetting/opentype/api/metadata
+github.com/go-text/typesetting/opentype/loader
+github.com/go-text/typesetting/opentype/tables
+github.com/go-text/typesetting/segmenter
 github.com/go-text/typesetting/shaping
+github.com/go-text/typesetting/unicodedata
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
+# golang.org/x/exp v0.0.0-20221012211006-4de253d81b95
 ## explicit; go 1.18
 golang.org/x/exp/constraints
-# golang.org/x/exp/shiny v0.0.0-20220722155223-a9213eeb770e
+golang.org/x/exp/slices
+# golang.org/x/exp/shiny v0.0.0-20220827204233-334a2380cb91
 ## explicit; go 1.18
 golang.org/x/exp/shiny/iconvg
 golang.org/x/exp/shiny/iconvg/internal/gradient
 golang.org/x/exp/shiny/materialdesign/icons
-# golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
+# golang.org/x/image v0.5.0
 ## explicit; go 1.12
 golang.org/x/image/bmp
 golang.org/x/image/ccitt
-golang.org/x/image/font
 golang.org/x/image/font/gofont/gobold
 golang.org/x/image/font/gofont/gobolditalic
 golang.org/x/image/font/gofont/goitalic
@@ -123,7 +116,7 @@ golang.org/x/image/math/fixed
 golang.org/x/image/tiff
 golang.org/x/image/tiff/lzw
 golang.org/x/image/vector
-# golang.org/x/sys v0.0.0-20211019181941-9d821ace8654
+# golang.org/x/sys v0.0.0-20220825204002-c680a09ffe64
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
@@ -132,17 +125,11 @@ golang.org/x/sys/windows
 # golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
 ## explicit; go 1.17
 golang.org/x/term
-# golang.org/x/text v0.3.7
+# golang.org/x/text v0.7.0
 ## explicit; go 1.17
-golang.org/x/text/encoding
-golang.org/x/text/encoding/charmap
-golang.org/x/text/encoding/internal
-golang.org/x/text/encoding/internal/identifier
-golang.org/x/text/encoding/unicode
-golang.org/x/text/internal/utf8internal
 golang.org/x/text/runes
 golang.org/x/text/transform
-golang.org/x/text/unicode/rangetable
+golang.org/x/text/unicode/bidi
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3

@@ -3,7 +3,7 @@
 /*
 Package layout implements layouts common to GUI programs.
 
-Constraints and dimensions
+# Constraints and dimensions
 
 Constraints and dimensions form the interface between layouts and
 interface child elements. This package operates on Widgets, functions
@@ -45,6 +45,5 @@ This example both aligns and insets a child:
 
 More complex layouts such as Stack and Flex lay out multiple children,
 and stateful layouts such as List accept user input.
-
 */
 package layout

@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"math"
 
+	"gioui.org/font"
 	"gioui.org/internal/f32color"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
@@ -22,13 +23,13 @@ type ButtonStyle struct {
 	Text string
 	// Color is the text color.
 	Color        color.NRGBA
-	Font         text.Font
+	Font         font.Font
 	TextSize     unit.Sp
 	Background   color.NRGBA
 	CornerRadius unit.Dp
 	Inset        layout.Inset
 	Button       *widget.Clickable
-	shaper       text.Shaper
+	shaper       *text.Shaper
 }
 
 type ButtonLayoutStyle struct {
@@ -50,7 +51,7 @@ type IconButtonStyle struct {
 }
 
 func Button(th *Theme, button *widget.Clickable, txt string) ButtonStyle {
-	return ButtonStyle{
+	b := ButtonStyle{
 		Text:         txt,
 		Color:        th.Palette.ContrastFg,
 		CornerRadius: 4,
@@ -63,6 +64,8 @@ func Button(th *Theme, button *widget.Clickable, txt string) ButtonStyle {
 		Button: button,
 		shaper: th.Shaper,
 	}
+	b.Font.Typeface = th.Face
+	return b
 }
 
 func ButtonLayout(th *Theme, button *widget.Clickable) ButtonLayoutStyle {
@@ -117,8 +120,9 @@ func (b ButtonStyle) Layout(gtx layout.Context) layout.Dimensions {
 		Button:       b.Button,
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return b.Inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			colMacro := op.Record(gtx.Ops)
 			paint.ColorOp{Color: b.Color}.Add(gtx.Ops)
-			return widget.Label{Alignment: text.Middle}.Layout(gtx, b.shaper, b.Font, b.TextSize, b.Text)
+			return widget.Label{Alignment: text.Middle}.Layout(gtx, b.shaper, b.Font, b.TextSize, b.Text, colMacro.Stop())
 		})
 	})
 }

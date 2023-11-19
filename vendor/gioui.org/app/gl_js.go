@@ -13,6 +13,7 @@ import (
 type glContext struct {
 	ctx js.Value
 	cnv js.Value
+	w   *window
 }
 
 func newContext(w *window) (*glContext, error) {
@@ -32,11 +33,15 @@ func newContext(w *window) (*glContext, error) {
 	c := &glContext{
 		ctx: ctx,
 		cnv: w.cnv,
+		w:   w,
 	}
 	return c, nil
 }
 
 func (c *glContext) RenderTarget() (gpu.RenderTarget, error) {
+	if c.w.contextStatus != contextStatusOkay {
+		return nil, gpu.ErrDeviceLost
+	}
 	return gpu.OpenGLRenderTarget{}, nil
 }
 
@@ -48,9 +53,6 @@ func (c *glContext) Release() {
 }
 
 func (c *glContext) Present() error {
-	if c.ctx.Call("isContextLost").Bool() {
-		return errors.New("context lost")
-	}
 	return nil
 }
 
@@ -61,7 +63,15 @@ func (c *glContext) Lock() error {
 func (c *glContext) Unlock() {}
 
 func (c *glContext) Refresh() error {
-	return nil
+	switch c.w.contextStatus {
+	case contextStatusLost:
+		return errOutOfDate
+	case contextStatusRestored:
+		c.w.contextStatus = contextStatusOkay
+		return gpu.ErrDeviceLost
+	default:
+		return nil
+	}
 }
 
 func (w *window) NewContext() (context, error) {

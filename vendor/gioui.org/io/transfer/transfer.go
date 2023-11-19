@@ -2,11 +2,11 @@
 //
 // The transfer protocol is as follows:
 //
-//  - Data sources are registered with SourceOps, data targets with TargetOps.
-//  - A data source receives a RequestEvent when a transfer is initiated.
-//    It must respond with an OfferOp.
-//  - The target receives a DataEvent when transferring to it. It must close
-//    the event data after use.
+//   - Data sources are registered with SourceOps, data targets with TargetOps.
+//   - A data source receives a RequestEvent when a transfer is initiated.
+//     It must respond with an OfferOp.
+//   - The target receives a DataEvent when transferring to it. It must close
+//     the event data after use.
 //
 // When a user initiates a pointer-guided drag and drop transfer, the
 // source as well as all potential targets receive an InitiateEvent.

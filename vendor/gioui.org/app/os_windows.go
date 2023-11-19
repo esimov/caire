@@ -32,11 +32,6 @@ type ViewEvent struct {
 	HWND uintptr
 }
 
-type winDeltas struct {
-	width  int32
-	height int32
-}
-
 type window struct {
 	hwnd        syscall.Handle
 	hdc         syscall.Handle
@@ -55,7 +50,6 @@ type window struct {
 	animating bool
 	focused   bool
 
-	deltas     winDeltas
 	borderSize image.Point
 	config     Config
 }
@@ -192,21 +186,11 @@ func createNativeWindow() (*window, error) {
 // It reads the window style and size/position and updates w.config.
 // If anything has changed it emits a ConfigEvent to notify the application.
 func (w *window) update() {
-	r := windows.GetWindowRect(w.hwnd)
-	size := image.Point{
-		X: int(r.Right - r.Left - w.deltas.width),
-		Y: int(r.Bottom - r.Top - w.deltas.height),
+	cr := windows.GetClientRect(w.hwnd)
+	w.config.Size = image.Point{
+		X: int(cr.Right - cr.Left),
+		Y: int(cr.Bottom - cr.Top),
 	}
-
-	// Check the window mode.
-	style := windows.GetWindowLong(w.hwnd, windows.GWL_STYLE)
-	if style&windows.WS_OVERLAPPEDWINDOW == 0 {
-		size = image.Point{
-			X: int(r.Right - r.Left),
-			Y: int(r.Bottom - r.Top),
-		}
-	}
-	w.config.Size = size
 
 	w.borderSize = image.Pt(
 		windows.GetSystemMetrics(windows.SM_CXSIZEFRAME),
@@ -283,6 +267,14 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 	case windows.WM_KILLFOCUS:
 		w.focused = false
 		w.w.Event(key.FocusEvent{Focus: false})
+	case windows.WM_NCACTIVATE:
+		if w.stage >= system.StageInactive {
+			if wParam == windows.TRUE {
+				w.setStage(system.StageRunning)
+			} else {
+				w.setStage(system.StageInactive)
+			}
+		}
 	case windows.WM_NCHITTEST:
 		if w.config.Decorated {
 			// Let the system handle it.
@@ -296,16 +288,17 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		x, y := coordsFromlParam(lParam)
 		p := f32.Point{X: float32(x), Y: float32(y)}
 		w.w.Event(pointer.Event{
-			Type:     pointer.Move,
-			Source:   pointer.Mouse,
-			Position: p,
-			Buttons:  w.pointerBtns,
-			Time:     windows.GetMessageTime(),
+			Type:      pointer.Move,
+			Source:    pointer.Mouse,
+			Position:  p,
+			Buttons:   w.pointerBtns,
+			Time:      windows.GetMessageTime(),
+			Modifiers: getModifiers(),
 		})
 	case windows.WM_MOUSEWHEEL:
-		w.scrollEvent(wParam, lParam, false)
+		w.scrollEvent(wParam, lParam, false, getModifiers())
 	case windows.WM_MOUSEHWHEEL:
-		w.scrollEvent(wParam, lParam, true)
+		w.scrollEvent(wParam, lParam, true, getModifiers())
 	case windows.WM_DESTROY:
 		w.w.Event(ViewEvent{})
 		w.w.Event(system.DestroyEvent{})
@@ -316,6 +309,28 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		// The system destroys the HWND for us.
 		w.hwnd = 0
 		windows.PostQuitMessage(0)
+	case windows.WM_NCCALCSIZE:
+		if w.config.Decorated {
+			// Let Windows handle decorations.
+			break
+		}
+		// No client areas; we draw decorations ourselves.
+		if wParam != 1 {
+			return 0
+		}
+		// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
+		place := windows.GetWindowPlacement(w.hwnd)
+		if !place.IsMaximized() {
+			// Nothing do adjust.
+			return 0
+		}
+		// Adjust window position to avoid the extra padding in maximized
+		// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
+		// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by Windows.
+		szp := (*windows.NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
+		mi := windows.GetMonitorInfo(w.hwnd)
+		szp.Rgrc[0] = mi.WorkArea
+		return 0
 	case windows.WM_PAINT:
 		w.draw(true)
 	case windows.WM_SIZE:
@@ -335,18 +350,26 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		}
 	case windows.WM_GETMINMAXINFO:
 		mm := (*windows.MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
+		var bw, bh int32
+		if w.config.Decorated {
+			r := windows.GetWindowRect(w.hwnd)
+			cr := windows.GetClientRect(w.hwnd)
+			bw = r.Right - r.Left - (cr.Right - cr.Left)
+			bh = r.Bottom - r.Top - (cr.Bottom - cr.Top)
+		}
 		if p := w.config.MinSize; p.X > 0 || p.Y > 0 {
 			mm.PtMinTrackSize = windows.Point{
-				X: int32(p.X) + w.deltas.width,
-				Y: int32(p.Y) + w.deltas.height,
+				X: int32(p.X) + bw,
+				Y: int32(p.Y) + bh,
 			}
 		}
 		if p := w.config.MaxSize; p.X > 0 || p.Y > 0 {
 			mm.PtMaxTrackSize = windows.Point{
-				X: int32(p.X) + w.deltas.width,
-				Y: int32(p.Y) + w.deltas.height,
+				X: int32(p.X) + bw,
+				Y: int32(p.Y) + bh,
 			}
 		}
+		return 0
 	case windows.WM_SETCURSOR:
 		w.cursorIn = (lParam & 0xffff) == windows.HTCLIENT
 		if w.cursorIn {
@@ -399,11 +422,12 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			comp.Start = state.RunesIndex(state.UTF16Index(comp.Start) + start)
 		}
 		w.w.SetComposingRegion(comp)
+		pos := end
 		if lParam&windows.GCS_CURSORPOS != 0 {
 			rel := windows.ImmGetCompositionValue(imc, windows.GCS_CURSORPOS)
-			pos := state.RunesIndex(state.UTF16Index(rng.Start) + rel)
-			w.w.SetEditorSelection(key.Range{Start: pos, End: pos})
+			pos = state.RunesIndex(state.UTF16Index(rng.Start) + rel)
 		}
+		w.w.SetEditorSelection(key.Range{Start: pos, End: pos})
 		return windows.TRUE
 	case windows.WM_IME_ENDCOMPOSITION:
 		w.w.SetComposingRegion(key.Range{Start: -1, End: -1})
@@ -436,23 +460,18 @@ func (w *window) hitTest(x, y int) uintptr {
 	if w.config.Mode == Fullscreen {
 		return windows.HTCLIENT
 	}
-	p := f32.Pt(float32(x), float32(y))
-	if a, ok := w.w.ActionAt(p); ok && a == system.ActionMove {
-		return windows.HTCAPTION
-	}
 	if w.config.Mode != Windowed {
 		// Only windowed mode should allow resizing.
 		return windows.HTCLIENT
 	}
+	// Check for resize handle before system actions; otherwise it can be impossible to
+	// resize a custom-decorations window when the system move area is flush with the
+	// edge of the window.
 	top := y <= w.borderSize.Y
 	bottom := y >= w.config.Size.Y-w.borderSize.Y
 	left := x <= w.borderSize.X
 	right := x >= w.config.Size.X-w.borderSize.X
 	switch {
-	default:
-		fallthrough
-	case !top && !bottom && !left && !right:
-		return windows.HTCLIENT
 	case top && left:
 		return windows.HTTOPLEFT
 	case top && right:
@@ -470,6 +489,11 @@ func (w *window) hitTest(x, y int) uintptr {
 	case right:
 		return windows.HTRIGHT
 	}
+	p := f32.Pt(float32(x), float32(y))
+	if a, ok := w.w.ActionAt(p); ok && a == system.ActionMove {
+		return windows.HTCAPTION
+	}
+	return windows.HTCLIENT
 }
 
 func (w *window) pointerButton(btn pointer.Buttons, press bool, lParam uintptr, kmods key.Modifiers) {
@@ -509,7 +533,7 @@ func coordsFromlParam(lParam uintptr) (int, int) {
 	return x, y
 }
 
-func (w *window) scrollEvent(wParam, lParam uintptr, horizontal bool) {
+func (w *window) scrollEvent(wParam, lParam uintptr, horizontal bool, kmods key.Modifiers) {
 	x, y := coordsFromlParam(lParam)
 	// The WM_MOUSEWHEEL coordinates are in screen coordinates, in contrast
 	// to other mouse events.
@@ -521,15 +545,21 @@ func (w *window) scrollEvent(wParam, lParam uintptr, horizontal bool) {
 	if horizontal {
 		sp.X = dist
 	} else {
-		sp.Y = -dist
+		// support horizontal scroll (shift + mousewheel)
+		if kmods == key.ModShift {
+			sp.X = -dist
+		} else {
+			sp.Y = -dist
+		}
 	}
 	w.w.Event(pointer.Event{
-		Type:     pointer.Scroll,
-		Source:   pointer.Mouse,
-		Position: p,
-		Buttons:  w.pointerBtns,
-		Scroll:   sp,
-		Time:     windows.GetMessageTime(),
+		Type:      pointer.Scroll,
+		Source:    pointer.Mouse,
+		Position:  p,
+		Buttons:   w.pointerBtns,
+		Scroll:    sp,
+		Modifiers: kmods,
+		Time:      windows.GetMessageTime(),
 	})
 }
 
@@ -653,9 +683,6 @@ func (w *window) Configure(options []Option) {
 	swpStyle := uintptr(windows.SWP_NOZORDER | windows.SWP_FRAMECHANGED)
 	winStyle := uintptr(windows.WS_OVERLAPPEDWINDOW)
 	style &^= winStyle
-	if !w.config.Decorated {
-		winStyle = 0
-	}
 	switch w.config.Mode {
 	case Minimized:
 		style |= winStyle
@@ -668,28 +695,30 @@ func (w *window) Configure(options []Option) {
 		showMode = windows.SW_SHOWMAXIMIZED
 
 	case Windowed:
-		windows.SetWindowText(w.hwnd, w.config.Title)
 		style |= winStyle
 		showMode = windows.SW_SHOWNORMAL
-		// Get target for client areaa size.
+		// Get target for client area size.
 		width = int32(w.config.Size.X)
 		height = int32(w.config.Size.Y)
 		// Get the current window size and position.
 		wr := windows.GetWindowRect(w.hwnd)
-		// Set desired window size.
-		wr.Right = wr.Left + width
-		wr.Bottom = wr.Top + height
-		// Convert from client size to window size.
-		r := wr
-		windows.AdjustWindowRectEx(&r, uint32(style), 0, dwExStyle)
-		// Calculate difference between client and full window sizes.
-		w.deltas.width = r.Right - wr.Right + wr.Left - r.Left
-		w.deltas.height = r.Bottom - wr.Bottom + wr.Top - r.Top
-		// Set new window size and position.
 		x = wr.Left
 		y = wr.Top
-		width = r.Right - r.Left
-		height = r.Bottom - r.Top
+		if w.config.Decorated {
+			// Compute client size and position. Note that the client size is
+			// equal to the window size when we are in control of decorations.
+			r := windows.Rect{
+				Right:  width,
+				Bottom: height,
+			}
+			windows.AdjustWindowRectEx(&r, uint32(style), 0, dwExStyle)
+			width = r.Right - r.Left
+			height = r.Bottom - r.Top
+		}
+		if !w.config.Decorated {
+			// Enable drop shadows when we draw decorations.
+			windows.DwmExtendFrameIntoClientArea(w.hwnd, windows.Margins{-1, -1, -1, -1})
+		}
 
 	case Fullscreen:
 		mi := windows.GetMonitorInfo(w.hwnd)
@@ -702,7 +731,7 @@ func (w *window) Configure(options []Option) {
 	windows.SetWindowPos(w.hwnd, 0, x, y, width, height, swpStyle)
 	windows.ShowWindow(w.hwnd, showMode)
 
-	w.w.Event(ConfigEvent{Config: w.config})
+	w.update()
 }
 
 func (w *window) WriteClipboard(s string) {

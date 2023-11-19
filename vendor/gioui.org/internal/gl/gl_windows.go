@@ -35,6 +35,7 @@ var (
 	_glDeleteVertexArrays                  = LibGLESv2.NewProc("glDeleteVertexArrays")
 	_glCompileShader                       = LibGLESv2.NewProc("glCompileShader")
 	_glCopyTexSubImage2D                   = LibGLESv2.NewProc("glCopyTexSubImage2D")
+	_glGenerateMipmap                      = LibGLESv2.NewProc("glGenerateMipmap")
 	_glGenBuffers                          = LibGLESv2.NewProc("glGenBuffers")
 	_glGenFramebuffers                     = LibGLESv2.NewProc("glGenFramebuffers")
 	_glGenVertexArrays                     = LibGLESv2.NewProc("glGenVertexArrays")
@@ -191,6 +192,9 @@ func (c *Functions) CompileShader(s Shader) {
 }
 func (f *Functions) CopyTexSubImage2D(target Enum, level, xoffset, yoffset, x, y, width, height int) {
 	syscall.Syscall9(_glCopyTexSubImage2D.Addr(), 8, uintptr(target), uintptr(level), uintptr(xoffset), uintptr(yoffset), uintptr(x), uintptr(y), uintptr(width), uintptr(height), 0)
+}
+func (f *Functions) GenerateMipmap(target Enum) {
+	syscall.Syscall(_glGenerateMipmap.Addr(), 1, uintptr(target), 0, 0)
 }
 func (c *Functions) CreateBuffer() Buffer {
 	var buf uintptr

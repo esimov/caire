@@ -6,8 +6,10 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/font"
 	"gioui.org/internal/f32color"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
@@ -18,11 +20,11 @@ import (
 type checkable struct {
 	Label              string
 	Color              color.NRGBA
-	Font               text.Font
+	Font               font.Font
 	TextSize           unit.Sp
 	IconColor          color.NRGBA
 	Size               unit.Dp
-	shaper             text.Shaper
+	shaper             *text.Shaper
 	checkedStateIcon   *widget.Icon
 	uncheckedStateIcon *widget.Icon
 }
@@ -73,8 +75,9 @@ func (c *checkable) layout(gtx layout.Context, checked, hovered bool) layout.Dim
 
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(2).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				colMacro := op.Record(gtx.Ops)
 				paint.ColorOp{Color: c.Color}.Add(gtx.Ops)
-				return widget.Label{}.Layout(gtx, c.shaper, c.Font, c.TextSize, c.Label)
+				return widget.Label{}.Layout(gtx, c.shaper, c.Font, c.TextSize, c.Label, colMacro.Stop())
 			})
 		}),
 	)

@@ -22,7 +22,17 @@ import (
 	"gioui.org/unit"
 )
 
-type ViewEvent struct{}
+type ViewEvent struct {
+	Element js.Value
+}
+
+type contextStatus int
+
+const (
+	contextStatusOkay contextStatus = iota
+	contextStatusLost
+	contextStatusRestored
+)
 
 type window struct {
 	window                js.Value
@@ -54,6 +64,8 @@ type window struct {
 	// is pending.
 	animRequested bool
 	wakeups       chan struct{}
+
+	contextStatus contextStatus
 }
 
 func newWindow(win *callbacks, options []Option) error {
@@ -101,6 +113,7 @@ func newWindow(win *callbacks, options []Option) error {
 		w.w.SetDriver(w)
 		w.Configure(options)
 		w.blur()
+		w.w.Event(ViewEvent{Element: cont})
 		w.w.Event(system.StageEvent{Stage: system.StageRunning})
 		w.resize()
 		w.draw(true)
@@ -162,9 +175,25 @@ func (w *window) cleanup() {
 }
 
 func (w *window) addEventListeners() {
+	w.addEventListener(w.cnv, "webglcontextlost", func(this js.Value, args []js.Value) interface{} {
+		args[0].Call("preventDefault")
+		w.contextStatus = contextStatusLost
+		return nil
+	})
+	w.addEventListener(w.cnv, "webglcontextrestored", func(this js.Value, args []js.Value) interface{} {
+		args[0].Call("preventDefault")
+		w.contextStatus = contextStatusRestored
+
+		// Resize is required to force update the canvas content when restored.
+		w.cnv.Set("width", 0)
+		w.cnv.Set("height", 0)
+		w.resize()
+		w.requestRedraw()
+		return nil
+	})
 	w.addEventListener(w.visualViewport, "resize", func(this js.Value, args []js.Value) interface{} {
 		w.resize()
-		w.chanRedraw <- struct{}{}
+		w.requestRedraw()
 		return nil
 	})
 	w.addEventListener(w.window, "contextmenu", func(this js.Value, args []js.Value) interface{} {
@@ -207,6 +236,10 @@ func (w *window) addEventListeners() {
 	w.addEventListener(w.cnv, "wheel", func(this js.Value, args []js.Value) interface{} {
 		e := args[0]
 		dx, dy := e.Get("deltaX").Float(), e.Get("deltaY").Float()
+		// horizontal scroll if shift is pressed.
+		if e.Get("shiftKey").Bool() {
+			dx, dy = dy, dx
+		}
 		mode := e.Get("deltaMode").Int()
 		switch mode {
 		case 0x01: // DOM_DELTA_LINE
@@ -325,6 +358,8 @@ func (w *window) keyboard(hint key.InputHint) {
 		m = "url"
 	case key.HintTelephone:
 		m = "tel"
+	case key.HintPassword:
+		m = "password"
 	default:
 		m = "text"
 	}
@@ -622,10 +657,14 @@ func (w *window) resize() {
 }
 
 func (w *window) draw(sync bool) {
+	if w.contextStatus == contextStatusLost {
+		return
+	}
 	size, insets, metric := w.getConfig()
 	if metric == (unit.Metric{}) || size.X == 0 || size.Y == 0 {
 		return
 	}
+
 	w.w.Event(frameEvent{
 		FrameEvent: system.FrameEvent{
 			Now:    time.Now(),
@@ -694,6 +733,13 @@ func (w *window) navigationColor(c color.NRGBA) {
 	}
 	rgba := f32color.NRGBAToRGBA(c)
 	theme.Set("content", fmt.Sprintf("#%06X", []uint8{rgba.R, rgba.G, rgba.B}))
+}
+
+func (w *window) requestRedraw() {
+	select {
+	case w.chanRedraw <- struct{}{}:
+	default:
+	}
 }
 
 func osMain() {

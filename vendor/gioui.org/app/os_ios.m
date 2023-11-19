@@ -123,6 +123,9 @@ static void handleTouches(int last, UIView *view, NSSet<UITouch *> *touches, UIE
 
 @implementation GioView
 NSArray<UIKeyCommand *> *_keyCommands;
++ (void)onFrameCallback:(CADisplayLink *)link {
+       gio_onFrameCallback((__bridge CFTypeRef)link);
+}
 + (Class)layerClass {
     return gio_layerClass();
 }
@@ -227,23 +230,8 @@ NSArray<UIKeyCommand *> *_keyCommands;
 }
 @end
 
-@interface DisplayLinkHandle : NSObject {
-}
-@property uintptr_t handle;
-@end
-
-@implementation DisplayLinkHandle {
-}
-
-- (void)onFrameCallback:(CADisplayLink *)link {
-	gio_onFrameCallback((__bridge CFTypeRef)link, _handle);
-}
-@end
-
-CFTypeRef gio_createDisplayLink(uintptr_t handle) {
-	DisplayLinkHandle *h = [DisplayLinkHandle alloc];
-	h.handle = handle;
-	CADisplayLink *dl = [CADisplayLink displayLinkWithTarget:h selector:@selector(onFrameCallback:)];
+CFTypeRef gio_createDisplayLink(void) {
+	CADisplayLink *dl = [CADisplayLink displayLinkWithTarget:[GioView class] selector:@selector(onFrameCallback:)];
 	dl.paused = YES;
 	NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
 	[dl addToRunLoop:runLoop forMode:[runLoop currentMode]];

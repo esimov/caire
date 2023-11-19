@@ -10,10 +10,11 @@ struct Gradient
 
 uniform Gradient _gradient;
 
+varying highp float opacity;
 varying highp vec2 vUV;
 
 void main()
 {
-    gl_FragData[0] = mix(_gradient.color1, _gradient.color2, vec4(clamp(vUV.x, 0.0, 1.0)));
+    gl_FragData[0] = mix(_gradient.color1, _gradient.color2, vec4(clamp(vUV.x, 0.0, 1.0))) * opacity;
 }
 

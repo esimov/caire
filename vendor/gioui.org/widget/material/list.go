@@ -23,18 +23,39 @@ import (
 // start will be less than or equal to end.
 func fromListPosition(lp layout.Position, elements int, majorAxisSize int) (start, end float32) {
 	// Approximate the size of the scrollable content.
-	lengthPx := float32(lp.Length)
-	meanElementHeight := lengthPx / float32(elements)
+	lengthEstPx := float32(lp.Length)
+	elementLenEstPx := lengthEstPx / float32(elements)
 
 	// Determine how much of the content is visible.
 	listOffsetF := float32(lp.Offset)
+	listOffsetL := float32(lp.OffsetLast)
+
+	// Compute the location of the beginning of the viewport using estimated element size and known
+	// pixel offsets.
+	viewportStart := clamp1((float32(lp.First)*elementLenEstPx + listOffsetF) / lengthEstPx)
+	viewportEnd := clamp1((float32(lp.First+lp.Count)*elementLenEstPx + listOffsetL) / lengthEstPx)
+	viewportFraction := viewportEnd - viewportStart
+
+	// Compute the expected visible proportion of the list content based solely on the ratio
+	// of the visible size and the estimated total size.
 	visiblePx := float32(majorAxisSize)
-	visibleFraction := visiblePx / lengthPx
+	visibleFraction := visiblePx / lengthEstPx
 
-	// Compute the location of the beginning of the viewport.
-	viewportStart := (float32(lp.First)*meanElementHeight + listOffsetF) / lengthPx
+	// Compute the error between the two methods of determining the viewport and diffuse the
+	// error on either end of the viewport based on how close we are to each end.
+	err := visibleFraction - viewportFraction
+	adjStart := viewportStart
+	adjEnd := viewportEnd
+	if viewportFraction < 1 {
+		startShare := viewportStart / (1 - viewportFraction)
+		endShare := (1 - viewportEnd) / (1 - viewportFraction)
+		startErr := startShare * err
+		endErr := endShare * err
 
-	return viewportStart, clamp1(viewportStart + visibleFraction)
+		adjStart -= startErr
+		adjEnd += endErr
+	}
+	return adjStart, adjEnd
 }
 
 // rangeIsScrollable returns whether the viewport described by start and end
@@ -93,7 +114,7 @@ func Scrollbar(th *Theme, state *widget.Scrollbar) ScrollbarStyle {
 			MinorPadding: 2,
 		},
 		Indicator: ScrollIndicatorStyle{
-			MajorMinLen:  8,
+			MajorMinLen:  th.FingerSize,
 			MinorWidth:   6,
 			CornerRadius: 3,
 			Color:        lightFg,
@@ -292,12 +313,7 @@ func (l ListStyle) Layout(gtx layout.Context, length int, w layout.ListElement) 
 	if delta := l.state.ScrollDistance(); delta != 0 {
 		// Handle any changes to the list position as a result of user interaction
 		// with the scrollbar.
-		l.state.List.Position.Offset += int(math.Round(float64(float32(l.state.Position.Length) * delta)))
-
-		// Ensure that the list pays attention to the Offset field when the scrollbar drag
-		// is started while the bar is at the end of the list. Without this, the scrollbar
-		// cannot be dragged away from the end.
-		l.state.List.Position.BeforeEnd = true
+		l.state.List.ScrollBy(delta * float32(length))
 	}
 
 	if l.AnchorStrategy == Occupy {

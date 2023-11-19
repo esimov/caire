@@ -150,7 +150,13 @@ func (r *Reader) Decode() (EncodedOp, bool) {
 		case TypeMacro:
 			var op opMacroDef
 			op.decode(data)
-			r.pc = op.endpc
+			if op.endpc != (PC{}) {
+				r.pc = op.endpc
+			} else {
+				// Treat an incomplete macro as containing all remaining ops.
+				r.pc.data = len(r.ops.data)
+				r.pc.refs = len(r.ops.refs)
+			}
 			continue
 		}
 		r.pc.data += n

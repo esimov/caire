@@ -37,13 +37,13 @@ type Context struct {
 
 // NewContext is a shorthand for
 //
-//   Context{
-//     Ops: ops,
-//     Now: e.Now,
-//     Queue: e.Queue,
-//     Config: e.Config,
-//     Constraints: Exact(e.Size),
-//   }
+//	Context{
+//	  Ops: ops,
+//	  Now: e.Now,
+//	  Queue: e.Queue,
+//	  Config: e.Config,
+//	  Constraints: Exact(e.Size),
+//	}
 //
 // NewContext calls ops.Reset and adjusts ops for e.Insets.
 func NewContext(ops *op.Ops, e system.FrameEvent) Context {

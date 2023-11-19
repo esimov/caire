@@ -239,6 +239,14 @@ static void blitEncCopyBufferToTexture(CFTypeRef blitEncRef, CFTypeRef bufRef, C
 	}
 }
 
+static void blitEncGenerateMipmapsForTexture(CFTypeRef blitEncRef, CFTypeRef texRef) {
+	@autoreleasepool {
+		id<MTLBlitCommandEncoder> enc = (__bridge id<MTLBlitCommandEncoder>)blitEncRef;
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texRef;
+		[enc generateMipmapsForTexture: tex];
+	}
+}
+
 static void blitEncCopyTextureToBuffer(CFTypeRef blitEncRef, CFTypeRef texRef, CFTypeRef bufRef, NSUInteger offset, NSUInteger stride, NSUInteger length, MTLSize dims, MTLOrigin orig) {
 	@autoreleasepool {
 		id<MTLBlitCommandEncoder> enc = (__bridge id<MTLBlitCommandEncoder>)blitEncRef;
@@ -269,25 +277,26 @@ static void blitEncCopyBufferToBuffer(CFTypeRef blitEncRef, CFTypeRef srcRef, CF
 	}
 }
 
-static CFTypeRef newTexture(CFTypeRef devRef, NSUInteger width, NSUInteger height, MTLPixelFormat format, MTLTextureUsage usage) {
+static CFTypeRef newTexture(CFTypeRef devRef, NSUInteger width, NSUInteger height, MTLPixelFormat format, MTLTextureUsage usage, int mipmapped) {
 	@autoreleasepool {
 		id<MTLDevice> dev = (__bridge id<MTLDevice>)devRef;
 		MTLTextureDescriptor *mtlDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat: format
 																						   width: width
 																						  height: height
-																				   	   mipmapped: NO];
+																				   	   mipmapped: mipmapped ? YES : NO];
 		mtlDesc.usage = usage;
 		mtlDesc.storageMode =  MTLStorageModePrivate;
 		return CFBridgingRetain([dev newTextureWithDescriptor:mtlDesc]);
 	}
 }
 
-static CFTypeRef newSampler(CFTypeRef devRef, MTLSamplerMinMagFilter minFilter, MTLSamplerMinMagFilter magFilter) {
+static CFTypeRef newSampler(CFTypeRef devRef, MTLSamplerMinMagFilter minFilter, MTLSamplerMinMagFilter magFilter, MTLSamplerMipFilter mipFilter) {
 	@autoreleasepool {
 		id<MTLDevice> dev = (__bridge id<MTLDevice>)devRef;
 		MTLSamplerDescriptor *desc = [MTLSamplerDescriptor new];
 		desc.minFilter = minFilter;
 		desc.magFilter = magFilter;
+		desc.mipFilter = mipFilter;
 		return CFBridgingRetain([dev newSamplerStateWithDescriptor:desc]);
 	}
 }
@@ -405,6 +414,7 @@ type Texture struct {
 	sampler C.CFTypeRef
 	width   int
 	height  int
+	mipmap  bool
 	foreign bool
 }
 
@@ -581,26 +591,33 @@ func (b *Backend) NewTexture(format driver.TextureFormat, width, height int, min
 	if bindings&driver.BufferBindingShaderStorageWrite != 0 {
 		usage |= C.MTLTextureUsageShaderWrite
 	}
-	tex := C.newTexture(b.dev, C.NSUInteger(width), C.NSUInteger(height), mformat, usage)
+	min, mip := samplerFilterFor(minFilter)
+	max, _ := samplerFilterFor(magFilter)
+	mipmap := mip != C.MTLSamplerMipFilterNotMipmapped
+	mipmapped := C.int(0)
+	if mipmap {
+		mipmapped = 1
+	}
+	tex := C.newTexture(b.dev, C.NSUInteger(width), C.NSUInteger(height), mformat, usage, mipmapped)
 	if tex == 0 {
 		return nil, errors.New("metal: [MTLDevice newTextureWithDescriptor:] failed")
 	}
-	min := samplerFilterFor(minFilter)
-	max := samplerFilterFor(magFilter)
-	s := C.newSampler(b.dev, min, max)
+	s := C.newSampler(b.dev, min, max, mip)
 	if s == 0 {
 		C.CFRelease(tex)
 		return nil, errors.New("metal: [MTLDevice newSamplerStateWithDescriptor:] failed")
 	}
-	return &Texture{backend: b, texture: tex, sampler: s, width: width, height: height}, nil
+	return &Texture{backend: b, texture: tex, sampler: s, width: width, height: height, mipmap: mipmap}, nil
 }
 
-func samplerFilterFor(f driver.TextureFilter) C.MTLSamplerMinMagFilter {
+func samplerFilterFor(f driver.TextureFilter) (C.MTLSamplerMinMagFilter, C.MTLSamplerMipFilter) {
 	switch f {
 	case driver.FilterNearest:
-		return C.MTLSamplerMinMagFilterNearest
+		return C.MTLSamplerMinMagFilterNearest, C.MTLSamplerMipFilterNotMipmapped
 	case driver.FilterLinear:
-		return C.MTLSamplerMinMagFilterLinear
+		return C.MTLSamplerMinMagFilterLinear, C.MTLSamplerMipFilterNotMipmapped
+	case driver.FilterLinearMipmapLinear:
+		return C.MTLSamplerMinMagFilterLinear, C.MTLSamplerMipFilterLinear
 	default:
 		panic("invalid texture filter")
 	}
@@ -900,6 +917,9 @@ func (t *Texture) Upload(offset, size image.Point, pixels []byte, stride int) {
 		depth:  1,
 	}
 	C.blitEncCopyBufferToTexture(enc, buf, t.texture, C.NSUInteger(off), C.NSUInteger(dstStride), C.NSUInteger(len(store)), msize, orig)
+	if t.mipmap {
+		C.blitEncGenerateMipmapsForTexture(enc, t.texture)
+	}
 }
 
 func (t *Texture) Release() {

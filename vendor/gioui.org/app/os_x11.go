@@ -30,8 +30,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"os"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -490,7 +488,6 @@ func (w *x11Window) destroy() {
 
 // atom is a wrapper around XInternAtom. Callers should cache the result
 // in order to limit round-trips to the X server.
-//
 func (w *x11Window) atom(name string, onlyIfExists bool) C.Atom {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
@@ -504,7 +501,6 @@ func (w *x11Window) atom(name string, onlyIfExists bool) C.Atom {
 // x11EventHandler wraps static variables for the main event loop.
 // Its sole purpose is to prevent heap allocation and reduce clutter
 // in x11window.loop.
-//
 type x11EventHandler struct {
 	w    *x11Window
 	text []byte
@@ -512,7 +508,6 @@ type x11EventHandler struct {
 }
 
 // handleEvents returns true if the window needs to be redrawn.
-//
 func (h *x11EventHandler) handleEvents() bool {
 	w := h.w
 	xev := h.xev
@@ -574,16 +569,24 @@ func (h *x11EventHandler) handleEvents() bool {
 			case C.Button3:
 				btn = pointer.ButtonSecondary
 			case C.Button4:
-				// scroll up
 				ev.Type = pointer.Scroll
-				ev.Scroll.Y = -scrollScale
+				// scroll up or left (if shift is pressed).
+				if ev.Modifiers == key.ModShift {
+					ev.Scroll.X = -scrollScale
+				} else {
+					ev.Scroll.Y = -scrollScale
+				}
 			case C.Button5:
-				// scroll down
+				// scroll down or right (if shift is pressed).
 				ev.Type = pointer.Scroll
-				ev.Scroll.Y = +scrollScale
+				if ev.Modifiers == key.ModShift {
+					ev.Scroll.X = +scrollScale
+				} else {
+					ev.Scroll.Y = +scrollScale
+				}
 			case 6:
 				// http://xahlee.info/linux/linux_x11_mouse_button_number.html
-				// scroll left
+				// scroll left.
 				ev.Type = pointer.Scroll
 				ev.Scroll.X = -scrollScale * 2
 			case 7:
@@ -796,7 +799,7 @@ func newX11Window(gioWin *callbacks, options []Option) error {
 	hints.flags = C.InputHint
 	C.XSetWMHints(dpy, win, &hints)
 
-	name := C.CString(filepath.Base(os.Args[0]))
+	name := C.CString(ID)
 	defer C.free(unsafe.Pointer(name))
 	wmhints := C.XClassHint{name, name}
 	C.XSetClassHint(dpy, win, &wmhints)

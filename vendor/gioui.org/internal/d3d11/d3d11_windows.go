@@ -685,6 +685,7 @@ const (
 	PRIMITIVE_TOPOLOGY_TRIANGLESTRIP = 5
 
 	FILTER_MIN_MAG_LINEAR_MIP_POINT = 0x14
+	FILTER_MIN_MAG_MIP_LINEAR       = 0x15
 	FILTER_MIN_MAG_MIP_POINT        = 0
 
 	TEXTURE_ADDRESS_MIRROR = 2
@@ -701,6 +702,7 @@ const (
 	BUFFEREX_SRV_FLAG_RAW = 0x1
 
 	RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS = 0x20
+	RESOURCE_MISC_GENERATE_MIPS          = 0x1
 
 	CREATE_DEVICE_DEBUG = 0x2
 
@@ -1188,6 +1190,16 @@ func (s *IDXGISwapChain) GetBuffer(index int, riid *GUID) (*IUnknown, error) {
 		return nil, ErrorCode{Name: "IDXGISwapChainGetBuffer", Code: uint32(r)}
 	}
 	return buf, nil
+}
+
+func (c *DeviceContext) GenerateMips(res *ShaderResourceView) {
+	syscall.Syscall(
+		c.Vtbl.GenerateMips,
+		2,
+		uintptr(unsafe.Pointer(c)),
+		uintptr(unsafe.Pointer(res)),
+		0,
+	)
 }
 
 func (c *DeviceContext) Unmap(resource *Resource, subResource uint32) {

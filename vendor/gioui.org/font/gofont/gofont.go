@@ -24,29 +24,49 @@ import (
 	"golang.org/x/image/font/gofont/gosmallcaps"
 	"golang.org/x/image/font/gofont/gosmallcapsitalic"
 
+	"gioui.org/font"
 	"gioui.org/font/opentype"
-	"gioui.org/text"
 )
 
 var (
+	regOnce    sync.Once
+	reg        []font.FontFace
 	once       sync.Once
-	collection []text.FontFace
+	collection []font.FontFace
 )
 
-func Collection() []text.FontFace {
+func loadRegular() {
+	regOnce.Do(func() {
+		faces, err := opentype.ParseCollection(goregular.TTF)
+		if err != nil {
+			panic(fmt.Errorf("failed to parse font: %v", err))
+		}
+		reg = faces
+		collection = append(collection, reg[0])
+	})
+}
+
+// Regular returns a collection of only the Go regular font face.
+func Regular() []font.FontFace {
+	loadRegular()
+	return reg
+}
+
+// Regular returns a collection of all available Go font faces.
+func Collection() []font.FontFace {
+	loadRegular()
 	once.Do(func() {
-		register(text.Font{}, goregular.TTF)
-		register(text.Font{Style: text.Italic}, goitalic.TTF)
-		register(text.Font{Weight: text.Bold}, gobold.TTF)
-		register(text.Font{Style: text.Italic, Weight: text.Bold}, gobolditalic.TTF)
-		register(text.Font{Weight: text.Medium}, gomedium.TTF)
-		register(text.Font{Weight: text.Medium, Style: text.Italic}, gomediumitalic.TTF)
-		register(text.Font{Variant: "Mono"}, gomono.TTF)
-		register(text.Font{Variant: "Mono", Weight: text.Bold}, gomonobold.TTF)
-		register(text.Font{Variant: "Mono", Weight: text.Bold, Style: text.Italic}, gomonobolditalic.TTF)
-		register(text.Font{Variant: "Mono", Style: text.Italic}, gomonoitalic.TTF)
-		register(text.Font{Variant: "Smallcaps"}, gosmallcaps.TTF)
-		register(text.Font{Variant: "Smallcaps", Style: text.Italic}, gosmallcapsitalic.TTF)
+		register(goitalic.TTF)
+		register(gobold.TTF)
+		register(gobolditalic.TTF)
+		register(gomedium.TTF)
+		register(gomediumitalic.TTF)
+		register(gomono.TTF)
+		register(gomonobold.TTF)
+		register(gomonobolditalic.TTF)
+		register(gomonoitalic.TTF)
+		register(gosmallcaps.TTF)
+		register(gosmallcapsitalic.TTF)
 		// Ensure that any outside appends will not reuse the backing store.
 		n := len(collection)
 		collection = collection[:n:n]
@@ -54,11 +74,10 @@ func Collection() []text.FontFace {
 	return collection
 }
 
-func register(fnt text.Font, ttf []byte) {
-	face, err := opentype.Parse(ttf)
+func register(ttf []byte) {
+	faces, err := opentype.ParseCollection(ttf)
 	if err != nil {
 		panic(fmt.Errorf("failed to parse font: %v", err))
 	}
-	fnt.Typeface = "Go"
-	collection = append(collection, text.FontFace{Font: fnt, Face: face})
+	collection = append(collection, faces[0])
 }

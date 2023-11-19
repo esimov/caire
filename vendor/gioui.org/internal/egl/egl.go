@@ -62,6 +62,7 @@ func (c *Context) Release() {
 		eglDestroyContext(c.disp, c.eglCtx.ctx)
 		c.eglCtx = nil
 	}
+	eglTerminate(c.disp)
 	c.disp = nilEGLDisplay
 }
 

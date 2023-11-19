@@ -134,7 +134,26 @@ func (q *Router) Frame(frame *op.Ops) {
 	}
 }
 
-// Queue an event and report whether at least one handler had an event queued.
+// Queue key events to the topmost handler.
+func (q *Router) QueueTopmost(events ...key.Event) bool {
+	var topmost event.Tag
+	pq := &q.pointer.queue
+	for _, h := range pq.hitTree {
+		if h.ktag != nil {
+			topmost = h.ktag
+			break
+		}
+	}
+	if topmost == nil {
+		return false
+	}
+	for _, e := range events {
+		q.handlers.Add(topmost, e)
+	}
+	return q.handlers.HadEvents()
+}
+
+// Queue events and report whether at least one handler had an event queued.
 func (q *Router) Queue(events ...event.Event) bool {
 	for _, e := range events {
 		switch e := e.(type) {
@@ -202,12 +221,6 @@ func (q *Router) queueKeyEvent(e key.Event) {
 		n := &pq.hitTree[idx]
 		if focused {
 			idx = n.next
-			if idx == -1 {
-				// No handler found in focus ancestor tree.
-				// Try all handlers.
-				idx = len(pq.hitTree) - 1
-				focused = false
-			}
 		} else {
 			idx--
 		}
@@ -477,11 +490,11 @@ func (q *Router) collect() {
 			}
 			kc.softKeyboard(op.Show)
 		case ops.TypeKeyInput:
-			filter := encOp.Refs[1].(*key.Set)
+			filter := key.Set(*encOp.Refs[1].(*string))
 			op := key.InputOp{
 				Tag:  encOp.Refs[0].(event.Tag),
 				Hint: key.InputHint(encOp.Data[1]),
-				Keys: *filter,
+				Keys: filter,
 			}
 			a := pc.currentArea()
 			b := pc.currentAreaBounds()
@@ -519,11 +532,11 @@ func (q *Router) collect() {
 
 		// Semantic ops.
 		case ops.TypeSemanticLabel:
-			lbl := encOp.Refs[0].(*string)
-			pc.semanticLabel(*lbl)
+			lbl := *encOp.Refs[0].(*string)
+			pc.semanticLabel(lbl)
 		case ops.TypeSemanticDesc:
-			desc := encOp.Refs[0].(*string)
-			pc.semanticDesc(*desc)
+			desc := *encOp.Refs[0].(*string)
+			pc.semanticDesc(desc)
 		case ops.TypeSemanticClass:
 			class := semantic.ClassOp(encOp.Data[1])
 			pc.semanticClass(class)

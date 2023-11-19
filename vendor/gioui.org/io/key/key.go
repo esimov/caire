@@ -30,6 +30,8 @@ type InputOp struct {
 	Hint InputHint
 	// Keys is the set of keys Tag can handle. That is, Tag will only
 	// receive an Event if its key and modifiers are accepted by Keys.Contains.
+	// As a special case, the topmost (first added) InputOp handler receives all
+	// unhandled events.
 	Keys Set
 }
 
@@ -151,6 +153,8 @@ const (
 	HintURL
 	// HintTelephone hints that telephone number input is expected. It may activate shortcuts for 0-9, "#" and "*".
 	HintTelephone
+	// HintPassword hints that password input is expected. It may disable autocorrection and enable password autofill.
+	HintPassword
 )
 
 // State is the state of a key during an event.
@@ -319,8 +323,7 @@ func (h InputOp) Add(o *op.Ops) {
 	if h.Tag == nil {
 		panic("Tag must be non-nil")
 	}
-	filter := h.Keys
-	data := ops.Write2(&o.Internal, ops.TypeKeyInputLen, h.Tag, &filter)
+	data := ops.Write2String(&o.Internal, ops.TypeKeyInputLen, h.Tag, string(h.Keys))
 	data[0] = byte(ops.TypeKeyInput)
 	data[1] = byte(h.Hint)
 }
@@ -339,7 +342,7 @@ func (h FocusOp) Add(o *op.Ops) {
 }
 
 func (s SnippetOp) Add(o *op.Ops) {
-	data := ops.Write2(&o.Internal, ops.TypeSnippetLen, s.Tag, &s.Text)
+	data := ops.Write2String(&o.Internal, ops.TypeSnippetLen, s.Tag, s.Text)
 	data[0] = byte(ops.TypeSnippet)
 	bo := binary.LittleEndian
 	bo.PutUint32(data[1:], uint32(s.Range.Start))

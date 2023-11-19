@@ -56,6 +56,7 @@ const (
 	GREATER                               = 0x204
 	GEQUAL                                = 0x206
 	LINEAR                                = 0x2601
+	LINEAR_MIPMAP_LINEAR                  = 0x2703
 	LINK_STATUS                           = 0x8b82
 	LUMINANCE                             = 0x1909
 	MAP_READ_BIT                          = 0x0001

@@ -142,7 +142,7 @@ func (f Flex) Layout(gtx Context, children ...FlexChild) Dimensions {
 		children[i].call = c
 		children[i].dims = dims
 	}
-	var maxCross int
+	maxCross := crossMin
 	var maxBaseline int
 	for _, child := range children {
 		if c := f.Axis.Convert(child.dims.Size).Y; c > maxCross {

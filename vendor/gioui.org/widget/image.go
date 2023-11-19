@@ -23,18 +23,17 @@ type Image struct {
 	// Position specifies where to position the image within
 	// the constraints.
 	Position layout.Direction
-	// Scale is the ratio of image pixels to
-	// dps. If Scale is zero Image falls back to
-	// a scale that match a standard 72 DPI.
+	// Scale is the factor used for converting image pixels to dp.
+	// If Scale is zero it defaults to 1.
+	//
+	// To map one image pixel to one output pixel, set Scale to 1.0 / gtx.Metric.PxPerDp.
 	Scale float32
 }
-
-const defaultScale = float32(160.0 / 72.0)
 
 func (im Image) Layout(gtx layout.Context) layout.Dimensions {
 	scale := im.Scale
 	if scale == 0 {
-		scale = defaultScale
+		scale = 1
 	}
 
 	size := im.Src.Size()

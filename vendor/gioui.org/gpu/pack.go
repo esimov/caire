@@ -46,20 +46,24 @@ func (p *packer) newPage() {
 }
 
 func (p *packer) tryAdd(s image.Point) (placement, bool) {
+	if len(p.spaces) == 0 || len(p.sizes) == 0 {
+		return placement{}, false
+	}
+
 	var (
-		bestIdx   = -1
-		bestSpace image.Rectangle
-		bestSize  = p.maxDims
+		bestIdx  *image.Rectangle
+		bestSize = p.maxDims
+		lastSize = p.sizes[len(p.sizes)-1]
 	)
 	// Go backwards to prioritize smaller spaces.
-	for i, space := range p.spaces {
+	for i := range p.spaces {
+		space := &p.spaces[i]
 		rightSpace := space.Dx() - s.X
 		bottomSpace := space.Dy() - s.Y
 		if rightSpace < 0 || bottomSpace < 0 {
 			continue
 		}
-		idx := len(p.sizes) - 1
-		size := p.sizes[idx]
+		size := lastSize
 		if x := space.Min.X + s.X; x > size.X {
 			if x > p.maxDims.X {
 				continue
@@ -73,16 +77,16 @@ func (p *packer) tryAdd(s image.Point) (placement, bool) {
 			size.Y = y
 		}
 		if size.X*size.Y < bestSize.X*bestSize.Y {
-			bestIdx = i
-			bestSpace = space
+			bestIdx = space
 			bestSize = size
 		}
 	}
-	if bestIdx == -1 {
+	if bestIdx == nil {
 		return placement{}, false
 	}
 	// Remove space.
-	p.spaces[bestIdx] = p.spaces[len(p.spaces)-1]
+	bestSpace := *bestIdx
+	*bestIdx = p.spaces[len(p.spaces)-1]
 	p.spaces = p.spaces[:len(p.spaces)-1]
 	// Put s in the top left corner and add the (at most)
 	// two smaller spaces.

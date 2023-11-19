@@ -8,10 +8,11 @@ struct Color
 uniform Color _color;
 
 out vec4 fragColor;
+in float opacity;
 in vec2 vUV;
 
 void main()
 {
-    fragColor = _color.color;
+    fragColor = _color.color * opacity;
 }
 

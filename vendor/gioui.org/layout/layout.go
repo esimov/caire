@@ -102,6 +102,36 @@ func (c Constraints) Constrain(size image.Point) image.Point {
 	return size
 }
 
+// AddMin returns a copy of Constraints with the Min constraint enlarged by up to delta
+// while still fitting within the Max constraint. The Max is unchanged, and the Min constraint
+// will not go negative.
+func (c Constraints) AddMin(delta image.Point) Constraints {
+	c.Min = c.Min.Add(delta)
+	if c.Min.X < 0 {
+		c.Min.X = 0
+	}
+	if c.Min.Y < 0 {
+		c.Min.Y = 0
+	}
+	c.Min = c.Constrain(c.Min)
+	return c
+}
+
+// SubMax returns a copy of Constraints with the Max constraint shrunk by up to delta
+// while not going negative. The values of delta are expected to be positive.
+// The Min constraint is adjusted to fit within the new Max constraint.
+func (c Constraints) SubMax(delta image.Point) Constraints {
+	c.Max = c.Max.Sub(delta)
+	if c.Max.X < 0 {
+		c.Max.X = 0
+	}
+	if c.Max.Y < 0 {
+		c.Max.Y = 0
+	}
+	c.Min = c.Constrain(c.Min)
+	return c
+}
+
 // Inset adds space around a widget by decreasing its maximum
 // constraints. The minimum constraints will be adjusted to ensure
 // they do not exceed the maximum.
@@ -211,10 +241,10 @@ type Spacer struct {
 
 func (s Spacer) Layout(gtx Context) Dimensions {
 	return Dimensions{
-		Size: image.Point{
+		Size: gtx.Constraints.Constrain(image.Point{
 			X: gtx.Dp(s.Width),
 			Y: gtx.Dp(s.Height),
-		},
+		}),
 	}
 }
 

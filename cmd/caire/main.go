@@ -62,7 +62,7 @@ var (
 	newHeight      = flag.Int("height", 0, "New height")
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
-	debug          = flag.Bool("debug", false, "Use debugger")
+	debug          = flag.Bool("debug", false, "Show the seams")
 	shapeType      = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
 	seamColor      = flag.String("color", "#ff0000", "Seam color")
 	preview        = flag.Bool("preview", true, "Show GUI window")

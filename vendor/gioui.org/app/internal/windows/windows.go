@@ -47,6 +47,13 @@ type WndClassEx struct {
 	HIconSm       syscall.Handle
 }
 
+type Margins struct {
+	CxLeftWidth    int32
+	CxRightWidth   int32
+	CyTopHeight    int32
+	CyBottomHeight int32
+}
+
 type Msg struct {
 	Hwnd     syscall.Handle
 	Message  uint32
@@ -67,6 +74,21 @@ type MinMaxInfo struct {
 	PtMaxPosition  Point
 	PtMinTrackSize Point
 	PtMaxTrackSize Point
+}
+
+type NCCalcSizeParams struct {
+	Rgrc  [3]Rect
+	LpPos *WindowPos
+}
+
+type WindowPos struct {
+	HWND            syscall.Handle
+	HWNDInsertAfter syscall.Handle
+	x               int32
+	y               int32
+	cx              int32
+	cy              int32
+	flags           uint32
 }
 
 type WindowPlacement struct {
@@ -243,7 +265,9 @@ const (
 	WM_MOUSEMOVE            = 0x0200
 	WM_MOUSEWHEEL           = 0x020A
 	WM_MOUSEHWHEEL          = 0x020E
+	WM_NCACTIVATE           = 0x0086
 	WM_NCHITTEST            = 0x0084
+	WM_NCCALCSIZE           = 0x0083
 	WM_PAINT                = 0x000F
 	WM_QUIT                 = 0x0012
 	WM_SETCURSOR            = 0x0020
@@ -322,6 +346,7 @@ var (
 	_DispatchMessage             = user32.NewProc("DispatchMessageW")
 	_EmptyClipboard              = user32.NewProc("EmptyClipboard")
 	_GetWindowRect               = user32.NewProc("GetWindowRect")
+	_GetClientRect               = user32.NewProc("GetClientRect")
 	_GetClipboardData            = user32.NewProc("GetClipboardData")
 	_GetDC                       = user32.NewProc("GetDC")
 	_GetDpiForWindow             = user32.NewProc("GetDpiForWindow")
@@ -378,6 +403,9 @@ var (
 	_ImmReleaseContext       = imm32.NewProc("ImmReleaseContext")
 	_ImmSetCandidateWindow   = imm32.NewProc("ImmSetCandidateWindow")
 	_ImmSetCompositionWindow = imm32.NewProc("ImmSetCompositionWindow")
+
+	dwmapi                        = syscall.NewLazySystemDLL("dwmapi")
+	_DwmExtendFrameIntoClientArea = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
 )
 
 func AdjustWindowRectEx(r *Rect, dwStyle uint32, bMenu int, dwExStyle uint32) {
@@ -429,6 +457,14 @@ func DispatchMessage(m *Msg) {
 	_DispatchMessage.Call(uintptr(unsafe.Pointer(m)))
 }
 
+func DwmExtendFrameIntoClientArea(hwnd syscall.Handle, margins Margins) error {
+	r, _, _ := _DwmExtendFrameIntoClientArea.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&margins)))
+	if r != 0 {
+		return fmt.Errorf("DwmExtendFrameIntoClientArea: %#x", r)
+	}
+	return nil
+}
+
 func EmptyClipboard() error {
 	r, _, err := _EmptyClipboard.Call()
 	if r == 0 {
@@ -440,6 +476,12 @@ func EmptyClipboard() error {
 func GetWindowRect(hwnd syscall.Handle) Rect {
 	var r Rect
 	_GetWindowRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&r)))
+	return r
+}
+
+func GetClientRect(hwnd syscall.Handle) Rect {
+	var r Rect
+	_GetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&r)))
 	return r
 }
 
