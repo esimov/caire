@@ -505,7 +505,8 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("could not open the mask file: %v", err)
 		}
-
+		defer mf.Close()
+		
 		ctype, err := utils.DetectContentType(mf.Name())
 		if err != nil {
 			return err
@@ -527,6 +528,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("could not open the mask file: %v", err)
 		}
+		defer rmf.Close()
 
 		ctype, err := utils.DetectContentType(rmf.Name())
 		if err != nil {
