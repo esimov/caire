@@ -77,7 +77,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 	dets := []pigo.Detection{}
 
-	if p.PigoFaceDetector != nil && p.FaceDetect && detAttempts < maxFaceDetAttempts {
+	if p.FaceDetector != nil && p.FaceDetect && detAttempts < maxFaceDetAttempts {
 		var ratio float64
 
 		if width < height {
@@ -108,10 +108,10 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 		// Run the classifier over the obtained leaf nodes and return the detection results.
 		// The result contains quadruplets representing the row, column, scale and detection score.
-		dets = p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
+		dets = p.FaceDetector.RunCascade(cParams, p.FaceAngle)
 
 		// Calculate the intersection over union (IoU) of two clusters.
-		dets = p.PigoFaceDetector.ClusterDetections(dets, 0.1)
+		dets = p.FaceDetector.ClusterDetections(dets, 0.1)
 
 		if len(dets) == 0 {
 			// Retry detecting faces for a certain amount of time.

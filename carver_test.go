@@ -250,7 +250,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	}
 	defer f.Close()
 
-	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
+	p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
 	if err != nil {
 		t.Fatalf("error unpacking the cascade file: %v", err)
 	}
@@ -282,10 +282,10 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 
 	// Run the classifier over the obtained leaf nodes and return the detection results.
 	// The result contains quadruplets representing the row, column, scale and detection score.
-	faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
+	faces := p.FaceDetector.RunCascade(cParams, p.FaceAngle)
 
 	// Calculate the intersection over union (IoU) of two clusters.
-	faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
+	faces = p.FaceDetector.ClusterDetections(faces, 0.2)
 
 	assert.Equal(1, len(faces))
 }
@@ -301,7 +301,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	}
 	defer f.Close()
 
-	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
+	p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
 	if err != nil {
 		t.Fatalf("error unpacking the cascade file: %v", err)
 	}
@@ -336,10 +336,10 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 
 	// Run the classifier over the obtained leaf nodes and return the detection results.
 	// The result contains quadruplets representing the row, column, scale and detection score.
-	faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
+	faces := p.FaceDetector.RunCascade(cParams, p.FaceAngle)
 
 	// Calculate the intersection over union (IoU) of two clusters.
-	faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
+	faces = p.FaceDetector.ClusterDetections(faces, 0.2)
 
 	// Range over all the detected faces and draw a white rectangle mask over each of them.
 	// We need to trick the sobel detector to consider them as important image parts.
@@ -378,7 +378,7 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 	}
 	defer f.Close()
 
-	p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
+	p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
 	if err != nil {
 		t.Fatalf("error unpacking the cascade file: %v", err)
 	}
@@ -409,10 +409,10 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 
 	// Run the classifier over the obtained leaf nodes and return the detection results.
 	// The result contains quadruplets representing the row, column, scale and detection score.
-	faces := p.PigoFaceDetector.RunCascade(cParams, p.FaceAngle)
+	faces := p.FaceDetector.RunCascade(cParams, p.FaceAngle)
 
 	// Calculate the intersection over union (IoU) of two clusters.
-	faces = p.PigoFaceDetector.ClusterDetections(faces, 0.2)
+	faces = p.FaceDetector.ClusterDetections(faces, 0.2)
 
 	for _, face := range faces {
 		if p.NewHeight < face.Scale {

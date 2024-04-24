@@ -61,25 +61,25 @@ type enlargeFn func(*Carver, *image.NRGBA) (*image.NRGBA, error)
 
 // Processor options
 type Processor struct {
-	SobelThreshold   int
-	BlurRadius       int
-	NewWidth         int
-	NewHeight        int
-	Percentage       bool
-	Square           bool
-	Debug            bool
-	Preview          bool
-	FaceDetect       bool
-	ShapeType        string
-	SeamColor        string
-	MaskPath         string
-	RMaskPath        string
-	Mask             *image.NRGBA
-	RMask            *image.NRGBA
-	GuiDebug         *image.NRGBA
-	FaceAngle        float64
-	PigoFaceDetector *pigo.Pigo
-	Spinner          *utils.Spinner
+	SobelThreshold int
+	BlurRadius     int
+	NewWidth       int
+	NewHeight      int
+	Percentage     bool
+	Square         bool
+	Debug          bool
+	Preview        bool
+	FaceDetect     bool
+	ShapeType      string
+	SeamColor      string
+	MaskPath       string
+	RMaskPath      string
+	Mask           *image.NRGBA
+	RMask          *image.NRGBA
+	GuiDebug       *image.NRGBA
+	FaceAngle      float64
+	FaceDetector   *pigo.Pigo
+	Spinner        *utils.Spinner
 
 	vRes bool
 }
@@ -476,13 +476,13 @@ func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	var err error
 
-	// Instantiate a new Pigo object in case the face detection option is used.
-	p.PigoFaceDetector = pigo.NewPigo()
-
 	if p.FaceDetect {
+		// Instantiate a new Pigo object in case the face detection option is used.
+		p.FaceDetector = pigo.NewPigo()
+
 		// Unpack the binary file. This will return the number of cascade trees,
 		// the tree depth, the threshold and the prediction from tree's leaf nodes.
-		p.PigoFaceDetector, err = p.PigoFaceDetector.Unpack(cascadeFile)
+		p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
 		if err != nil {
 			return fmt.Errorf("error unpacking the cascade file: %v", err)
 		}
@@ -494,6 +494,8 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 
 	src, _, err := image.Decode(r)
 	if err != nil {
+		fmt.Println("err:", err)
+		os.Exit(2)
 		return err
 	}
 

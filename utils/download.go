@@ -2,10 +2,9 @@ package utils
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,32 +16,35 @@ func DownloadImage(url string) (*os.File, error) {
 	// Retrieve the url and decode the response body.
 	res, err := http.Get(url)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("unable to download image file from URI: %s, status %v", url, res.Status))
+		return nil, fmt.Errorf("unable to download image file from URI: %s, status %v", url, res.Status)
 	}
 	defer res.Body.Close()
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("unable to read response body: %s", err))
+		return nil, fmt.Errorf("unable to read response body: %w", err)
 	}
 
-	tmpfile, err := ioutil.TempFile("/tmp", "image")
+	tmpfile, err := os.CreateTemp("/tmp", "image")
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("unable to create temporary file: %v", err))
+		return nil, fmt.Errorf("unable to create temporary file: %w", err)
 	}
 
 	// Copy the image binary data into the temporary file.
 	_, err = io.Copy(tmpfile, bytes.NewBuffer(data))
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("unable to copy the source URI into the destination file"))
+		return nil, fmt.Errorf("unable to copy the source URI into the destination file")
 	}
+
 	ctype, err := DetectContentType(tmpfile.Name())
 	if err != nil {
 		return nil, err
 	}
+
 	if !strings.Contains(ctype.(string), "image") {
-		return nil, errors.New("the downloaded file is a valid image type.")
+		return nil, fmt.Errorf("the downloaded file is not a valid image type")
 	}
+
 	return tmpfile, nil
 }
 
@@ -67,7 +69,11 @@ func DetectContentType(fname string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("could not close the opened file: %v", err)
+		}
+	}()
 
 	// Only the first 512 bytes are used to sniff the content type.
 	buffer := make([]byte, 512)
