@@ -494,8 +494,6 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 
 	src, _, err := image.Decode(r)
 	if err != nil {
-		fmt.Println("err:", err)
-		os.Exit(2)
 		return err
 	}
 
