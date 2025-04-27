@@ -24,6 +24,8 @@ var (
 	errs      = make(chan error)
 )
 
+var _ SeamCarver = (*Processor)(nil)
+
 // worker struct contains all the information needed for transferring the resized image to the Gio GUI.
 type worker struct {
 	img   *image.NRGBA
@@ -31,8 +33,6 @@ type worker struct {
 	seams []Seam
 	done  bool
 }
-
-var _ SeamCarver = (*Processor)(nil)
 
 // shrinkFn is a generic function used to shrink an image.
 type shrinkFn func(*image.NRGBA) (*image.NRGBA, error)

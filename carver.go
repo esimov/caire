@@ -76,7 +76,6 @@ func (c *Carver) set(x, y int, px float64) {
 //     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
 	var srcImg *image.NRGBA
-	p.DebugMask = image.NewNRGBA(img.Bounds())
 
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel = c.SobelDetector(img, float64(p.SobelThreshold))
@@ -134,6 +133,8 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 	// which we do not want to be altered by the seam carver,
 	// obtain the white patches and apply it to the sobel image.
 	if len(p.MaskPath) > 0 && p.Mask != nil {
+		p.DebugMask = image.NewNRGBA(img.Bounds())
+
 		for i := 0; i < width*height; i++ {
 			x := i % width
 			y := (i - x) / width
@@ -156,6 +157,8 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 	// we do not want to be retained in the final image, obtain the white patches,
 	// but this time inverse the colors to black and merge it back to the sobel image.
 	if len(p.RMaskPath) > 0 && p.RMask != nil {
+		p.DebugMask = image.NewNRGBA(img.Bounds())
+
 		for i := 0; i < width*height; i++ {
 			x := i % width
 			y := (i - x) / width
@@ -195,6 +198,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 				face.Col+scale,
 				face.Row+scale,
 			)
+			p.DebugMask = image.NewNRGBA(img.Bounds())
 			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}

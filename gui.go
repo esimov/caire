@@ -101,7 +101,7 @@ type Gui struct {
 }
 
 type hudCtrl struct {
-	visible widget.Bool
+	enabled widget.Bool
 	hudType hudControlType
 	title   string
 }
@@ -138,9 +138,9 @@ func (g *Gui) AddHudControl(hudControlType hudControlType, title string, enabled
 	control := &hudCtrl{
 		hudType: hudControlType,
 		title:   title,
-		visible: widget.Bool{},
+		enabled: widget.Bool{},
 	}
-	control.visible.Value = enabled
+	control.enabled.Value = enabled
 	g.huds[hudControlType] = control
 }
 
@@ -253,7 +253,7 @@ func (g *Gui) Run() error {
 			g.process.seams = res.seams
 
 			if mask, ok := g.huds[hudShowDebugMask]; ok {
-				if mask.visible.Value {
+				if mask.enabled.Value && res.mask != nil {
 					bounds := res.img.Bounds()
 					srcBitmap := imop.NewBitmap(bounds)
 					dstBitmap := imop.NewBitmap(bounds)
@@ -381,7 +381,7 @@ func (g *Gui) draw(bgColor color.NRGBA) {
 						}.Layout(gtx)
 
 						if seam, ok := g.huds[hudShowSeams]; ok {
-							if seam.visible.Value {
+							if seam.enabled.Value {
 								tr := f32.Affine2D{}
 								screen := layout.FPt(g.ctx.Constraints.Max)
 								width, height := float32(g.process.img.Bounds().Dx()), float32(g.process.img.Bounds().Dy())
@@ -453,7 +453,7 @@ func (g *Gui) draw(bgColor color.NRGBA) {
 						return g.view.huds.Layout(gtx, len(g.huds),
 							func(gtx layout.Context, index int) D {
 								if hud, ok := g.huds[hudControlType(index)]; ok {
-									checkbox := material.CheckBox(g.theme, &hud.visible, fmt.Sprintf("%v", hud.title))
+									checkbox := material.CheckBox(g.theme, &hud.enabled, fmt.Sprintf("%v", hud.title))
 									checkbox.Size = 20
 									return checkbox.Layout(gtx)
 								}
