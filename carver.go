@@ -11,6 +11,12 @@ import (
 	pigo "github.com/esimov/pigo/core"
 )
 
+// SeamCarver defines the Carve interface method, which have to be
+// implemented by the Processor struct.
+type SeamCarver interface {
+	Carve(*image.NRGBA) (image.Image, error)
+}
+
 // maxFaceDetAttempts defines the maximum number of attempts of face detections
 const maxFaceDetAttempts = 20
 
@@ -41,10 +47,10 @@ type Seam struct {
 // NewCarver returns an initialized Carver structure.
 func NewCarver(width, height int) *Carver {
 	return &Carver{
-		make([]float64, width*height),
-		nil,
-		width,
-		height,
+		Points: make([]float64, width*height),
+		Seams:  []Seam{},
+		Width:  width,
+		Height: height,
 	}
 }
 
@@ -70,7 +76,7 @@ func (c *Carver) set(x, y int, px float64) {
 //     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
 	var srcImg *image.NRGBA
-	p.GuiDebug = image.NewNRGBA(img.Bounds())
+	p.DebugMask = image.NewNRGBA(img.Bounds())
 
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel = c.SobelDetector(img, float64(p.SobelThreshold))
@@ -88,7 +94,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		minSize := float64(utils.Min(width, height)) * ratio / 3
 
 		// Transform the image to pixel array.
-		pixels := c.rgbToGrayscale(img)
+		pixels := rgbToGrayscale(img)
 
 		cParams := pigo.CascadeParams{
 			MinSize:     int(minSize),
@@ -165,9 +171,9 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 				} else {
 					sobel.Set(x, y, color.Black)
 				}
-				p.GuiDebug.Set(x, y, color.Black)
+				p.DebugMask.Set(x, y, color.Black)
 			} else {
-				p.GuiDebug.Set(x, y, color.Transparent)
+				p.DebugMask.Set(x, y, color.Transparent)
 			}
 		}
 	}
@@ -190,7 +196,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 				face.Row+scale,
 			)
 			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
-			draw.Draw(p.GuiDebug, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
 	}
 

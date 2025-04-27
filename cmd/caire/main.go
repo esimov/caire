@@ -71,18 +71,18 @@ func main() {
 		FaceAngle:      *faceAngle,
 		MaskPath:       *maskPath,
 		RMaskPath:      *rMaskPath,
-		ShapeType:      *shapeType,
 		SeamColor:      *seamColor,
+		ShapeType:      caire.ShapeType(*shapeType),
 	}
 
 	if !(*newWidth > 0 || *newHeight > 0 || *percentage || *square) {
 		flag.Usage()
-		log.Fatal(fmt.Sprintf("%s%s",
+		log.Fatalf("%s%s",
 			utils.DecorateText("\nPlease provide a width, height or percentage for image rescaling!", utils.ErrorMessage),
 			utils.DefaultColor,
-		))
+		)
 	} else {
-		op := &caire.Ops{
+		op := &caire.Image{
 			Src:      *source,
 			Dst:      *destination,
 			Workers:  *workers,

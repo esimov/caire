@@ -3,6 +3,7 @@ package caire
 import (
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"log"
 	"os"
@@ -13,12 +14,11 @@ import (
 	"syscall"
 	"time"
 
+	"slices"
+
 	"github.com/esimov/caire/utils"
 	"golang.org/x/term"
 )
-
-// maxWorkers sets the maximum number of concurrently running workers.
-const maxWorkers = 20
 
 var (
 	// imgFile holds the file being accessed, be it normal file or pipe name.
@@ -28,7 +28,7 @@ var (
 	fs os.FileInfo
 )
 
-type Ops struct {
+type Image struct {
 	Src, Dst, PipeName string
 	Workers            int
 }
@@ -39,10 +39,14 @@ type result struct {
 	err  error
 }
 
+func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
+	return s.Carve(img)
+}
+
 // Execute executes the image resizing process.
 // In case the preview mode is activated it will be invoked in a separate goroutine
-// in order to not block the main OS thread. Otherwise it will be called normally.
-func (p *Processor) Execute(op *Ops) {
+// in order to avoid blocking the main OS thread. Otherwise it will be called normally.
+func (p *Processor) Execute(img *Image) {
 	var err error
 	defaultMsg := fmt.Sprintf("%s %s",
 		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
@@ -54,8 +58,8 @@ func (p *Processor) Execute(op *Ops) {
 	validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
 
 	// Check if source path is a local image or URL.
-	if utils.IsValidUrl(op.Src) {
-		src, err := utils.DownloadImage(op.Src)
+	if utils.IsValidUrl(img.Src) {
+		src, err := utils.DownloadImage(img.Src)
 		if src != nil {
 			defer os.Remove(src.Name())
 		}
@@ -84,10 +88,10 @@ func (p *Processor) Execute(op *Ops) {
 		imgFile = img
 	} else {
 		// Check if the source is a pipe name or a regular file.
-		if op.Src == op.PipeName {
+		if img.Src == img.PipeName {
 			fs, err = os.Stdin.Stat()
 		} else {
-			fs, err = os.Stat(op.Src)
+			fs, err = os.Stat(img.Src)
 		}
 		if err != nil {
 			log.Fatalf(
@@ -103,9 +107,9 @@ func (p *Processor) Execute(op *Ops) {
 	case mode.IsDir():
 		var wg sync.WaitGroup
 		// Read destination file or directory.
-		_, err := os.Stat(op.Dst)
+		_, err := os.Stat(img.Dst)
 		if err != nil {
-			err = os.Mkdir(op.Dst, 0755)
+			err = os.Mkdir(img.Dst, 0755)
 			if err != nil {
 				log.Fatalf(
 					utils.DecorateText("Unable to get dir stats: %v\n", utils.ErrorMessage),
@@ -116,22 +120,22 @@ func (p *Processor) Execute(op *Ops) {
 		p.Preview = false
 
 		// Limit the concurrently running workers to maxWorkers.
-		if op.Workers <= 0 || op.Workers > maxWorkers {
-			op.Workers = runtime.NumCPU()
+		if img.Workers <= 0 || img.Workers > runtime.NumCPU() {
+			img.Workers = runtime.NumCPU()
 		}
 
 		// Process recursively the image files from the specified directory concurrently.
 		ch := make(chan result)
-		done := make(chan interface{})
+		done := make(chan any)
 		defer close(done)
 
-		paths, errc := walkDir(done, op.Src, validExtensions)
+		paths, errc := walkDir(done, img.Src, validExtensions)
 
-		wg.Add(op.Workers)
-		for i := 0; i < op.Workers; i++ {
+		wg.Add(img.Workers)
+		for range img.Workers {
 			go func() {
 				defer wg.Done()
-				op.consumer(p, op.Dst, ch, done, paths)
+				img.consumer(p, img.Dst, ch, done, paths)
 			}()
 		}
 
@@ -146,7 +150,7 @@ func (p *Processor) Execute(op *Ops) {
 			if res.err != nil {
 				err = res.err
 			}
-			op.printOpStatus(res.path, err)
+			img.printOpStatus(res.path, err)
 		}
 
 		if err = <-errc; err != nil {
@@ -154,30 +158,32 @@ func (p *Processor) Execute(op *Ops) {
 		}
 
 	case mode.IsRegular() || mode&os.ModeNamedPipe != 0: // check for regular files or pipe names
-		ext := filepath.Ext(op.Dst)
-		if !isValidExtension(ext, validExtensions) && op.Dst != op.PipeName {
+		ext := filepath.Ext(img.Dst)
+		if !slices.Contains(validExtensions, ext) && img.Dst != img.PipeName {
 			log.Fatalf(utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
 		}
 
-		err = op.process(p, op.Src, op.Dst)
-		op.printOpStatus(op.Dst, err)
+		err = img.process(p, img.Src, img.Dst)
+		img.printOpStatus(img.Dst, err)
 	}
 	if err == nil {
-		fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(fmt.Sprintf("%s", utils.FormatTime(time.Since(now))), utils.SuccessMessage))
+		fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(
+			utils.FormatTime(time.Since(now)), utils.SuccessMessage),
+		)
 	}
 }
 
 // consumer reads the path names from the paths channel and calls the resizing processor against the source image.
-func (op *Ops) consumer(
+func (img *Image) consumer(
 	p *Processor,
 	dest string,
 	res chan<- result,
-	done <-chan interface{},
+	done <-chan any,
 	paths <-chan string,
 ) {
 	for src := range paths {
 		dst := filepath.Join(dest, filepath.Base(src))
-		err := op.process(p, src, dst)
+		err := img.process(p, src, dst)
 
 		select {
 		case <-done:
@@ -191,7 +197,7 @@ func (op *Ops) consumer(
 }
 
 // processor calls the resizer method over the source image and returns the error in case exists.
-func (op *Ops) process(p *Processor, in, out string) error {
+func (img *Image) process(p *Processor, in, out string) error {
 	var (
 		successMsg string
 		errorMsg   string
@@ -211,7 +217,7 @@ func (op *Ops) process(p *Processor, in, out string) error {
 		utils.DecorateText("✘", utils.ErrorMessage),
 	)
 
-	src, dst, err := op.pathToFile(in, out)
+	src, dst, err := img.pathToFile(in, out)
 	if err != nil {
 		p.Spinner.StopMsg = errorMsg
 		return err
@@ -245,6 +251,24 @@ func (op *Ops) process(p *Processor, in, out string) error {
 		}
 	}()
 
+	if len(p.MaskPath) > 0 {
+		mask, err := decodeImg(p.MaskPath)
+		if err != nil {
+			return fmt.Errorf("cannot decode image: %w", err)
+		}
+		p.Mask = dither(imgToNRGBA(mask))
+		p.DebugMask = p.Mask
+	}
+
+	if len(p.RMaskPath) > 0 {
+		rmask, err := decodeImg(p.RMaskPath)
+		if err != nil {
+			return fmt.Errorf("cannot decode image: %w", err)
+		}
+		p.RMask = dither(imgToNRGBA(rmask))
+		p.DebugMask = p.RMask
+	}
+
 	err = p.Process(src, dst)
 	if err != nil {
 		// remove the generated image file in case of an error
@@ -265,7 +289,7 @@ func (op *Ops) process(p *Processor, in, out string) error {
 }
 
 // pathToFile converts the source and destination paths to readable and writable files.
-func (op *Ops) pathToFile(in, out string) (io.Reader, io.Writer, error) {
+func (img *Image) pathToFile(in, out string) (io.Reader, io.Writer, error) {
 	var (
 		src io.Reader
 		dst io.Writer
@@ -276,7 +300,7 @@ func (op *Ops) pathToFile(in, out string) (io.Reader, io.Writer, error) {
 		src = imgFile
 	} else {
 		// Check if the source is a pipe name or a regular file.
-		if in == op.PipeName {
+		if in == img.PipeName {
 			if term.IsTerminal(int(os.Stdin.Fd())) {
 				return nil, nil, errors.New("`-` should be used with a pipe for stdin")
 			}
@@ -290,7 +314,7 @@ func (op *Ops) pathToFile(in, out string) (io.Reader, io.Writer, error) {
 	}
 
 	// Check if the destination is a pipe name or a regular file.
-	if out == op.PipeName {
+	if out == img.PipeName {
 		if term.IsTerminal(int(os.Stdout.Fd())) {
 			return nil, nil, errors.New("`-` should be used with a pipe for stdout")
 		}
@@ -301,18 +325,19 @@ func (op *Ops) pathToFile(in, out string) (io.Reader, io.Writer, error) {
 			return nil, nil, fmt.Errorf("unable to create the destination file: %v", err)
 		}
 	}
+
 	return src, dst, nil
 }
 
 // printOpStatus displays the relevant information about the image resizing process.
-func (op *Ops) printOpStatus(fname string, err error) {
+func (img *Image) printOpStatus(fname string, err error) {
 	if err != nil {
 		log.Fatalf(
 			utils.DecorateText("\nError resizing the image: %s", utils.ErrorMessage),
 			utils.DecorateText(fmt.Sprintf("\n\tReason: %v\n", err.Error()), utils.DefaultMessage),
 		)
 	} else {
-		if fname != op.PipeName {
+		if fname != img.PipeName {
 			fmt.Fprintf(os.Stderr, "\nThe image has been saved as: %s %s\n\n",
 				utils.DecorateText(filepath.Base(fname), utils.SuccessMessage),
 				utils.DefaultColor,
@@ -325,7 +350,7 @@ func (op *Ops) printOpStatus(fname string, err error) {
 // in recursive manner and sends the path of each regular file to a new channel.
 // It finishes in case the done channel is getting closed.
 func walkDir(
-	done <-chan interface{},
+	done <-chan any,
 	src string,
 	srcExts []string,
 ) (<-chan string, <-chan error) {
@@ -347,11 +372,8 @@ func walkDir(
 
 			// Get the file base name.
 			fx := filepath.Ext(f.Name())
-			for _, ext := range srcExts {
-				if ext == fx {
-					isFileSupported = true
-					break
-				}
+			if slices.Contains(srcExts, fx) {
+				isFileSupported = true
 			}
 
 			if isFileSupported {
@@ -365,14 +387,4 @@ func walkDir(
 		})
 	}()
 	return pathChan, errChan
-}
-
-// isValidExtension checks for the supported extensions.
-func isValidExtension(ext string, extensions []string) bool {
-	for _, ex := range extensions {
-		if ex == ext {
-			return true
-		}
-	}
-	return false
 }

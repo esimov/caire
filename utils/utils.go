@@ -1,6 +1,10 @@
 package utils
 
-import "golang.org/x/exp/constraints"
+import (
+	"slices"
+
+	"golang.org/x/exp/constraints"
+)
 
 // Min returns the slowest value of the provided parameters.
 func Min[T constraints.Ordered](values ...T) T {
@@ -36,10 +40,5 @@ func Abs[T constraints.Signed | constraints.Float](x T) T {
 
 // Contains returns true if a value is available in the collection.
 func Contains[T comparable](slice []T, value T) bool {
-	for _, v := range slice {
-		if v == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, value)
 }

@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"image/color/palette"
 	"image/draw"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -14,7 +14,7 @@ import (
 
 func TestImage_ShouldGetSampleImage(t *testing.T) {
 	path := filepath.Join("./testdata", "sample.jpg")
-	_, err := ioutil.ReadFile(path)
+	_, err := os.ReadFile(path)
 	if err != nil {
 		t.Errorf("Should get the sample image")
 	}

@@ -42,16 +42,19 @@ func TestCarver_EnergySeamShouldNotBeDetected(t *testing.T) {
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 
 	var c = NewCarver(dx, dy)
-	for x := 0; x < imgWidth; x++ {
+	for range imgWidth {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
-		c.ComputeSeams(p, img)
+
+		_, err := c.ComputeSeams(p, img)
+		assert.NoError(err)
+
 		les := c.FindLowestEnergySeams(p)
 		seams = append(seams, les)
 	}
 
-	for i := 0; i < len(seams); i++ {
-		for s := 0; s < len(seams[i]); s++ {
+	for i := range seams {
+		for s := range seams[i] {
 			totalEnergySeams += seams[i][s].X
 		}
 	}
@@ -59,8 +62,6 @@ func TestCarver_EnergySeamShouldNotBeDetected(t *testing.T) {
 }
 
 func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
-	assert := assert.New(t)
-
 	var seams [][]Seam
 	var totalEnergySeams int
 
@@ -82,24 +83,24 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 	var c = NewCarver(dx, dy)
 	for x := 0; x < imgWidth; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
+
 		c = NewCarver(width, height)
-		c.ComputeSeams(p, img)
+		_, err := c.ComputeSeams(p, img)
+		assert.NoError(t, err)
+
 		les := c.FindLowestEnergySeams(p)
 		seams = append(seams, les)
 	}
 
-	for i := 0; i < len(seams); i++ {
-		for s := 0; s < len(seams[i]); s++ {
+	for i := range seams {
+		for s := range seams[i] {
 			totalEnergySeams += seams[i][s].X
 		}
 	}
-
-	assert.Greater(totalEnergySeams, 0)
+	assert.Greater(t, totalEnergySeams, 0)
 }
 
 func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
-	assert := assert.New(t)
-
 	var seams [][]Seam
 	var totalEnergySeams int
 
@@ -119,26 +120,27 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 	}
 
 	var c = NewCarver(dx, dy)
-	img = c.RotateImage90(img)
+	img = rotateImage90(img)
 	for x := 0; x < imgHeight; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
+
 		c = NewCarver(width, height)
-		c.ComputeSeams(p, img)
+		_, err := c.ComputeSeams(p, img)
+		assert.NoError(t, err)
+
 		les := c.FindLowestEnergySeams(p)
 		seams = append(seams, les)
 	}
 
-	for i := 0; i < len(seams); i++ {
-		for s := 0; s < len(seams[i]); s++ {
+	for i := range seams {
+		for s := range seams[i] {
 			totalEnergySeams += seams[i][s].X
 		}
 	}
-	assert.Greater(totalEnergySeams, 0)
+	assert.Greater(t, totalEnergySeams, 0)
 }
 
 func TestCarver_RemoveSeam(t *testing.T) {
-	assert := assert.New(t)
-
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	bounds := img.Bounds()
 
@@ -154,7 +156,9 @@ func TestCarver_RemoveSeam(t *testing.T) {
 	}
 
 	c := NewCarver(dx, dy)
-	c.ComputeSeams(p, img)
+	_, err := c.ComputeSeams(p, img)
+	assert.NoError(t, err)
+
 	seams := c.FindLowestEnergySeams(p)
 	img = c.RemoveSeam(img, seams, false)
 
@@ -172,12 +176,10 @@ func TestCarver_RemoveSeam(t *testing.T) {
 			}
 		}
 	}
-	assert.False(isEq)
+	assert.False(t, isEq)
 }
 
 func TestCarver_AddSeam(t *testing.T) {
-	assert := assert.New(t)
-
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	bounds := img.Bounds()
 
@@ -193,7 +195,9 @@ func TestCarver_AddSeam(t *testing.T) {
 	}
 
 	c := NewCarver(dx, dy)
-	c.ComputeSeams(p, img)
+	_, err := c.ComputeSeams(p, img)
+	assert.NoError(t, err)
+
 	seams := c.FindLowestEnergySeams(p)
 	img = c.AddSeam(img, seams, false)
 
@@ -211,12 +215,10 @@ func TestCarver_AddSeam(t *testing.T) {
 			}
 		}
 	}
-	assert.False(isEq)
+	assert.False(t, isEq)
 }
 
 func TestCarver_ComputeSeams(t *testing.T) {
-	assert := assert.New(t)
-
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 
 	// We choose to fill up the background with an uniform white color
@@ -231,16 +233,15 @@ func TestCarver_ComputeSeams(t *testing.T) {
 	}
 
 	c := NewCarver(dx, dy)
-	c.ComputeSeams(p, img)
+	_, err := c.ComputeSeams(p, img)
+	assert.NoError(t, err)
 
 	otherThenZero := findNonZeroValue(c.Points)
 
-	assert.True(otherThenZero)
+	assert.True(t, otherThenZero)
 }
 
 func TestCarver_ShouldDetectFace(t *testing.T) {
-	assert := assert.New(t)
-
 	p.FaceDetect = true
 
 	sampleImg := filepath.Join("./testdata", "sample.jpg")
@@ -259,12 +260,11 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error decoding image: %v", err)
 	}
-	img := p.imgToNRGBA(src)
+	img := imgToNRGBA(src)
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
-	c := NewCarver(dx, dy)
 	// Transform the image to a pixel array.
-	pixels := c.rgbToGrayscale(img)
+	pixels := rgbToGrayscale(img)
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
@@ -287,7 +287,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	// Calculate the intersection over union (IoU) of two clusters.
 	faces = p.FaceDetector.ClusterDetections(faces, 0.2)
 
-	assert.Equal(1, len(faces))
+	assert.Equal(t, 1, len(faces))
 }
 
 func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
@@ -310,12 +310,12 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error decoding image: %v", err)
 	}
-	img := p.imgToNRGBA(src)
+	img := imgToNRGBA(src)
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	c := NewCarver(dx, dy)
 	// Transform the image to a pixel array.
-	pixels := c.rgbToGrayscale(img)
+	pixels := rgbToGrayscale(img)
 
 	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
 	img = c.StackBlur(sobel, uint32(p.BlurRadius))
@@ -355,7 +355,9 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 			draw.Draw(sobel, rect, &image.Uniform{image.White}, image.Point{}, draw.Src)
 		}
 	}
-	c.ComputeSeams(p, img)
+	_, err = c.ComputeSeams(p, img)
+	assert.Error(t, err)
+
 	seams := c.FindLowestEnergySeams(p)
 
 	for _, seam := range seams {
@@ -387,12 +389,11 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error decoding image: %v", err)
 	}
-	img := p.imgToNRGBA(src)
+	img := imgToNRGBA(src)
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
-	c := NewCarver(dx, dy)
 	// Transform the image to a pixel array.
-	pixels := c.rgbToGrayscale(img)
+	pixels := rgbToGrayscale(img)
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
 		MaxSize:     utils.Max(dx, dy),

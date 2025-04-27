@@ -1,74 +1,49 @@
 package caire
 
 import (
-	"image"
 	"image/color"
 	"math"
 
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/unit"
-	"gioui.org/widget"
 	"github.com/esimov/caire/utils"
 )
 
+type ShapeType string
+
 const (
-	circle = "circle"
-	line   = "line"
+	Circle ShapeType = "circle"
+	Line   ShapeType = "line"
 )
 
 // DrawSeam visualizes the seam carver in action when the preview mode is activated.
-// It receives as parameters the shape type, the seam (x,y) coordinates and a dimension.
-func (g *Gui) DrawSeam(shape string, x, y, dim float32) {
-	r := getRatio(g.cfg.window.w, g.cfg.window.h)
+// It receives as parameters the shape type, the seam (x,y) coordinates and it's thickness.
+func (g *Gui) DrawSeam(shape ShapeType, x, y, thickness float32) {
+	r := getRatio(g.cfg.window.width, g.cfg.window.height)
 
 	switch shape {
-	case circle:
-		g.drawCircle(x*r, y*r, dim)
-	case line:
-		g.drawLine(x*r, y*r, dim)
+	case Circle:
+		g.drawCircle(x*r, y*r, thickness)
+	case Line:
+		g.drawLine(x*r, y*r, thickness)
 	}
-}
-
-// EncodeSeamToImg draws the seams into an image widget.
-func (g *Gui) EncodeSeamToImg() {
-	c := utils.HexToRGBA(g.cp.SeamColor)
-	g.setFillColor(c)
-
-	img := image.NewNRGBA(image.Rect(0, 0, int(g.cfg.window.w), int(g.cfg.window.h)))
-	r := getRatio(g.cfg.window.w, g.cfg.window.h)
-
-	for _, s := range g.proc.seams {
-		x := int(float32(s.X) * r)
-		y := int(float32(s.Y) * r)
-		img.Set(x, y, g.getFillColor())
-	}
-
-	src := paint.NewImageOp(img)
-	src.Add(g.ctx.Ops)
-
-	widget.Image{
-		Src:   src,
-		Scale: 1 / float32(unit.Dp(1)),
-		Fit:   widget.Contain,
-	}.Layout(g.ctx)
 }
 
 // drawCircle draws a circle at the seam (x,y) coordinate with the provided size.
-func (g *Gui) drawCircle(x, y, s float32) {
+func (g *Gui) drawCircle(x, y, radius float32) {
 	var (
 		sq   float64
 		p1   f32.Point
 		p2   f32.Point
-		orig = g.point(x-s, y)
+		orig = g.point(x-radius, y)
 	)
 
-	sq = math.Sqrt(float64(s*s) - float64(s*s))
+	sq = math.Sqrt(float64(radius*radius) - float64(radius*radius))
 	p1 = g.point(x+float32(sq), y).Sub(orig)
 	p2 = g.point(x-float32(sq), y).Sub(orig)
 
-	col := utils.HexToRGBA(g.cp.SeamColor)
+	col := utils.HexToRGBA(g.proc.SeamColor)
 	g.setFillColor(col)
 
 	var path clip.Path
@@ -95,7 +70,7 @@ func (g *Gui) drawLine(x, y, thickness float32) {
 	path.Line(p2.Sub(path.Pos()))
 	path.Close()
 
-	col := utils.HexToRGBA(g.cp.SeamColor)
+	col := utils.HexToRGBA(g.proc.SeamColor)
 	g.setFillColor(col)
 
 	defer clip.Stroke{Path: path.End(), Width: float32(thickness)}.Op().Push(g.ctx.Ops).Pop()
@@ -139,7 +114,7 @@ func getRatio(w, h float32) float32 {
 		wr := maxScreenX / float32(w) // width ratio
 		hr := maxScreenY / float32(h) // height ratio
 
-		r = utils.Min(wr, hr)
+		r = utils.Max(wr, hr)
 	}
 	return r
 }

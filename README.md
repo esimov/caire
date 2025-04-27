@@ -33,7 +33,7 @@ Key features which differentiates this library from the other existing open sour
 - [x] Support for both shrinking or enlarging the image
 - [x] Resize image both vertically and horizontally
 - [x] Face detection to avoid face deformation
-- [x] Support for multiple output image type (jpg, jpeg, png, bmp, gif)
+- [x] Support for multiple output image type (jpg, jpeg, png, bmp)
 - [x] Support for `stdin` and `stdout` pipe commands
 - [x] Can process whole directories recursively and concurrently
 - [x] Use of sobel threshold for fine tuning
@@ -48,7 +48,7 @@ Key features which differentiates this library from the other existing open sour
 First, install Go, set your `GOPATH`, and make sure `$GOPATH/bin` is on your `PATH`.
 
 ```bash
-$ go install github.com/esimov/caire/cmd/caire@latest 
+$ go install github.com/esimov/caire/cmd/caire@latest
 ```
 
 ## MacOS (Brew) install
@@ -147,7 +147,7 @@ $ caire -in <input_folder> -out <output-folder>
 ```
 
 ### Support for multiple output image type
-There is no need to define the output file type, just use the correct extension and the library will encode the image to that specific type. You can export the resized image even to a **Gif** file, in which case the generated file shows the resizing process interactively.
+There is no need to define the output file type, just use the correct extension and the library will encode the image to that specific type.
 
 ### Other options
 In case you wish to scale down the image by a specific percentage, it can be used the **`-perc`** boolean flag. In this case the values provided for the `width` and `height` are expressed in percentage and not pixel values. For example to reduce the image dimension by 20% both horizontally and vertically you can use the following command:

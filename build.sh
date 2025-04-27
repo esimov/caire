@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="1.4.6"
+VERSION="1.5.0"
 PROTECTED_MODE="no"
 
 export GO15VENDOREXPERIMENT=1
@@ -62,4 +62,4 @@ if [ "$NOCOPY" != "1" ]; then
 fi
 
 # build and store objects into original directory.
-go build -ldflags "-X main.Version=$VERSION" -o "$OD/caire" cmd/caire/*.go
+go build -ldflags "-X main.Version=$VERSION" -o "$OD/caire" cmd/caire/main.go

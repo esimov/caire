@@ -64,7 +64,7 @@ func IsValidUrl(uri string) bool {
 }
 
 // DetectContentType detects the file type by reading MIME type information of the file content.
-func DetectContentType(fname string) (interface{}, error) {
+func DetectContentType(fname string) (any, error) {
 	file, err := os.Open(fname)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,9 @@ func DetectContentType(fname string) (interface{}, error) {
 	}
 
 	// Reset the read pointer if necessary.
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, err
+	}
 
 	// Always returns a valid content-type and "application/octet-stream" if no others seemed to match.
 	contentType := http.DetectContentType(buffer)

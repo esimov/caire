@@ -8,14 +8,14 @@ import (
 func (p *Processor) showPreview(
 	imgWorker <-chan worker,
 	errChan chan<- error,
-	guiParams struct {
+	guiWindow struct {
 		width  int
 		height int
 	},
 ) {
-	var gui = NewGUI(guiParams.width, guiParams.height)
-	gui.cp = p
-	gui.proc.wrk = imgWorker
+	var gui = NewGUI(guiWindow.width, guiWindow.height)
+	gui.proc = p
+	gui.process.worker = imgWorker
 
 	// Run the Gio GUI app in a separate goroutine
 	go func() {

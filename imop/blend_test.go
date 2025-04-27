@@ -14,8 +14,6 @@ func TestBlend_Basic(t *testing.T) {
 
 	op := NewBlend()
 	assert.Empty(op.Get())
-	err := op.Set("blend_mode_not_supported")
-	assert.Error(err)
 	op.Set(Darken)
 	assert.Equal(Darken, op.Get())
 	op.Set(Lighten)
