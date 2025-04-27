@@ -74,7 +74,7 @@ var (
 // Carve is the main entry point for the image resize operation.
 // The new image can be resized either horizontally or vertically (or both).
 // Depending on the provided options the image can be either reduced or enlarged.
-func (p *Processor) Carve(img *image.NRGBA) (image.Image, error) {
+func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	var (
 		newImg    image.Image
 		newWidth  int

@@ -40,7 +40,7 @@ type result struct {
 }
 
 func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
-	return s.Carve(img)
+	return s.Resize(img)
 }
 
 // Execute executes the image resizing process.

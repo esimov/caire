@@ -14,7 +14,7 @@ import (
 // SeamCarver defines the Carve interface method, which have to be
 // implemented by the Processor struct.
 type SeamCarver interface {
-	Carve(*image.NRGBA) (image.Image, error)
+	Resize(*image.NRGBA) (image.Image, error)
 }
 
 // maxFaceDetAttempts defines the maximum number of attempts of face detections
