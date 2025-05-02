@@ -75,8 +75,6 @@ func (c *Carver) set(x, y int, px float64) {
 //   - the minimum energy level is calculated by summing up the current pixel value
 //     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
-	var srcImg *image.NRGBA
-
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel = c.SobelDetector(img, float64(p.SobelThreshold))
 
@@ -215,8 +213,13 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 	}
 
+	var srcImg *image.NRGBA
 	if p.BlurRadius > 0 {
-		srcImg = c.StackBlur(sobel, uint32(p.BlurRadius))
+		srcImg = image.NewNRGBA(img.Bounds())
+		err := Stackblur(srcImg, sobel, uint32(p.BlurRadius))
+		if err != nil {
+			return nil, fmt.Errorf("error bluring the image: %w", err)
+		}
 	} else {
 		srcImg = sobel
 	}
