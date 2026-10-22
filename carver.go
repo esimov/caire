@@ -20,16 +20,6 @@ type SeamCarver interface {
 // maxFaceDetAttempts defines the maximum number of attempts of face detections
 const maxFaceDetAttempts = 20
 
-var (
-	detAttempts    int
-	isFaceDetected bool
-)
-
-var (
-	sobel       *image.NRGBA
-	energySeams = make([][]Seam, 0)
-)
-
 // Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
 type Carver struct {
 	Points []float64
@@ -76,11 +66,11 @@ func (c *Carver) set(x, y int, px float64) {
 //     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	sobel = c.SobelDetector(img, float64(p.SobelThreshold))
+	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
 
 	dets := []pigo.Detection{}
 
-	if p.FaceDetector != nil && p.FaceDetect && detAttempts < maxFaceDetAttempts {
+	if p.FaceDetector != nil && p.FaceDetect && p.detAttempts < maxFaceDetAttempts {
 		var ratio float64
 
 		if width < height {
@@ -118,12 +108,12 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 		if len(dets) == 0 {
 			// Retry detecting faces for a certain amount of time.
-			if detAttempts < maxFaceDetAttempts {
-				detAttempts++
+			if p.detAttempts < maxFaceDetAttempts {
+				p.detAttempts++
 			}
 		} else {
-			detAttempts = 0
-			isFaceDetected = true
+			p.detAttempts = 0
+			p.isFaceDetected = true
 		}
 	}
 
@@ -139,7 +129,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 			r, g, b, _ := p.Mask.At(x, y).RGBA()
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-				if isFaceDetected {
+				if p.isFaceDetected {
 					// Reduce the brightness of the mask with a small factor if human faces are detected.
 					// This way we can avoid the seam carver to remove
 					// the pixels inside the detected human faces.
@@ -164,7 +154,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			r, g, b, _ := p.RMask.At(x, y).RGBA()
 			// Replace the white pixels with black.
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-				if isFaceDetected {
+				if p.isFaceDetected {
 					// Reduce the brightness of the mask with a small factor if human faces are detected.
 					// This way we can avoid the seam carver to remove
 					// the pixels inside the detected human faces.
@@ -205,9 +195,9 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 	// Increase the energy value for each of the selected seam from the seams table
 	// in order to avoid picking the same seam over and over again.
 	// We expand the energy level of the selected seams to have a better redistribution.
-	if len(energySeams) > 0 {
-		for i := 0; i < len(energySeams); i++ {
-			for _, seam := range energySeams[i] {
+	if len(p.energySeams) > 0 {
+		for i := 0; i < len(p.energySeams); i++ {
+			for _, seam := range p.energySeams[i] {
 				sobel.Set(seam.X, seam.Y, &image.Uniform{color.White})
 			}
 		}
@@ -310,7 +300,7 @@ func (c *Carver) FindLowestEnergySeams(p *Processor) []Seam {
 		// Include the currently processed energy seam into the seams table,
 		// but only when an image enlargement operation is commenced.
 		// We need to take this approach in order to avoid picking the same seam each time.
-		energySeams = append(energySeams, seams)
+		p.energySeams = append(p.energySeams, seams)
 	}
 	return seams
 }

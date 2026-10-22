@@ -183,7 +183,11 @@ func (img *Image) consumer(
 ) {
 	for src := range paths {
 		dst := filepath.Join(dest, filepath.Base(src))
-		err := img.process(p, src, dst)
+
+		// The workers run concurrently and the resize operation updates
+		// the Processor state, so each file gets its own copy.
+		proc := *p
+		err := img.process(&proc, src, dst)
 
 		select {
 		case <-done:

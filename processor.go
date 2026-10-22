@@ -17,10 +17,6 @@ import (
 //go:embed data/facefinder
 var cascadeFile []byte
 
-var (
-	resizeXY = false // the image is resized both vertically and horizontally
-)
-
 var _ SeamCarver = (*Processor)(nil)
 
 // worker struct contains all the information needed for transferring the resized image to the Gio GUI.
@@ -64,14 +60,13 @@ type Processor struct {
 	// Both channels are nil when the preview window is not running.
 	imgWorker chan worker
 	errs      chan error
-}
 
-var (
-	shrinkHorizFn  shrinkFn
-	shrinkVertFn   shrinkFn
-	enlargeHorizFn enlargeFn
-	enlargeVertFn  enlargeFn
-)
+	// State of the current resize operation. Resize resets it on every call.
+	resizeXY       bool     // the image is resized both vertically and horizontally
+	energySeams    [][]Seam // seams already added while enlarging, so the next pass picks a different one
+	detAttempts    int
+	isFaceDetected bool
+}
 
 // Carve is the main entry point for the image resize operation.
 // The new image can be resized either horizontally or vertically (or both).
@@ -83,8 +78,19 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		newHeight int
 		pw, ph    int
 		err       error
+
+		shrinkHorizFn  shrinkFn
+		shrinkVertFn   shrinkFn
+		enlargeHorizFn enlargeFn
+		enlargeVertFn  enlargeFn
 	)
 	c := NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
+
+	// Reset the state left behind by a previous run of the same Processor.
+	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
+	p.energySeams = nil
+	p.detAttempts = 0
+	p.isFaceDetected = false
 
 	if p.NewWidth > c.Width {
 		newWidth = p.NewWidth - (p.NewWidth - (p.NewWidth - c.Width))
@@ -180,7 +186,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// If the image is resized both horizontally and vertically we need
 		// to rotate the image each time when invoking the shrink function.
 		// Otherwise we rotate the image only once, right before calling this function.
-		if resizeXY {
+		if p.resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = rotateImage90(img)
 		}
@@ -189,7 +195,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if err != nil {
 				return nil, err
 			}
-			if resizeXY {
+			if p.resizeXY {
 				img = rotateImage270(img)
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
@@ -211,7 +217,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				}
 			}
 		} else {
-			if resizeXY {
+			if p.resizeXY {
 				img = rotateImage270(img)
 			}
 		}
@@ -223,7 +229,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		p.vRes = true
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 
-		if resizeXY {
+		if p.resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = rotateImage90(img)
 		}
@@ -232,7 +238,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if err != nil {
 				return nil, err
 			}
-			if resizeXY {
+			if p.resizeXY {
 				img = rotateImage270(img)
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
@@ -254,7 +260,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				}
 			}
 		} else {
-			if resizeXY {
+			if p.resizeXY {
 				img = rotateImage270(img)
 			}
 		}
@@ -357,7 +363,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 	// Run the carver function if the desired image height is not identical with the rescaled image height.
 	if newHeight > 0 && p.NewHeight != c.Height {
-		if !resizeXY {
+		if !p.resizeXY {
 			img = rotateImage90(img)
 
 			if p.Mask != nil {
@@ -378,7 +384,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				return nil, err
 			}
 		}
-		if !resizeXY {
+		if !p.resizeXY {
 			img = rotateImage270(img)
 
 			if p.Mask != nil {
@@ -470,9 +476,8 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		}
 	}
 
-	if p.NewWidth != 0 && p.NewHeight != 0 {
-		resizeXY = true
-	}
+	// Resize sets this flag as well, but the preview window size depends on it.
+	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
 
 	src, _, err := image.Decode(r)
 	if err != nil {
@@ -491,7 +496,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		if p.NewHeight > guiHeight {
 			guiHeight = p.NewHeight
 		}
-		if resizeXY {
+		if p.resizeXY {
 			guiWidth = int(maxScreenX)
 			guiHeight = int(maxScreenY)
 		}
