@@ -478,3 +478,24 @@ func TestCarver_CumulativeEnergyShouldMatchTheReference(t *testing.T) {
 		assert.InDelta(t, ref[i], c.Points[i], 1e-9, "x=%d y=%d", i%imgWidth, i/imgWidth)
 	}
 }
+
+func TestCarver_AddSeamOnTheLastColumn(t *testing.T) {
+	// Row 0 has its seam on column 0 and row 1 has its seam on the last column.
+	img := image.NewNRGBA(image.Rect(0, 0, 3, 2))
+	for x := 0; x < 3; x++ {
+		img.SetNRGBA(x, 0, color.NRGBA{A: 0xff})
+	}
+	img.SetNRGBA(0, 1, color.NRGBA{R: 0x64, G: 0x64, B: 0x64, A: 0xff})
+	img.SetNRGBA(1, 1, color.NRGBA{R: 0x64, G: 0x64, B: 0x64, A: 0xff})
+	img.SetNRGBA(2, 1, color.NRGBA{R: 0xc8, G: 0xc8, B: 0xc8, A: 0xff})
+
+	c := NewCarver(3, 2)
+	seams := []Seam{{X: 0, Y: 0}, {X: 2, Y: 1}}
+	res := c.AddSeam(img, seams, false)
+
+	// The inserted pixel is the average of its left neighbor (0x64) and of
+	// itself (0xc8), since there is no pixel to the right. It used to be
+	// averaged with the right neighbor read on the previous row (0x00).
+	got := color.NRGBAModel.Convert(res.At(2, 1)).(color.NRGBA)
+	assert.Equal(t, color.NRGBA{R: 0x96, G: 0x96, B: 0x96, A: 0xff}, got)
+}

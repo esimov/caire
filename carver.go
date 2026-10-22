@@ -355,7 +355,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 				if debug {
 					c.Seams = append(c.Seams, Seam{X: x, Y: y})
 				}
-				if x > 0 && x != bounds.Max.X {
+				if x > 0 {
 					lr, lg, lb, _ = img.At(x-1, y).RGBA()
 				} else {
 					lr, lg, lb, _ = img.At(x, y).RGBA()
@@ -363,7 +363,7 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 
 				if x < bounds.Max.X-1 {
 					rr, rg, rb, _ = img.At(x+1, y).RGBA()
-				} else if x == bounds.Max.X {
+				} else {
 					rr, rg, rb, _ = img.At(x, y).RGBA()
 				}
 
