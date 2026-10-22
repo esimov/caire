@@ -248,7 +248,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		// Special cases: pixels are far left or far right
 		left := c.get(0, y) + math.Min(c.get(0, y-1), c.get(1, y-1))
 		c.set(0, y, left)
-		right := c.get(0, y) + math.Min(c.get(c.Width-1, y-1), c.get(c.Width-2, y-1))
+		right := c.get(c.Width-1, y) + math.Min(c.get(c.Width-1, y-1), c.get(c.Width-2, y-1))
 		c.set(c.Width-1, y, right)
 	}
 	return srcImg, nil
