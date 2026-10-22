@@ -92,6 +92,13 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	p.detAttempts = 0
 	p.isFaceDetected = false
 
+	// The percentage and square options are converted to pixel sizes by
+	// updating NewWidth and NewHeight. Restore the requested values on return,
+	// otherwise the next image processed with the same Processor (as in
+	// directory mode) takes the pixel size for a percentage.
+	reqWidth, reqHeight := p.NewWidth, p.NewHeight
+	defer func() { p.NewWidth, p.NewHeight = reqWidth, reqHeight }()
+
 	if p.NewWidth > c.Width {
 		newWidth = p.NewWidth - (p.NewWidth - (p.NewWidth - c.Width))
 	} else {

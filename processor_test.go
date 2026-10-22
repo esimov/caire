@@ -186,3 +186,22 @@ func TestResize_ConcurrentProcessorsShouldBeIndependent(t *testing.T) {
 		assert.Equal(t, image.Pt(s.newWidth, s.height), results[i].Bounds().Size())
 	}
 }
+
+func TestResize_PercentageShouldNotChangeTheRequestedSize(t *testing.T) {
+	proc := &Processor{
+		Percentage:     true,
+		NewWidth:       20,
+		BlurRadius:     1,
+		SobelThreshold: 4,
+	}
+
+	// Directory mode resizes every file with the same Processor.
+	// The second image used to be shrunk to 20px instead of 20%.
+	for i := 0; i < 2; i++ {
+		img := image.NewNRGBA(image.Rect(0, 0, 100, 80))
+		res, err := proc.Resize(img)
+		assert.NoError(t, err)
+		assert.Equal(t, image.Pt(80, 80), res.Bounds().Size())
+	}
+	assert.Equal(t, 20, proc.NewWidth)
+}
