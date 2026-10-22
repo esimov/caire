@@ -87,13 +87,14 @@ func (c *Carver) SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA
 	return dst
 }
 
-// getImageData gets the red component of an image and returns an array of pixel brightness values.
+// getImageData converts the image to grayscale and returns an array of pixel brightness values.
 func (c *Carver) getImageData(img *image.NRGBA) []uint8 {
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 	pixels := make([]uint8, dx*dy)
 
 	for i := range pixels {
-		pixels[i] = img.Pix[i*4]
+		r, g, b := uint32(img.Pix[i*4]), uint32(img.Pix[i*4+1]), uint32(img.Pix[i*4+2])
+		pixels[i] = uint8((299*r + 587*g + 114*b) / 1000)
 	}
 	return pixels
 }
