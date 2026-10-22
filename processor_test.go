@@ -2,7 +2,9 @@ package caire
 
 import (
 	"image"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -101,4 +103,24 @@ func TestResize_EnlargeImageHeight(t *testing.T) {
 	imgHeight := img.Bounds().Max.Y - img.Bounds().Dy()
 
 	assert.NotEqual(t, imgHeight, newHeight)
+}
+
+func TestResize_NoPreviewShouldNotLeakGoroutines(t *testing.T) {
+	proc := &Processor{
+		NewWidth:       imgWidth,
+		BlurRadius:     1,
+		SobelThreshold: 4,
+	}
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth*3, imgHeight))
+
+	before := runtime.NumGoroutine()
+	_, err := proc.Resize(img)
+	assert.NoError(t, err)
+
+	// Give the scheduler the chance to run any goroutine started by Resize.
+	time.Sleep(50 * time.Millisecond)
+
+	// Without a preview window nobody reads the GUI channel, so every seam
+	// used to leave behind a goroutine which also kept its image in memory.
+	assert.LessOrEqual(t, runtime.NumGoroutine(), before+1)
 }

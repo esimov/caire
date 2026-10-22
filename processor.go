@@ -19,9 +19,6 @@ var cascadeFile []byte
 
 var (
 	resizeXY = false // the image is resized both vertically and horizontally
-
-	imgWorker = make(chan worker) // channel used to transfer the image to the GUI
-	errs      = make(chan error)
 )
 
 var _ SeamCarver = (*Processor)(nil)
@@ -62,6 +59,11 @@ type Processor struct {
 	Preview        bool
 	FaceDetect     bool
 	vRes           bool
+
+	// imgWorker transfers the intermediate images to the GUI preview.
+	// Both channels are nil when the preview window is not running.
+	imgWorker chan worker
+	errs      chan error
 }
 
 var (
@@ -389,16 +391,24 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	}
 
 	// Signal that the process is done and no more data is sent through the channel.
-	go func() {
-		imgWorker <- worker{
-			img:   nil,
-			mask:  nil,
-			seams: nil,
-			done:  true,
-		}
-	}()
+	p.notifyPreview(worker{done: true})
 
 	return img, nil
+}
+
+// notifyPreview hands the intermediate image over to the GUI preview.
+// It returns immediately when no preview window is running, otherwise the
+// goroutine would wait forever for a reader and keep the image in memory.
+func (p *Processor) notifyPreview(w worker) {
+	if p.imgWorker == nil {
+		return
+	}
+	go func() {
+		select {
+		case p.imgWorker <- w:
+		case <-p.errs:
+		}
+	}()
 }
 
 // calculateFitness iteratively try to find the best image aspect ratio for the rescale.
@@ -493,8 +503,11 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 			width:  guiWidth,
 			height: guiHeight,
 		}
+		p.imgWorker = make(chan worker)
+		p.errs = make(chan error)
+
 		// Lunch Gio GUI thread.
-		go p.showPreview(imgWorker, errs, guiWindow)
+		go p.showPreview(p.imgWorker, p.errs, guiWindow)
 	}
 
 	return encodeImg(p, w, img)
@@ -521,18 +534,12 @@ func (p *Processor) shrink(img *image.NRGBA) (*image.NRGBA, error) {
 		draw.Draw(p.DebugMask, img.Bounds(), p.RMask, image.Point{}, draw.Over)
 	}
 
-	go func() {
-		select {
-		case imgWorker <- worker{
-			img:   img,
-			mask:  p.DebugMask,
-			seams: c.Seams,
-			done:  false,
-		}:
-		case <-errs:
-			return
-		}
-	}()
+	p.notifyPreview(worker{
+		img:   img,
+		mask:  p.DebugMask,
+		seams: c.Seams,
+		done:  false,
+	})
 	return img, nil
 }
 
@@ -557,17 +564,11 @@ func (p *Processor) enlarge(img *image.NRGBA) (*image.NRGBA, error) {
 		p.DebugMask = p.RMask
 	}
 
-	go func() {
-		select {
-		case imgWorker <- worker{
-			img:   img,
-			mask:  p.DebugMask,
-			seams: c.Seams,
-			done:  false,
-		}:
-		case <-errs:
-			return
-		}
-	}()
+	p.notifyPreview(worker{
+		img:   img,
+		mask:  p.DebugMask,
+		seams: c.Seams,
+		done:  false,
+	})
 	return img, nil
 }
