@@ -434,3 +434,22 @@ func findNonZeroValue(points []float64) bool {
 	}
 	return found
 }
+
+func TestCarver_SobelShouldDetectEdgesInEveryColorChannel(t *testing.T) {
+	// Left half green, right half blue. The edge between them is invisible
+	// in the red channel, which used to be the only channel the detector read.
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
+	green := &image.Uniform{color.NRGBA{G: 0xff, A: 0xff}}
+	blue := &image.Uniform{color.NRGBA{B: 0xff, A: 0xff}}
+	draw.Draw(img, image.Rect(0, 0, imgWidth/2, imgHeight), green, image.Point{}, draw.Src)
+	draw.Draw(img, image.Rect(imgWidth/2, 0, imgWidth, imgHeight), blue, image.Point{}, draw.Src)
+
+	c := NewCarver(imgWidth, imgHeight)
+	sobel := c.SobelDetector(img, 0)
+
+	var energy int
+	for i := 0; i < len(sobel.Pix); i += 4 {
+		energy += int(sobel.Pix[i])
+	}
+	assert.NotZero(t, energy)
+}
