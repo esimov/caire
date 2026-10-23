@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -433,6 +434,70 @@ func findNonZeroValue(points []float64) bool {
 		}
 	}
 	return found
+}
+
+func TestCarver_CumulativeEnergyShouldMatchTheReference(t *testing.T) {
+	// A pattern with energy in every column, including the two border columns.
+	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
+	for y := 0; y < imgHeight; y++ {
+		for x := 0; x < imgWidth; x++ {
+			v := uint8((x*37 + y*91 + x*y*13) % 256)
+			img.SetNRGBA(x, y, color.NRGBA{R: v, G: v, B: v, A: 0xff})
+		}
+	}
+
+	proc := &Processor{SobelThreshold: 0}
+	c := NewCarver(imgWidth, imgHeight)
+	energy, err := c.ComputeSeams(proc, img)
+	assert.NoError(t, err)
+
+	// Rebuild the table: M(x, y) = e(x, y) + min of the three cells above.
+	e := func(x, y int) float64 {
+		r, _, _, a := energy.At(x, y).RGBA()
+		return float64(r) / float64(a)
+	}
+	ref := make([]float64, imgWidth*imgHeight)
+	for x := 0; x < imgWidth; x++ {
+		ref[x] = e(x, 0)
+	}
+	for y := 1; y < imgHeight; y++ {
+		for x := 0; x < imgWidth; x++ {
+			m := ref[x+(y-1)*imgWidth]
+			if x > 0 {
+				m = math.Min(m, ref[x-1+(y-1)*imgWidth])
+			}
+			if x < imgWidth-1 {
+				m = math.Min(m, ref[x+1+(y-1)*imgWidth])
+			}
+			ref[x+y*imgWidth] = e(x, y) + m
+		}
+	}
+
+	// The right column used to start from the left column's cumulative value.
+	for i := range ref {
+		assert.InDelta(t, ref[i], c.Points[i], 1e-9, "x=%d y=%d", i%imgWidth, i/imgWidth)
+	}
+}
+
+func TestCarver_AddSeamOnTheLastColumn(t *testing.T) {
+	// Row 0 has its seam on column 0 and row 1 has its seam on the last column.
+	img := image.NewNRGBA(image.Rect(0, 0, 3, 2))
+	for x := 0; x < 3; x++ {
+		img.SetNRGBA(x, 0, color.NRGBA{A: 0xff})
+	}
+	img.SetNRGBA(0, 1, color.NRGBA{R: 0x64, G: 0x64, B: 0x64, A: 0xff})
+	img.SetNRGBA(1, 1, color.NRGBA{R: 0x64, G: 0x64, B: 0x64, A: 0xff})
+	img.SetNRGBA(2, 1, color.NRGBA{R: 0xc8, G: 0xc8, B: 0xc8, A: 0xff})
+
+	c := NewCarver(3, 2)
+	seams := []Seam{{X: 0, Y: 0}, {X: 2, Y: 1}}
+	res := c.AddSeam(img, seams, false)
+
+	// The inserted pixel is the average of its left neighbor (0x64) and of
+	// itself (0xc8), since there is no pixel to the right. It used to be
+	// averaged with the right neighbor read on the previous row (0x00).
+	got := color.NRGBAModel.Convert(res.At(2, 1)).(color.NRGBA)
+	assert.Equal(t, color.NRGBA{R: 0x96, G: 0x96, B: 0x96, A: 0xff}, got)
 }
 
 func TestCarver_SobelShouldDetectEdgesInEveryColorChannel(t *testing.T) {
