@@ -16,7 +16,7 @@ func DownloadImage(url string) (*os.File, error) {
 	// Retrieve the url and decode the response body.
 	res, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("unable to download image file from URI: %s, status %v", url, res.Status)
+		return nil, fmt.Errorf("unable to download image file from URI: %w", err)
 	}
 	defer res.Body.Close()
 
