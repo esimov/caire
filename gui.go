@@ -160,9 +160,7 @@ func (g *Gui) initWindow(width, height int) {
 	g.cfg.color.background = defaultBkgColor
 	g.cfg.color.fill = defaultFillColor
 
-	if !resizeXY {
-		g.cfg.window.width, g.cfg.window.height = g.getWindowSize()
-	}
+	g.cfg.window.width, g.cfg.window.height = g.getWindowSize()
 	g.cfg.window.title = "Preview process..."
 }
 
@@ -245,7 +243,7 @@ func (g *Gui) Run() error {
 				g.process.isDone = true
 				break
 			}
-			if resizeXY {
+			if g.proc.resizeXY {
 				continue
 			}
 
@@ -466,7 +464,7 @@ func (g *Gui) draw(bgColor color.NRGBA) {
 	}
 
 	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.
-	if resizeXY {
+	if g.proc.resizeXY {
 		var msg string
 
 		if !g.process.isDone {
