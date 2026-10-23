@@ -324,7 +324,7 @@ func (img *Image) pathToFile(in, out string) (io.Reader, io.Writer, error) {
 		}
 		dst = os.Stdout
 	} else {
-		dst, err = os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0755)
+		dst, err = os.OpenFile(out, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to create the destination file: %v", err)
 		}
