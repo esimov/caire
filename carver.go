@@ -331,8 +331,8 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 // AddSeam add a new seam.
 func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
 	var (
-		lr, lg, lb uint32
-		rr, rg, rb uint32
+		lr, lg, lb, la uint32
+		rr, rg, rb, ra uint32
 	)
 
 	bounds := img.Bounds()
@@ -346,20 +346,20 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 					c.Seams = append(c.Seams, Seam{X: x, Y: y})
 				}
 				if x > 0 {
-					lr, lg, lb, _ = img.At(x-1, y).RGBA()
+					lr, lg, lb, la = img.At(x-1, y).RGBA()
 				} else {
-					lr, lg, lb, _ = img.At(x, y).RGBA()
+					lr, lg, lb, la = img.At(x, y).RGBA()
 				}
 
 				if x < bounds.Max.X-1 {
-					rr, rg, rb, _ = img.At(x+1, y).RGBA()
+					rr, rg, rb, ra = img.At(x+1, y).RGBA()
 				} else {
-					rr, rg, rb, _ = img.At(x, y).RGBA()
+					rr, rg, rb, ra = img.At(x, y).RGBA()
 				}
 
-				// calculate the average color of the neighboring pixels
-				avr, avg, avb := (lr+rr)>>1, (lg+rg)>>1, (lb+rb)>>1
-				dst.Set(x, y, color.RGBA{uint8(avr >> 8), uint8(avg >> 8), uint8(avb >> 8), 0xff})
+				// calculate the average premultiplied color and alpha of the neighboring pixels
+				avr, avg, avb, ava := (lr+rr)>>1, (lg+rg)>>1, (lb+rb)>>1, (la+ra)>>1
+				dst.Set(x, y, color.RGBA{uint8(avr >> 8), uint8(avg >> 8), uint8(avb >> 8), uint8(ava >> 8)})
 				dst.Set(x+1, y, img.At(x, y))
 			} else if seam.X < x {
 				dst.Set(x, y, img.At(x-1, y))
