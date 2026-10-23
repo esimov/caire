@@ -339,3 +339,41 @@ func TestResize_ReusedProcessorShouldKeepTheMask(t *testing.T) {
 		assert.Same(t, mask, proc.Mask)
 	}
 }
+
+func TestResize_ShouldRejectMismatchedMaskDimensions(t *testing.T) {
+	tests := []struct {
+		name    string
+		proc    *Processor
+		wantErr string
+	}{
+		{
+			name: "protective mask",
+			proc: &Processor{
+				MaskPath: "mask.png",
+				Mask:     image.NewNRGBA(image.Rect(0, 0, 1, 2)),
+			},
+			wantErr: "mask dimensions 1x2 do not match input dimensions 4x2",
+		},
+		{
+			name: "removal mask",
+			proc: &Processor{
+				RMaskPath: "mask.png",
+				RMask:     image.NewNRGBA(image.Rect(0, 0, 1, 2)),
+			},
+			wantErr: "removal mask dimensions 1x2 do not match input dimensions 4x2",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.proc.NewWidth = 2
+			tc.proc.BlurRadius = 1
+			tc.proc.SobelThreshold = 4
+
+			_, err := tc.proc.Resize(image.NewNRGBA(image.Rect(0, 0, 4, 2)))
+			if err == nil || err.Error() != tc.wantErr {
+				t.Fatalf("Resize() error = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}

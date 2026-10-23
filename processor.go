@@ -85,6 +85,20 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		enlargeVertFn  enlargeFn
 	)
 	c := NewCarver(img.Bounds().Dx(), img.Bounds().Dy())
+	inputWidth, inputHeight := img.Bounds().Dx(), img.Bounds().Dy()
+
+	if p.Mask != nil && (p.Mask.Bounds().Dx() != inputWidth || p.Mask.Bounds().Dy() != inputHeight) {
+		return nil, fmt.Errorf(
+			"mask dimensions %dx%d do not match input dimensions %dx%d",
+			p.Mask.Bounds().Dx(), p.Mask.Bounds().Dy(), inputWidth, inputHeight,
+		)
+	}
+	if p.RMask != nil && (p.RMask.Bounds().Dx() != inputWidth || p.RMask.Bounds().Dy() != inputHeight) {
+		return nil, fmt.Errorf(
+			"removal mask dimensions %dx%d do not match input dimensions %dx%d",
+			p.RMask.Bounds().Dx(), p.RMask.Bounds().Dy(), inputWidth, inputHeight,
+		)
+	}
 
 	// Reset the state left behind by a previous run of the same Processor.
 	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
