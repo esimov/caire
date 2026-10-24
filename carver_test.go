@@ -500,6 +500,79 @@ func TestCarver_AddSeamOnTheLastColumn(t *testing.T) {
 	assert.Equal(t, color.NRGBA{R: 0x96, G: 0x96, B: 0x96, A: 0xff}, got)
 }
 
+func TestResize_EnlargeTransparentImageKeepsAlpha(t *testing.T) {
+	tests := []struct {
+		name                string
+		newWidth, newHeight int
+	}{
+		{name: "width", newWidth: 7},
+		{name: "height", newHeight: 6},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			proc := &Processor{
+				NewWidth:       tc.newWidth,
+				NewHeight:      tc.newHeight,
+				BlurRadius:     1,
+				SobelThreshold: 4,
+			}
+			res, err := proc.Resize(image.NewNRGBA(image.Rect(0, 0, 5, 4)))
+			assert.NoError(t, err)
+
+			bounds := res.Bounds()
+			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+				for x := bounds.Min.X; x < bounds.Max.X; x++ {
+					_, _, _, alpha := res.At(x, y).RGBA()
+					assert.Zero(t, alpha, "alpha at (%d, %d)", x, y)
+				}
+			}
+		})
+	}
+}
+
+func TestCarver_AddSeamUsesPremultipliedAlpha(t *testing.T) {
+	t.Run("transparent neighbors", func(t *testing.T) {
+		img := image.NewNRGBA(image.Rect(0, 0, 4, 1))
+		img.SetNRGBA(0, 0, color.NRGBA{G: 0xff})
+		img.SetNRGBA(2, 0, color.NRGBA{B: 0xff})
+		img.SetNRGBA(3, 0, color.NRGBA{R: 0xff, A: 0xff})
+
+		res := NewCarver(4, 1).AddSeam(img, []Seam{{X: 1, Y: 0}}, false)
+		got := color.NRGBAModel.Convert(res.At(1, 0)).(color.NRGBA)
+		assert.Zero(t, got.A)
+	})
+
+	t.Run("transparent and opaque neighbors", func(t *testing.T) {
+		img := image.NewNRGBA(image.Rect(0, 0, 3, 1))
+		img.SetNRGBA(0, 0, color.NRGBA{G: 0xff})
+		img.SetNRGBA(2, 0, color.NRGBA{R: 0xc8, A: 0xff})
+
+		res := NewCarver(3, 1).AddSeam(img, []Seam{{X: 1, Y: 0}}, false)
+		got := color.NRGBAModel.Convert(res.At(1, 0)).(color.NRGBA)
+		assert.InDelta(t, 0xc8, got.R, 1)
+		assert.Zero(t, got.G)
+		assert.Zero(t, got.B)
+		assert.Equal(t, uint8(0x7f), got.A)
+	})
+}
+
+func TestCarver_AddSeamKeepsOpaqueOutput(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 3, 1))
+	img.SetNRGBA(0, 0, color.NRGBA{R: 10, G: 20, B: 30, A: 0xff})
+	img.SetNRGBA(1, 0, color.NRGBA{R: 40, G: 50, B: 60, A: 0xff})
+	img.SetNRGBA(2, 0, color.NRGBA{R: 90, G: 100, B: 110, A: 0xff})
+
+	res := NewCarver(3, 1).AddSeam(img, []Seam{{X: 1, Y: 0}}, false)
+	want := image.NewNRGBA(image.Rect(0, 0, 4, 1))
+	want.SetNRGBA(0, 0, color.NRGBA{R: 10, G: 20, B: 30, A: 0xff})
+	want.SetNRGBA(1, 0, color.NRGBA{R: 50, G: 60, B: 70, A: 0xff})
+	want.SetNRGBA(2, 0, color.NRGBA{R: 40, G: 50, B: 60, A: 0xff})
+	want.SetNRGBA(3, 0, color.NRGBA{R: 90, G: 100, B: 110, A: 0xff})
+
+	assert.Equal(t, want.Pix, res.Pix)
+}
+
 func TestCarver_SobelShouldDetectEdgesInEveryColorChannel(t *testing.T) {
 	// Left half green, right half blue. The edge between them is invisible
 	// in the red channel, which used to be the only channel the detector read.
