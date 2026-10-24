@@ -27,62 +27,44 @@ func (c *Carver) SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA
 	var sumX, sumY int32
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 	dst := image.NewNRGBA(img.Bounds())
-
-	// Get 3x3 window of pixels because image data given is just a 1D array of pixels
-	maxPixelOffset := dx*2 + len(kernelX) - 1
-
 	data := c.getImageData(img)
-	length := len(data)*4 - maxPixelOffset
-	magnitudes := make([]uint8, length)
 
-	for i := 0; i < length; i++ {
-		// Sum each pixel with the kernel value
-		sumX, sumY = 0, 0
-		for x := 0; x < len(kernelX); x++ {
-			for y := 0; y < len(kernelY); y++ {
-				if idx := i + (dx * y) + x; idx < len(data) {
-					r := data[i+(dx*y)+x]
-					sumX += int32(r) * kernelX[y][x]
-					sumY += int32(r) * kernelY[y][x]
+	// at returns the brightness of the pixel at (x, y). Coordinates outside
+	// the image are clamped to the nearest border pixel, so the borders
+	// of a uniform image produce no edge.
+	at := func(x, y int) int32 {
+		x = min(max(x, 0), dx-1)
+		y = min(max(y, 0), dy-1)
+		return int32(data[y*dx+x])
+	}
+
+	for y := 0; y < dy; y++ {
+		for x := 0; x < dx; x++ {
+			// Apply the 3x3 kernels centered on the current pixel.
+			sumX, sumY = 0, 0
+			for ky := 0; ky < len(kernelY); ky++ {
+				for kx := 0; kx < len(kernelX); kx++ {
+					px := at(x+kx-1, y+ky-1)
+					sumX += px * kernelX[ky][kx]
+					sumY += px * kernelY[ky][kx]
 				}
 			}
-		}
-		magnitude := math.Sqrt(float64(sumX*sumX) + float64(sumY*sumY))
-		// Check for pixel color boundaries
-		if magnitude < 0 {
-			magnitude = 0
-		} else if magnitude > 255 {
-			magnitude = 255
-		}
-
-		// Set magnitude to 0 if doesn't exceed threshold, else set to magnitude
-		if magnitude > threshold {
-			magnitudes[i] = uint8(magnitude)
-		} else {
-			magnitudes[i] = 0
-		}
-	}
-
-	dataLength := dx * dy * 4
-	edges := make([]int32, dataLength)
-
-	// Apply the kernel values
-	for i := 0; i < dataLength; i++ {
-		edges[i] = 0
-		if i%4 != 0 {
-			m := magnitudes[i/4]
-			if m != 0 {
-				edges[i-1] = int32(m)
+			magnitude := math.Sqrt(float64(sumX*sumX) + float64(sumY*sumY))
+			if magnitude > 255 {
+				magnitude = 255
 			}
-		}
-	}
+			// Set magnitude to 0 if doesn't exceed threshold, else set to magnitude
+			if magnitude <= threshold {
+				magnitude = 0
+			}
 
-	// Generate the new image with the sobel filter applied
-	for idx := 0; idx < len(edges); idx += 4 {
-		dst.Pix[idx] = uint8(edges[idx])
-		dst.Pix[idx+1] = uint8(edges[idx+1])
-		dst.Pix[idx+2] = uint8(edges[idx+2])
-		dst.Pix[idx+3] = 0xff
+			idx := (y*dx + x) * 4
+			m := uint8(magnitude)
+			dst.Pix[idx] = m
+			dst.Pix[idx+1] = m
+			dst.Pix[idx+2] = m
+			dst.Pix[idx+3] = 0xff
+		}
 	}
 	return dst
 }

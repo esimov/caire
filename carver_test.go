@@ -66,15 +66,20 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 	var seams [][]Seam
 	var totalEnergySeams int
 
+	// A local Processor keeps the test independent of the order the tests run in.
+	proc := &Processor{NewWidth: imgWidth, NewHeight: imgHeight, BlurRadius: 1, SobelThreshold: 4}
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.Point{}, draw.Src)
 
-	// Replace the pixel colors in a single row from 0xff to 0xdd. 5 is an arbitrary value.
-	// The seam detector should recognize that line as being of low energy density
-	// and should perform the seam computation process.
-	// This way we'll make sure, that the seam detector correctly detects one and only one line.
+	// Replace the pixel colors in a single row from 0xff to 0xdd, except for a gap
+	// of three pixels around column 5. The line has a high energy and the gap has none,
+	// so the lowest energy seam has to pass through the gap instead of column 0.
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 	for x := 0; x < dx; x++ {
+		if x >= 4 && x <= 6 {
+			continue
+		}
 		img.Pix[(5*dx+x)*4+0] = 0xdd
 		img.Pix[(5*dx+x)*4+1] = 0xdd
 		img.Pix[(5*dx+x)*4+2] = 0xdd
@@ -86,16 +91,19 @@ func TestCarver_DetectHorizontalEnergySeam(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 
 		c = NewCarver(width, height)
-		_, err := c.ComputeSeams(p, img)
+		_, err := c.ComputeSeams(proc, img)
 		assert.NoError(t, err)
 
-		les := c.FindLowestEnergySeams(p)
+		les := c.FindLowestEnergySeams(proc)
 		seams = append(seams, les)
 	}
 
 	for i := range seams {
 		for s := range seams[i] {
 			totalEnergySeams += seams[i][s].X
+			if seams[i][s].Y == 5 {
+				assert.InDelta(t, 5, seams[i][s].X, 1, "the seam should pass through the gap in the line")
+			}
 		}
 	}
 	assert.Greater(t, totalEnergySeams, 0)
@@ -105,15 +113,20 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 	var seams [][]Seam
 	var totalEnergySeams int
 
+	// A local Processor keeps the test independent of the order the tests run in.
+	proc := &Processor{NewWidth: imgWidth, NewHeight: imgHeight, BlurRadius: 1, SobelThreshold: 4}
+
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, img.Bounds(), &image.Uniform{image.White}, image.Point{}, draw.Src)
 
-	// Replace the pixel colors in a single column from 0xff to 0xdd. 5 is an arbitrary value.
-	// The seam detector should recognize that line as being of low energy density
-	// and should perform the seam computation process.
-	// This way we'll make sure, that the seam detector correctly detects one and only one line.
+	// Replace the pixel colors in a single column from 0xff to 0xdd, except for a gap
+	// of three pixels around row 5. The line has a high energy and the gap has none,
+	// so the lowest energy seam has to pass through the gap instead of column 0.
 	dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 	for y := 0; y < dy; y++ {
+		if y >= 4 && y <= 6 {
+			continue
+		}
 		img.Pix[5*4+(dx*y)*4+0] = 0xdd
 		img.Pix[5*4+(dx*y)*4+1] = 0xdd
 		img.Pix[5*4+(dx*y)*4+2] = 0xdd
@@ -126,16 +139,21 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 
 		c = NewCarver(width, height)
-		_, err := c.ComputeSeams(p, img)
+		_, err := c.ComputeSeams(proc, img)
 		assert.NoError(t, err)
 
-		les := c.FindLowestEnergySeams(p)
+		les := c.FindLowestEnergySeams(proc)
 		seams = append(seams, les)
 	}
 
+	// rotateImage90 turns column 5 into this row and the gap into columns 4 to 6.
+	lineRow := dx - 1 - 5
 	for i := range seams {
 		for s := range seams[i] {
 			totalEnergySeams += seams[i][s].X
+			if seams[i][s].Y == lineRow {
+				assert.InDelta(t, 5, seams[i][s].X, 1, "the seam should pass through the gap in the line")
+			}
 		}
 	}
 	assert.Greater(t, totalEnergySeams, 0)
