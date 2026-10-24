@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -34,5 +36,23 @@ func TestUtils_ShouldDetectValidFileType(t *testing.T) {
 
 	if !strings.Contains(ftype.(string), "image") {
 		t.Errorf("Content type expected to be of type image, got: %v", ftype)
+	}
+}
+
+func TestDownloadImage_ShouldReturnTransportErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	url := server.URL
+	server.Close()
+
+	f, err := DownloadImage(url)
+	if f != nil {
+		f.Close()
+		t.Fatalf("DownloadImage() file = %q, want nil", f.Name())
+	}
+	if err == nil {
+		t.Fatal("DownloadImage() error = nil, want a transport error")
+	}
+	if !strings.Contains(err.Error(), "unable to download image file from URI") {
+		t.Fatalf("DownloadImage() error = %q, want URL download context", err)
 	}
 }
