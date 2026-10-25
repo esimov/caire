@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: [~1.21, ~1.22]
+        go-version: [oldstable, stable]
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     env:
