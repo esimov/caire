@@ -89,7 +89,7 @@ func (op *Composite) Get() CompType {
 // Draw applies the currently active Ported-Duff composition operation formula,
 // taking as parameter the source and the destination image and draws the result into the bitmap.
 // If a blend mode is activated it will plug in the alpha blending formula also into the equation.
-func (op *Composite) Draw(bitmap *Bitmap, src, dst *image.NRGBA, blend *Blend) {
+func (op *Composite) Draw(bitmap *Bitmap, src, dst image.Image, blend *Blend) {
 	dx, dy := src.Bounds().Dx(), src.Bounds().Dy()
 
 	var (

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 	"github.com/stretchr/testify/assert"
@@ -134,7 +135,7 @@ func TestCarver_DetectVerticalEnergySeam(t *testing.T) {
 	}
 
 	var c = NewCarver(dx, dy)
-	img = rotateImage90(img)
+	img = cimage.RotateImage90(img)
 	for x := 0; x < imgHeight; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 
@@ -279,11 +280,11 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error decoding image: %v", err)
 	}
-	img := imgToNRGBA(src)
+	img := cimage.ImgToNRGBA(src)
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	// Transform the image to a pixel array.
-	pixels := rgbToGrayscale(img)
+	pixels := cimage.RgbToGrayscale(img)
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
@@ -329,16 +330,16 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error decoding image: %v", err)
 	}
-	img := imgToNRGBA(src)
+	img := cimage.ImgToNRGBA(src)
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	c := NewCarver(dx, dy)
 	// Transform the image to a pixel array.
-	pixels := rgbToGrayscale(img)
+	pixels := cimage.RgbToGrayscale(img)
 
-	sobel := c.SobelDetector(img, float64(p.SobelThreshold))
+	sobel := cimage.SobelDetector(img, float64(p.SobelThreshold))
 
-	err = Stackblur(img, sobel, uint32(p.BlurRadius))
+	err = cimage.Stackblur(img, sobel, uint32(p.BlurRadius))
 	assert.NoError(t, err)
 
 	cParams := pigo.CascadeParams{
@@ -410,11 +411,11 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error decoding image: %v", err)
 	}
-	img := imgToNRGBA(src)
+	img := cimage.ImgToNRGBA(src)
 	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	// Transform the image to a pixel array.
-	pixels := rgbToGrayscale(img)
+	pixels := cimage.RgbToGrayscale(img)
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
 		MaxSize:     utils.Max(dx, dy),
@@ -600,8 +601,7 @@ func TestCarver_SobelShouldDetectEdgesInEveryColorChannel(t *testing.T) {
 	draw.Draw(img, image.Rect(0, 0, imgWidth/2, imgHeight), green, image.Point{}, draw.Src)
 	draw.Draw(img, image.Rect(imgWidth/2, 0, imgWidth, imgHeight), blue, image.Point{}, draw.Src)
 
-	c := NewCarver(imgWidth, imgHeight)
-	sobel := c.SobelDetector(img, 0)
+	sobel := cimage.SobelDetector(img, 0)
 
 	var energy int
 	for i := 0; i < len(sobel.Pix); i += 4 {

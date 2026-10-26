@@ -22,7 +22,6 @@ func DownloadImage(url string) (*os.File, error) {
 		if err := res.Body.Close(); err != nil {
 			log.Printf("could not close the opened file: %v", err)
 		}
-
 	}()
 
 	data, err := io.ReadAll(res.Body)

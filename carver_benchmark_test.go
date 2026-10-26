@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	cimage "github.com/esimov/caire/image"
 )
 
 func Benchmark_Carver(b *testing.B) {
@@ -19,14 +21,13 @@ func Benchmark_Carver(b *testing.B) {
 	if err != nil {
 		b.Fatalf("error decoding image: %v", err)
 	}
-	b.ResetTimer()
 
-	img := imgToNRGBA(src)
+	img := cimage.ImgToNRGBA(src)
 
 	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 	c := NewCarver(width, height)
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := c.ComputeSeams(p, img)
 		if err != nil {
 			b.FailNow()

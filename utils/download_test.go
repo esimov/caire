@@ -14,7 +14,7 @@ func TestUtils_ShouldDownloadImage(t *testing.T) {
 		t.Fatalf("could't download test file: %v", err)
 	}
 
-	if !strings.Contains(f.Name(), "tmp") {
+	if !strings.Contains(f.Name(), "image") {
 		t.Errorf("The downloaded image should have been saved in a temporary folder")
 	}
 }

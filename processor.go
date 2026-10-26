@@ -6,12 +6,18 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"math"
+	"os"
+	"path/filepath"
 
 	"github.com/disintegration/imaging"
+	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
+	"golang.org/x/image/bmp"
 )
 
 //go:embed data/facefinder
@@ -19,7 +25,7 @@ var cascadeFile []byte
 
 var _ SeamCarver = (*Processor)(nil)
 
-// worker struct contains all the information needed for transferring the resized image to the Gio GUI.
+// Worker struct contains all the information needed for transferring the resized image to the Gio GUI.
 type worker struct {
 	img   *image.NRGBA
 	mask  *image.NRGBA
@@ -213,8 +219,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		// Otherwise we rotate the image only once, right before calling this function.
 		if p.resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
-			img = rotateImage90(img)
-			p.rotateMasks(rotateImage90)
+			img = cimage.RotateImage90(img)
+			p.rotateMasks(cimage.RotateImage90)
 		}
 		if dx > p.NewHeight {
 			img, err = p.shrink(img)
@@ -222,8 +228,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				return nil, err
 			}
 			if p.resizeXY {
-				img = rotateImage270(img)
-				p.rotateMasks(rotateImage270)
+				img = cimage.RotateImage270(img)
+				p.rotateMasks(cimage.RotateImage270)
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
@@ -245,8 +251,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 		} else {
 			if p.resizeXY {
-				img = rotateImage270(img)
-				p.rotateMasks(rotateImage270)
+				img = cimage.RotateImage270(img)
+				p.rotateMasks(cimage.RotateImage270)
 			}
 		}
 		return img, nil
@@ -259,8 +265,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 		if p.resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
-			img = rotateImage90(img)
-			p.rotateMasks(rotateImage90)
+			img = cimage.RotateImage90(img)
+			p.rotateMasks(cimage.RotateImage90)
 		}
 		if dx < p.NewHeight {
 			img, err = p.enlarge(img)
@@ -268,8 +274,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 				return nil, err
 			}
 			if p.resizeXY {
-				img = rotateImage270(img)
-				p.rotateMasks(rotateImage270)
+				img = cimage.RotateImage270(img)
+				p.rotateMasks(cimage.RotateImage270)
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
@@ -291,8 +297,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 		} else {
 			if p.resizeXY {
-				img = rotateImage270(img)
-				p.rotateMasks(rotateImage270)
+				img = cimage.RotateImage270(img)
+				p.rotateMasks(cimage.RotateImage270)
 			}
 		}
 		return img, nil
@@ -395,8 +401,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	// Run the carver function if the desired image height is not identical with the rescaled image height.
 	if newHeight > 0 && p.NewHeight != c.Height {
 		if !p.resizeXY {
-			img = rotateImage90(img)
-			p.rotateMasks(rotateImage90)
+			img = cimage.RotateImage90(img)
+			p.rotateMasks(cimage.RotateImage90)
 		}
 		if p.NewHeight > c.Height {
 			img, err = enlargeVertFn(img)
@@ -410,8 +416,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			}
 		}
 		if !p.resizeXY {
-			img = rotateImage270(img)
-			p.rotateMasks(rotateImage270)
+			img = cimage.RotateImage270(img)
+			p.rotateMasks(cimage.RotateImage270)
 		}
 	}
 
@@ -490,7 +496,7 @@ func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 // Process encodes the resized image into an io.Writer interface.
 // We are using the io package, since we can provide different input and output types,
 // as long as they implement the io.Reader and io.Writer interface.
-func (p *Processor) Process(r io.Reader, w io.Writer) error {
+func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 	var err error
 
 	if p.FaceDetect {
@@ -508,12 +514,12 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 	// Resize sets this flag as well, but the preview window size depends on it.
 	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
 
-	src, _, err := image.Decode(r)
+	src, err := cimage.Decode(reader)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot decode file: %w", err)
 	}
 
-	img := imgToNRGBA(src)
+	img := cimage.ImgToNRGBA(src)
 
 	if p.Preview {
 		guiWidth := img.Bounds().Max.X
@@ -544,7 +550,7 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 		go p.showPreview(p.imgWorker, p.errs, guiWindow)
 	}
 
-	return encodeImg(p, w, img)
+	return p.encodeImg(writer, img)
 }
 
 // shrink reduces the image dimension either horizontally or vertically.
@@ -605,4 +611,53 @@ func (p *Processor) enlarge(img *image.NRGBA) (*image.NRGBA, error) {
 		done:  false,
 	})
 	return img, nil
+}
+
+// showPreview spawns a new Gio GUI window and updates its content with the resized image received from a channel.
+func (p *Processor) showPreview(
+	imgWorker <-chan worker,
+	errChan chan<- error,
+	guiWindow struct {
+		width  int
+		height int
+	},
+) {
+	var gui = NewGUI(guiWindow.width, guiWindow.height)
+	gui.proc = p
+	gui.process.worker = imgWorker
+
+	// Run the Gio GUI app in a separate goroutine
+	go func() {
+		if err := gui.Run(); err != nil {
+			errChan <- err
+		}
+		// It's important to call os.Exit(0) in order to terminate
+		// the execution of the GUI app when pressing ESC key.
+		os.Exit(0)
+	}()
+}
+
+// encodeImg encodes an image to a destination of type io.Writer.
+func (p *Processor) encodeImg(w io.Writer, img *image.NRGBA) error {
+	res, err := Resize(p, img)
+	if err != nil {
+		return err
+	}
+
+	switch w := w.(type) {
+	case *os.File:
+		ext := filepath.Ext(w.Name())
+		switch ext {
+		case "", ".jpg", ".jpeg":
+			return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
+		case ".png":
+			return png.Encode(w, res)
+		case ".bmp":
+			return bmp.Encode(w, res)
+		default:
+			return errors.New("unsupported image format")
+		}
+	default:
+		return jpeg.Encode(w, res, &jpeg.Options{Quality: 100})
+	}
 }

@@ -22,6 +22,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/imop"
 	"github.com/esimov/caire/utils"
 )
@@ -273,7 +274,7 @@ func (g *Gui) Run() error {
 			}
 
 			if g.proc.vRes {
-				g.process.img = rotateImage270(g.process.img.(*image.NRGBA))
+				g.process.img = cimage.RotateImage270(g.process.img.(*image.NRGBA))
 			}
 			w.Invalidate()
 		default:
