@@ -30,7 +30,7 @@ func DownloadImage(url string) (*os.File, error) {
 		return nil, fmt.Errorf("unable to read response body: %w", err)
 	}
 
-	tmpfile, err := os.CreateTemp("/tmp", "image")
+	tmpfile, err := os.CreateTemp("", "image")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create temporary file: %w", err)
 	}
