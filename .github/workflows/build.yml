@@ -45,6 +45,5 @@ jobs:
         run: go mod download
 
       - name: Run Tests
-        id: makefile
         run: |
           make test

@@ -22,7 +22,6 @@ func DownloadImage(url string) (*os.File, error) {
 		if err := res.Body.Close(); err != nil {
 			log.Printf("could not close the opened file: %v", err)
 		}
-
 	}()
 
 	data, err := io.ReadAll(res.Body)
@@ -34,6 +33,11 @@ func DownloadImage(url string) (*os.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create temporary file: %w", err)
 	}
+	defer func() {
+		if err := tmpfile.Close(); err != nil {
+			log.Printf("could not close the temporary file: %v", err)
+		}
+	}()
 
 	// Copy the image binary data into the temporary file.
 	_, err = io.Copy(tmpfile, bytes.NewBuffer(data))
