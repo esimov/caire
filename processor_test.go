@@ -348,16 +348,14 @@ func TestResize_ShouldRejectMismatchedMaskDimensions(t *testing.T) {
 		{
 			name: "protective mask",
 			proc: &Processor{
-				MaskPath: "mask.png",
-				Mask:     image.NewNRGBA(image.Rect(0, 0, 1, 2)),
+				Mask: image.NewNRGBA(image.Rect(0, 0, 1, 2)),
 			},
 			wantErr: "mask dimensions 1x2 do not match input dimensions 4x2",
 		},
 		{
 			name: "removal mask",
 			proc: &Processor{
-				RMaskPath: "mask.png",
-				RMask:     image.NewNRGBA(image.Rect(0, 0, 1, 2)),
+				RMask: image.NewNRGBA(image.Rect(0, 0, 1, 2)),
 			},
 			wantErr: "removal mask dimensions 1x2 do not match input dimensions 4x2",
 		},
