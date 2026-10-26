@@ -69,8 +69,6 @@ func main() {
 		Preview:        *preview,
 		FaceDetect:     *faceDetect,
 		FaceAngle:      *faceAngle,
-		MaskPath:       *maskPath,
-		RMaskPath:      *rMaskPath,
 		SeamColor:      *seamColor,
 		ShapeType:      caire.ShapeType(*shapeType),
 	}
@@ -83,10 +81,12 @@ func main() {
 		)
 	} else {
 		op := &caire.Image{
-			Src:      *source,
-			Dst:      *destination,
-			Workers:  *workers,
-			PipeName: pipeName,
+			Src:       *source,
+			Dst:       *destination,
+			MaskPath:  *maskPath,
+			RMaskPath: *rMaskPath,
+			Workers:   *workers,
+			PipeName:  pipeName,
 		}
 
 		if *preview {

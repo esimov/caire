@@ -30,6 +30,8 @@ var (
 
 type Image struct {
 	Src, Dst, PipeName string
+	MaskPath           string
+	RMaskPath          string
 	Workers            int
 }
 
@@ -255,8 +257,8 @@ func (img *Image) process(p *Processor, in, out string) error {
 		}
 	}()
 
-	if len(p.MaskPath) > 0 {
-		mask, err := decodeImg(p.MaskPath)
+	if len(img.MaskPath) > 0 {
+		mask, err := decodeImg(img.MaskPath)
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}
@@ -264,8 +266,8 @@ func (img *Image) process(p *Processor, in, out string) error {
 		p.DebugMask = p.Mask
 	}
 
-	if len(p.RMaskPath) > 0 {
-		rmask, err := decodeImg(p.RMaskPath)
+	if len(img.RMaskPath) > 0 {
+		rmask, err := decodeImg(img.RMaskPath)
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}

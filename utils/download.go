@@ -18,7 +18,12 @@ func DownloadImage(url string) (*os.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to download image file from URI: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Printf("could not close the opened file: %v", err)
+		}
+
+	}()
 
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
