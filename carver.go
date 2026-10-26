@@ -120,7 +120,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 	// Traverse the pixel data of the binary file used for protecting the regions
 	// which we do not want to be altered by the seam carver,
 	// obtain the white patches and apply it to the sobel image.
-	if len(p.MaskPath) > 0 && p.Mask != nil {
+	if p.Mask != nil {
 		p.DebugMask = image.NewNRGBA(img.Bounds())
 
 		for i := 0; i < width*height; i++ {
@@ -144,7 +144,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 	// Traverse the pixel data of the binary file used to remove the image regions
 	// we do not want to be retained in the final image, obtain the white patches,
 	// but this time inverse the colors to black and merge it back to the sobel image.
-	if len(p.RMaskPath) > 0 && p.RMask != nil {
+	if p.RMask != nil {
 		p.DebugMask = image.NewNRGBA(img.Bounds())
 
 		for i := 0; i < width*height; i++ {

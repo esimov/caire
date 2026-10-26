@@ -37,8 +37,6 @@ type enlargeFn func(*image.NRGBA) (*image.NRGBA, error)
 type Processor struct {
 	FaceAngle      float64
 	SeamColor      string
-	MaskPath       string
-	RMaskPath      string
 	ShapeType      ShapeType
 	SobelThreshold int
 	BlurRadius     int
@@ -128,7 +126,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	// If the image is resized on both X and Y axis it calls the shrink and enlarge
 	// function intermittently up until the desired dimension is reached.
 	// I opted for this solution instead of resizing the image sequentially,
-	// to avoid resulting visual artefacts, since this way
+	// to avoid resulting visual artifacts, since this way
 	// the horizontal and vertical seams are merged together seamlessly.
 	shrinkHorizFn = func(img *image.NRGBA) (*image.NRGBA, error) {
 		p.vRes = false

@@ -206,7 +206,7 @@ func (g *Gui) Run() error {
 
 	if g.proc.Debug {
 		g.AddHudControl(hudShowSeams, "Show seams", true)
-		if len(g.proc.MaskPath) > 0 || len(g.proc.RMaskPath) > 0 || g.proc.FaceDetect {
+		if g.proc.Mask != nil || g.proc.RMask != nil || g.proc.FaceDetect {
 			g.AddHudControl(hudShowDebugMask, "Debug mode", false)
 		}
 	}

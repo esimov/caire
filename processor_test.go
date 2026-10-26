@@ -199,9 +199,9 @@ func TestResize_MasksShouldFollowTheImageOnEveryResizePath(t *testing.T) {
 				SobelThreshold: 4,
 			}
 			if tc.removal {
-				proc.RMaskPath, proc.RMask = "mask.png", mask
+				proc.RMask = mask
 			} else {
-				proc.MaskPath, proc.Mask = "mask.png", mask
+				proc.Mask = mask
 			}
 			res := resizeThroughProcess(t, proc, img)
 			wantWidth, wantHeight := tc.newWidth, tc.newHeight
@@ -325,7 +325,6 @@ func TestResize_ReusedProcessorShouldKeepTheMask(t *testing.T) {
 		NewWidth:       50,
 		BlurRadius:     1,
 		SobelThreshold: 4,
-		MaskPath:       "mask.png",
 		Mask:           mask,
 	}
 
