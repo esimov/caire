@@ -1,4 +1,4 @@
-package caire
+package image
 
 import (
 	"image"
@@ -8,6 +8,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	imgWidth  = 10
+	imgHeight = 10
 )
 
 // energyRow returns one character per pixel of a row: "#" for an edge, "." otherwise.
@@ -27,8 +32,7 @@ func TestSobel_UniformImageShouldHaveNoEnergy(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.Gray{Y: 0x80}}, image.Point{}, draw.Src)
 
-	c := NewCarver(imgWidth, imgHeight)
-	sobel := c.SobelDetector(img, 0)
+	sobel := SobelDetector(img, 0)
 
 	// The detector used to read past the end of the data in the last rows,
 	// which marked the bottom of every image as an edge.
@@ -42,14 +46,13 @@ func TestSobel_EdgeShouldBeCenteredOnTheColorStep(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, image.Rect(imgWidth/2, 0, imgWidth, imgHeight), image.White, image.Point{}, draw.Src)
 
-	c := NewCarver(imgWidth, imgHeight)
-	sobel := c.SobelDetector(img, 0)
+	out := SobelDetector(img, 0)
 
 	// Only the two columns on each side of the step are edges.
 	// The window used to be anchored at the top left corner, which moved
 	// every edge one pixel up and to the left.
 	want := strings.Repeat(".", imgWidth/2-1) + "##" + strings.Repeat(".", imgWidth/2-1)
 	for y := 0; y < imgHeight; y++ {
-		assert.Equal(t, want, energyRow(sobel, y), "row %d", y)
+		assert.Equal(t, want, energyRow(out, y), "row %d", y)
 	}
 }

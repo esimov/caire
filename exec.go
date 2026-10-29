@@ -16,6 +16,7 @@ import (
 
 	"slices"
 
+	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/utils"
 	"golang.org/x/term"
 )
@@ -41,6 +42,7 @@ type result struct {
 	err  error
 }
 
+// Resize implements the interface method with the same name in the Processor struct.
 func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 	return s.Resize(img)
 }
@@ -156,13 +158,13 @@ func (p *Processor) Execute(img *Image) {
 		}
 
 		if err = <-errc; err != nil {
-			fmt.Fprintf(os.Stderr, utils.DecorateText(err.Error(), utils.ErrorMessage))
+			fmt.Fprintf(os.Stderr, "%s", utils.DecorateText(err.Error(), utils.ErrorMessage))
 		}
 
 	case mode.IsRegular() || mode&os.ModeNamedPipe != 0: // check for regular files or pipe names
 		ext := filepath.Ext(img.Dst)
 		if !slices.Contains(validExtensions, ext) && img.Dst != img.PipeName {
-			log.Fatalf(utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
+			log.Fatalf("%s", utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
 		}
 
 		err = img.process(p, img.Src, img.Dst)
@@ -258,20 +260,20 @@ func (img *Image) process(p *Processor, in, out string) error {
 	}()
 
 	if len(img.MaskPath) > 0 {
-		mask, err := decodeImg(img.MaskPath)
+		mask, err := cimage.DecodeContent(img.MaskPath)
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}
-		p.Mask = dither(imgToNRGBA(mask))
+		p.Mask = cimage.Dither(mask)
 		p.DebugMask = p.Mask
 	}
 
 	if len(img.RMaskPath) > 0 {
-		rmask, err := decodeImg(img.RMaskPath)
+		rmask, err := cimage.DecodeContent(img.RMaskPath)
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}
-		p.RMask = dither(imgToNRGBA(rmask))
+		p.RMask = cimage.Dither(rmask)
 		p.DebugMask = p.RMask
 	}
 

@@ -53,7 +53,7 @@ func (s *Spinner) Start() {
 					s.mu.Lock()
 
 					output := fmt.Sprintf("\r%s%s %s%s", s.message, StatusColor, r, DefaultColor)
-					fmt.Fprintf(s.writer, output)
+					fmt.Fprintf(s.writer, "%s", output)
 					s.lastOutput = output
 
 					s.mu.Unlock()
@@ -72,7 +72,7 @@ func (s *Spinner) Stop() {
 	s.clear()
 	s.RestoreCursor()
 	if len(s.StopMsg) > 0 {
-		fmt.Fprintf(s.writer, s.StopMsg)
+		fmt.Fprintf(s.writer, "%s", s.StopMsg)
 	}
 	s.stopChan <- struct{}{}
 }

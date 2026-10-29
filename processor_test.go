@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -48,7 +49,7 @@ func TestResize_ShrinkImageHeight(t *testing.T) {
 	p.NewWidth = imgWidth
 	p.NewHeight = newHeight
 
-	img = rotateImage90(img)
+	img = cimage.RotateImage90(img)
 	for x := 0; x < newHeight; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
@@ -59,7 +60,7 @@ func TestResize_ShrinkImageHeight(t *testing.T) {
 		seams := c.FindLowestEnergySeams(p)
 		img = c.RemoveSeam(img, seams, p.Debug)
 	}
-	img = rotateImage270(img)
+	img = cimage.RotateImage270(img)
 	imgHeight := img.Bounds().Max.Y
 
 	assert.Equal(t, imgHeight, newHeight)
@@ -96,7 +97,7 @@ func TestResize_EnlargeImageHeight(t *testing.T) {
 	p.NewWidth = imgWidth
 	p.NewHeight = newHeight
 
-	img = rotateImage90(img)
+	img = cimage.RotateImage90(img)
 	for x := 0; x < newHeight; x++ {
 		width, height := img.Bounds().Max.X, img.Bounds().Max.Y
 		c = NewCarver(width, height)
@@ -107,7 +108,7 @@ func TestResize_EnlargeImageHeight(t *testing.T) {
 		seams := c.FindLowestEnergySeams(p)
 		img = c.AddSeam(img, seams, p.Debug)
 	}
-	img = rotateImage270(img)
+	img = cimage.RotateImage270(img)
 	imgHeight := img.Bounds().Max.Y - img.Bounds().Dy()
 
 	assert.NotEqual(t, imgHeight, newHeight)

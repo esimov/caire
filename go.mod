@@ -1,6 +1,6 @@
 module github.com/esimov/caire
 
-go 1.22
+go 1.27
 
 require (
 	gioui.org v0.8.0

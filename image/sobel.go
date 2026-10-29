@@ -1,4 +1,4 @@
-package caire
+package image
 
 import (
 	"image"
@@ -23,11 +23,13 @@ var (
 
 // SobelDetector uses the sobel filter operator for detecting image edges.
 // See https://en.wikipedia.org/wiki/Sobel_operator
-func (c *Carver) SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA {
+func SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA {
 	var sumX, sumY int32
-	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
-	dst := image.NewNRGBA(img.Bounds())
-	data := c.getImageData(img)
+
+	bounds := img.Bounds()
+	dx, dy := bounds.Dx(), bounds.Dy()
+	dst := image.NewNRGBA(bounds)
+	grayscale := RgbToGrayscale(img)
 
 	// at returns the brightness of the pixel at (x, y). Coordinates outside
 	// the image are clamped to the nearest border pixel, so the borders
@@ -35,7 +37,7 @@ func (c *Carver) SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA
 	at := func(x, y int) int32 {
 		x = min(max(x, 0), dx-1)
 		y = min(max(y, 0), dy-1)
-		return int32(data[y*dx+x])
+		return int32(grayscale[y*dx+x])
 	}
 
 	for y := 0; y < dy; y++ {
@@ -66,17 +68,6 @@ func (c *Carver) SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA
 			dst.Pix[idx+3] = 0xff
 		}
 	}
+
 	return dst
-}
-
-// getImageData converts the image to grayscale and returns an array of pixel brightness values.
-func (c *Carver) getImageData(img *image.NRGBA) []uint8 {
-	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
-	pixels := make([]uint8, dx*dy)
-
-	for i := range pixels {
-		r, g, b := uint32(img.Pix[i*4]), uint32(img.Pix[i*4+1]), uint32(img.Pix[i*4+2])
-		pixels[i] = uint8((299*r + 587*g + 114*b) / 1000)
-	}
-	return pixels
 }
