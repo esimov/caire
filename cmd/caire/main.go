@@ -53,7 +53,7 @@ func main() {
 	log.SetFlags(0)
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, fmt.Sprintf(HelpBanner, Version))
+		fmt.Fprintf(os.Stderr, "%s", fmt.Sprintf(HelpBanner, Version))
 		flag.PrintDefaults()
 	}
 	flag.Parse()
