@@ -6,7 +6,7 @@ import (
 )
 
 type SWT struct {
-	Operator
+	EdgeDetector
 	Width  int
 	Height int
 	*Component

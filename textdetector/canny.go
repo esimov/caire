@@ -49,7 +49,7 @@ const (
 	cannyStrong
 )
 
-var _ Operator = (*Canny)(nil)
+var _ EdgeDetector = (*Canny)(nil)
 
 type CannyOption func(*Canny) error
 
@@ -83,8 +83,8 @@ func NewCannyDetector(width, height int, options ...CannyOption) (*Canny, error)
 	return canny, nil
 }
 
-// EdgeDetect detect edges in a grayscaled converted image passed as flattened pixel buffer.
-func (c *Canny) EdgeDetect(gray []uint8) ([]bool, []gradient, error) {
+// Detect detect edges in a grayscaled converted image passed as flattened pixel buffer.
+func (c *Canny) Detect(gray []uint8) ([]bool, []gradient, error) {
 	blurred, err := c.GaussianBlur(gray, c.gaussianSigma)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error on image bluring opreration: %w", err)
@@ -230,7 +230,7 @@ func (c *Canny) normalize(input []float64, targetMaximum float64) []cannyPixel {
 }
 
 // removeWeakEdges removes the weak edges from the provided pixel buffer
-// and returns the final edges represented as boolean true values.
+// and returns the final edges represented as boolean (TRUE) values.
 func (c *Canny) removeWeakEdges(pixels []cannyPixel) []bool {
 	result := make([]bool, c.width*c.height)
 	queue := make([]point, 0)
@@ -299,7 +299,7 @@ func (c *Canny) removeWeakEdges(pixels []cannyPixel) []bool {
 	return result
 }
 
-// ContainsEdges returns true if a first edge is encounter, otherwise returns false.
+// ContainsEdges returns true if an edge is encountered, otherwise returns false.
 func (c *Canny) ContainsEdges(edges []bool) bool {
 	for _, edge := range edges {
 		if edge {
@@ -310,7 +310,7 @@ func (c *Canny) ContainsEdges(edges []bool) bool {
 	return false
 }
 
-// WithDefaultOptions uses the edge detector with the default values.
+// WithDefaultOptions instantiates the edge detector with the default values.
 func WithDefaultOptions(opt Canny) CannyOption {
 	return func(c *Canny) error {
 		c.gaussianSigma = opt.gaussianSigma
@@ -329,7 +329,7 @@ func WithGaussianSigma(sigma float64) CannyOption {
 	}
 }
 
-// WithLowThreshold applies the lower threshold to the edge detector.
+// WithLowThreshold applies the lower threshold value to the edge detector.
 func WithLowThreshold(lowThreshold float64) CannyOption {
 	return func(c *Canny) error {
 		c.lowThreshold = lowThreshold
@@ -337,7 +337,7 @@ func WithLowThreshold(lowThreshold float64) CannyOption {
 	}
 }
 
-// WithHighThreshold applies the higher threshold to the edge detector.
+// WithHighThreshold applies the higher threshold value to the edge detector.
 func WithHighThreshold(highThreshold float64) CannyOption {
 	return func(c *Canny) error {
 		c.highThreshold = highThreshold

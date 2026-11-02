@@ -46,7 +46,7 @@ func defaultOptions() Options {
 // SWT is executed in both directions so it can detect:
 //   - dark text over a light background
 //   - light text over a dark background
-func Detect(op Operator, src image.Image) ([]image.Rectangle, error) {
+func Detect(ed EdgeDetector, src image.Image) ([]image.Rectangle, error) {
 	if src == nil {
 		return nil, errors.New("swt: nil image")
 	}
@@ -54,8 +54,8 @@ func Detect(op Operator, src image.Image) ([]image.Rectangle, error) {
 	width, heigth := src.Bounds().Dx(), src.Bounds().Dy()
 
 	gray := cimage.RgbToGrayscale(src)
-	edges, gradients, _ := op.EdgeDetect(gray)
-	if !op.ContainsEdges(edges) {
+	edges, gradients, _ := ed.Detect(gray)
+	if !ed.ContainsEdges(edges) {
 		return nil, nil
 	}
 
