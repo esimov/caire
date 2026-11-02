@@ -22,9 +22,9 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/imop"
-	"github.com/esimov/caire/utils"
 )
 
 type hudControlType int
@@ -225,9 +225,9 @@ func (g *Gui) Run() error {
 				(g.proc.NewHeight > 0 && g.proc.NewHeight != dy) {
 
 				errorMsg := fmt.Sprintf("%s %s %s",
-					utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-					utils.DecorateText("⇢ process aborted by the user...", utils.DefaultMessage),
-					utils.DecorateText("✘\n", utils.ErrorMessage),
+					common.DecorateText("⚡ CAIRE", common.StatusMessage),
+					common.DecorateText("⇢ process aborted by the user...", common.DefaultMessage),
+					common.DecorateText("✘\n", common.ErrorMessage),
 				)
 				g.proc.Spinner.StopMsg = errorMsg
 				g.proc.Spinner.Stop()

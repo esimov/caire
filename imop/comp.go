@@ -11,7 +11,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
 )
 
 type CompType int
@@ -73,7 +73,7 @@ func InitOp() *Composite {
 
 // Set changes the current composition operation.
 func (op *Composite) Set(compType CompType) error {
-	if utils.Contains(op.Ops, compType) {
+	if common.Contains(op.Ops, compType) {
 		op.CurrentOp = compType
 		return nil
 	}
@@ -215,15 +215,15 @@ func (op *Composite) Draw(bitmap *Bitmap, src, dst image.Image, blend *Blend) {
 				case Normal:
 					rn, gn, bn, an = rsn, gsn, bsn, asn
 				case Darken:
-					rn = utils.Min(rsn, rbn)
-					gn = utils.Min(gsn, gbn)
-					bn = utils.Min(bsn, bbn)
-					an = utils.Min(asn, abn)
+					rn = common.Min(rsn, rbn)
+					gn = common.Min(gsn, gbn)
+					bn = common.Min(bsn, bbn)
+					an = common.Min(asn, abn)
 				case Lighten:
-					rn = utils.Max(rsn, rbn)
-					gn = utils.Max(gsn, gbn)
-					bn = utils.Max(bsn, bbn)
-					an = utils.Max(asn, abn)
+					rn = common.Max(rsn, rbn)
+					gn = common.Max(gsn, gbn)
+					bn = common.Max(bsn, bbn)
+					an = common.Max(asn, abn)
 				case Screen:
 					rn = 1 - (1-rsn)*(1-rbn)
 					gn = 1 - (1-gsn)*(1-gbn)
@@ -356,56 +356,56 @@ func (op *Composite) Draw(bitmap *Bitmap, src, dst image.Image, blend *Blend) {
 					}
 				case ColorDodge:
 					if rsn < 1 {
-						rn = utils.Min(1, rbn/(1-rsn))
+						rn = common.Min(1, rbn/(1-rsn))
 					} else if rsn == 1 {
 						rn = 1
 					}
 
 					if gsn < 1 {
-						gn = utils.Min(1, gbn/(1-gsn))
+						gn = common.Min(1, gbn/(1-gsn))
 					} else if gsn == 1 {
 						gn = 1
 					}
 
 					if bsn < 1 {
-						bn = utils.Min(1, bbn/(1-bsn))
+						bn = common.Min(1, bbn/(1-bsn))
 					} else if bsn == 1 {
 						bn = 1
 					}
 
 					if asn < 1 {
-						an = utils.Min(1, abn/(1-asn))
+						an = common.Min(1, abn/(1-asn))
 					} else if asn == 1 {
 						an = 1
 					}
 				case ColorBurn:
 					if rsn > 0 {
-						rn = 1 - utils.Min(1, (1-rbn)/rsn)
+						rn = 1 - common.Min(1, (1-rbn)/rsn)
 					} else if rsn == 0 {
 						rn = 0
 					}
 
 					if gsn > 0 {
-						gn = 1 - utils.Min(1, (1-gbn)/gsn)
+						gn = 1 - common.Min(1, (1-gbn)/gsn)
 					} else if gsn == 0 {
 						gn = 0
 					}
 
 					if bsn > 0 {
-						bn = 1 - utils.Min(1, (1-bbn)/bsn)
+						bn = 1 - common.Min(1, (1-bbn)/bsn)
 					} else if bsn == 0 {
 						bn = 0
 					}
 
 					if asn > 0 {
-						an = 1 - utils.Min(1, (1-abn)/asn)
+						an = 1 - common.Min(1, (1-abn)/asn)
 					} else if asn == 0 {
 						an = 0
 					}
 				case Difference:
-					rn = utils.Abs(rbn - rsn)
-					gn = utils.Abs(gbn - gsn)
-					bn = utils.Abs(bbn - bsn)
+					rn = common.Abs(rbn - rsn)
+					gn = common.Abs(gbn - gsn)
+					bn = common.Abs(bbn - bsn)
 					an = 1
 				case Exclusion:
 					rn = rsn + rbn - 2*rsn*rbn

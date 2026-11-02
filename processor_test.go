@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	"github.com/esimov/caire/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -123,7 +123,7 @@ func squareTestImage(square image.Rectangle, fill color.NRGBA) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, 60, 40))
 	for y := 0; y < 40; y++ {
 		for x := 0; x < 60; x++ {
-			v := uint8(utils.Abs(32-x) * 8)
+			v := uint8(common.Abs(32-x) * 8)
 			img.SetNRGBA(x, y, color.NRGBA{R: 255 - v, G: 255 - v, B: 255 - v, A: 0xff})
 		}
 	}

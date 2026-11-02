@@ -32,7 +32,7 @@ func TestSobel_UniformImageShouldHaveNoEnergy(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.Gray{Y: 0x80}}, image.Point{}, draw.Src)
 
-	sobel := SobelDetector(img, 0)
+	sobel := SobelOperator(img, 0)
 
 	// The detector used to read past the end of the data in the last rows,
 	// which marked the bottom of every image as an edge.
@@ -46,7 +46,7 @@ func TestSobel_EdgeShouldBeCenteredOnTheColorStep(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	draw.Draw(img, image.Rect(imgWidth/2, 0, imgWidth, imgHeight), image.White, image.Point{}, draw.Src)
 
-	out := SobelDetector(img, 0)
+	out := SobelOperator(img, 0)
 
 	// Only the two columns on each side of the step are edges.
 	// The window used to be anchored at the top left corner, which moved

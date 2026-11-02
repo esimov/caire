@@ -7,7 +7,7 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
 )
 
 type ShapeType string
@@ -43,7 +43,7 @@ func (g *Gui) drawCircle(x, y, radius float32) {
 	p1 = g.point(x+float32(sq), y).Sub(orig)
 	p2 = g.point(x-float32(sq), y).Sub(orig)
 
-	col := utils.HexToRGBA(g.proc.SeamColor)
+	col := common.HexToRGBA(g.proc.SeamColor)
 	g.setFillColor(col)
 
 	var path clip.Path
@@ -70,7 +70,7 @@ func (g *Gui) drawLine(x, y, thickness float32) {
 	path.Line(p2.Sub(path.Pos()))
 	path.Close()
 
-	col := utils.HexToRGBA(g.proc.SeamColor)
+	col := common.HexToRGBA(g.proc.SeamColor)
 	g.setFillColor(col)
 
 	defer clip.Stroke{Path: path.End(), Width: float32(thickness)}.Op().Push(g.ctx.Ops).Pop()
@@ -114,7 +114,7 @@ func getRatio(w, h float32) float32 {
 		wr := maxScreenX / float32(w) // width ratio
 		hr := maxScreenY / float32(h) // height ratio
 
-		r = utils.Max(wr, hr)
+		r = common.Max(wr, hr)
 	}
 	return r
 }

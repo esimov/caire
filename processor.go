@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 	"golang.org/x/image/bmp"
 )
@@ -49,7 +49,7 @@ type Processor struct {
 	NewWidth       int
 	NewHeight      int
 	FaceDetector   *pigo.Pigo
-	Spinner        *utils.Spinner
+	Spinner        *common.Spinner
 	Mask           *image.NRGBA
 	RMask          *image.NRGBA
 	DebugMask      *image.NRGBA
@@ -314,10 +314,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
-			p.NewWidth = utils.Abs(c.Width - pw)
-			p.NewHeight = utils.Abs(c.Height - ph)
+			p.NewWidth = common.Abs(c.Width - pw)
+			p.NewHeight = common.Abs(c.Height - ph)
 
-			resImgSize := utils.Min(p.NewWidth, p.NewHeight)
+			resImgSize := common.Min(p.NewWidth, p.NewHeight)
 			return imaging.Resize(img, resImgSize, 0, imaging.Lanczos), nil
 		}
 
@@ -325,7 +325,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if p.Square {
 			// Calling the image rescale method only when both a new width and height is provided.
 			if p.NewWidth != 0 && p.NewHeight != 0 {
-				p.NewWidth = utils.Min(p.NewWidth, p.NewHeight)
+				p.NewWidth = common.Min(p.NewWidth, p.NewHeight)
 				p.NewHeight = p.NewWidth
 
 				newImg = p.calculateFitness(img, c)
@@ -335,7 +335,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 				nw, nh := img.Bounds().Dx(), img.Bounds().Dy()
 
-				p.NewWidth = utils.Min(nw, nh)
+				p.NewWidth = common.Min(nw, nh)
 				p.NewHeight = p.NewWidth
 			} else {
 				return nil, errors.New("please provide a new WIDTH and HEIGHT when using the square option")
@@ -349,10 +349,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
 			if p.NewWidth != 0 {
-				p.NewWidth = utils.Abs(c.Width - pw)
+				p.NewWidth = common.Abs(c.Width - pw)
 			}
 			if p.NewHeight != 0 {
-				p.NewHeight = utils.Abs(c.Height - ph)
+				p.NewHeight = common.Abs(c.Height - ph)
 			}
 			if pw >= c.Width || ph >= c.Height {
 				return nil, errors.New("cannot use the percentage flag for image enlargement")

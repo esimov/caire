@@ -21,9 +21,9 @@ var (
 	}
 )
 
-// SobelDetector uses the sobel filter operator for detecting image edges.
+// SobelOperator uses the sobel filter operator for detecting the image edges.
 // See https://en.wikipedia.org/wiki/Sobel_operator
-func SobelDetector(img *image.NRGBA, threshold float64) *image.NRGBA {
+func SobelOperator(img *image.NRGBA, threshold float64) *image.NRGBA {
 	var sumX, sumY int32
 
 	bounds := img.Bounds()

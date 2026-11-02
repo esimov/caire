@@ -7,21 +7,22 @@ import (
 	"image/draw"
 	"math"
 
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 )
 
-// SeamCarver defines the Carve interface method, which have to be
+// SeamCarver defines the Resize interface method, which needs to be
 // implemented by the Processor struct.
 type SeamCarver interface {
 	Resize(*image.NRGBA) (image.Image, error)
 }
 
-// maxFaceDetAttempts defines the maximum number of attempts of face detections
+// maxFaceDetAttempts defines the maximum number of attempts for face detection.
 const maxFaceDetAttempts = 20
 
-// Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
+// Carver is the seam carving operation core structure, having as parameters the
+// new image width and height and the harvested seams.
 type Carver struct {
 	Points []float64
 	Seams  []Seam
@@ -29,7 +30,7 @@ type Carver struct {
 	Height int
 }
 
-// Seam struct contains the seam pixel coordinates.
+// Seam contains the seam pixel coordinates.
 type Seam struct {
 	X int
 	Y int
@@ -67,7 +68,7 @@ func (c *Carver) set(x, y int, px float64) {
 //     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	sobel := cimage.SobelDetector(img, float64(p.SobelThreshold))
+	sobel := cimage.SobelOperator(img, float64(p.SobelThreshold))
 
 	dets := []pigo.Detection{}
 
@@ -79,14 +80,14 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		} else {
 			ratio = float64(height) / float64(width)
 		}
-		minSize := float64(utils.Min(width, height)) * ratio / 3
+		minSize := float64(common.Min(width, height)) * ratio / 3
 
 		// Transform the image to pixel array.
 		pixels := cimage.RgbToGrayscale(img)
 
 		cParams := pigo.CascadeParams{
 			MinSize:     int(minSize),
-			MaxSize:     utils.Min(width, height),
+			MaxSize:     common.Min(width, height),
 			ShiftFactor: 0.1,
 			ScaleFactor: 1.1,
 

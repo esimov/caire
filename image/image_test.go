@@ -7,7 +7,7 @@ import (
 	"image/draw"
 	"testing"
 
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
 )
 
 func TestImage_ImgToNRGBA(t *testing.T) {
@@ -212,7 +212,7 @@ func compareBytes(a, b []uint8, delta int) bool {
 		return false
 	}
 	for i := 0; i < len(a); i++ {
-		if utils.Abs(int(a[i])-int(b[i])) > delta {
+		if common.Abs(int(a[i])-int(b[i])) > delta {
 			return false
 		}
 	}

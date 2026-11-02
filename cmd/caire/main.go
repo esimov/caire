@@ -9,7 +9,7 @@ import (
 
 	"gioui.org/app"
 	"github.com/esimov/caire"
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
 )
 
 const HelpBanner = `
@@ -76,8 +76,8 @@ func main() {
 	if !(*newWidth > 0 || *newHeight > 0 || *percentage || *square) {
 		flag.Usage()
 		log.Fatalf("%s%s",
-			utils.DecorateText("\nPlease provide a width, height or percentage for image rescaling!", utils.ErrorMessage),
-			utils.DefaultColor,
+			common.DecorateText("\nPlease provide a width, height or percentage for image rescaling!", common.ErrorMessage),
+			common.DefaultColor,
 		)
 	} else {
 		op := &caire.Image{
