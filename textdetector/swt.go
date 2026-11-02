@@ -2,7 +2,6 @@ package textdetector
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"math"
 
@@ -11,19 +10,19 @@ import (
 
 const unsetStroke = math.MaxFloat64
 
-// Options controls text-region detection.
+// Options controls the text-region detection.
 type Options struct {
-	maxStrokeRatio       float64
-	maxComponentAspect   float64
-	maxStrokeStdDevRatio float64
-	minComponentPixels   int
 	minComponentHeight   int
 	maxComponentHeight   int
+	maxComponentAspect   float64
+	maxStrokeStdDevRatio float64
 	maxHeightRatio       float64
 	maxMedianStrokeRatio float64
 	maxHorizontalGap     float64
 	maxVerticalOffset    float64
 	minComponentsPerLine int
+	minComponentPixels   int
+	maxStrokeRatio       float64
 }
 
 func defaultOptions() Options {
@@ -37,8 +36,8 @@ func defaultOptions() Options {
 		maxHorizontalGap:     3.0,
 		maxVerticalOffset:    0.6,
 		minComponentsPerLine: 3,
-		minComponentPixels:   8,
-		maxStrokeRatio:       3.0,
+		minComponentPixels:   2,
+		maxStrokeRatio:       2.0,
 	}
 }
 
@@ -47,28 +46,22 @@ func defaultOptions() Options {
 // SWT is executed in both directions so it can detect:
 //   - dark text over a light background
 //   - light text over a dark background
-func Detect(src image.Image) ([]image.Rectangle, error) {
+func Detect(op Operator, src image.Image) ([]image.Rectangle, error) {
 	if src == nil {
 		return nil, errors.New("swt: nil image")
 	}
 
-	width, height := src.Bounds().Dx(), src.Bounds().Dy()
-	canny, err := NewCannyDetecor(width, height)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize the Canny edge detector: %w", err)
-	}
+	width, heigth := src.Bounds().Dx(), src.Bounds().Dy()
 
 	gray := cimage.RgbToGrayscale(src)
-	edges, gradients, _ := canny.EdgeDetect(gray)
-	if !canny.ContainsEdges(edges) {
+	edges, gradients, _ := op.EdgeDetect(gray)
+	if !op.ContainsEdges(edges) {
 		return nil, nil
 	}
 
 	options := defaultOptions()
 
 	component := &Component{
-		Width:                canny.width,
-		Height:               canny.height,
 		MinComponentHeight:   options.minComponentHeight,
 		MaxComponentHeight:   options.maxComponentHeight,
 		MaxComponentAspect:   options.maxComponentAspect,
@@ -86,7 +79,8 @@ func Detect(src image.Image) ([]image.Rectangle, error) {
 	}
 
 	swt := &SWT{
-		Canny:     canny,
+		Width:     width,
+		Height:    heigth,
 		Component: component,
 	}
 
@@ -94,20 +88,21 @@ func Detect(src image.Image) ([]image.Rectangle, error) {
 
 	var strokeComponents []StrokeComponent
 
-	// +1 follows the gradient.
-	// -1 follows the inverse gradient.
+	// Apply the transformation twice:
+	// - dark text on light background (+1 follows the gradient)
+	// - light text on dark background (-1 follows the inverses gradient)
 	for _, direction := range []float64{1, -1} {
 		strokes := swt.Transform(edges, gradients, direction)
-		components := component.FindConnected(strokes)
+		connectedComps := swt.FindConnected(strokes)
 
-		for _, candidate := range components {
-			if ok := component.Describe(candidate, strokes); ok {
+		for _, candidate := range connectedComps {
+			if ok := swt.Filter(candidate, strokes); ok {
 				strokeComponents = append(strokeComponents, *swt.StrokeComponent)
 			}
 		}
 	}
 
-	regions := component.Group(strokeComponents)
+	regions := swt.Group(strokeComponents)
 
 	return regions, nil
 }

@@ -6,7 +6,9 @@ import (
 )
 
 type SWT struct {
-	*Canny
+	Operator
+	Width  int
+	Height int
 	*Component
 }
 
@@ -16,14 +18,14 @@ type ray struct {
 }
 
 func (s *SWT) Transform(edges []bool, gradients []gradient, direction float64) []float64 {
-	strokes := makeFloatBuffer(s.width*s.height, math.MaxFloat64)
+	strokes := makeFloatBuffer(s.Width*s.Height, math.MaxFloat64)
 
 	var rays []ray
 
-	for y := 1; y < s.height-1; y++ {
-		rowOffset := y * s.width
+	for y := 1; y < s.Height-1; y++ {
+		rowOffset := y * s.Width
 
-		for x := 1; x < s.width-1; x++ {
+		for x := 1; x < s.Width-1; x++ {
 			startIndex := rowOffset + x
 
 			// Skip if pixel is not an edge.
@@ -40,7 +42,8 @@ func (s *SWT) Transform(edges []bool, gradients []gradient, direction float64) [
 			dx := startGradient.x * direction
 			dy := startGradient.y * direction
 
-			// Follow the ray until another edge is not found.
+			// Follow the ray until another edge is not found
+			// or the ray reaches the predefined boundary limit.
 			pixels := s.traceRay(x, y, dx, dy)
 			if len(pixels) < 2 {
 				continue
@@ -48,7 +51,7 @@ func (s *SWT) Transform(edges []bool, gradients []gradient, direction float64) [
 
 			for i := 1; i < len(pixels); i++ {
 				end := pixels[i]
-				endIndex := end.y*s.width + end.x
+				endIndex := end.y*s.Width + end.x
 
 				if !edges[endIndex] {
 					continue
@@ -71,7 +74,7 @@ func (s *SWT) Transform(edges []bool, gradients []gradient, direction float64) [
 					})
 
 					for _, p := range validPixels {
-						index := p.y*s.width + p.x
+						index := p.y*s.Width + p.x
 
 						if strokeWidth < strokes[index] {
 							strokes[index] = strokeWidth
@@ -90,7 +93,7 @@ func (s *SWT) Transform(edges []bool, gradients []gradient, direction float64) [
 		values := make([]float64, 0, len(candidateRay.pixels))
 
 		for _, p := range candidateRay.pixels {
-			value := strokes[p.y*s.width+p.x]
+			value := strokes[p.y*s.Width+p.x]
 
 			if value != unsetStroke {
 				values = append(values, value)
@@ -103,7 +106,7 @@ func (s *SWT) Transform(edges []bool, gradients []gradient, direction float64) [
 
 		medianValue := calculateMedian(values)
 		for _, p := range candidateRay.pixels {
-			index := p.y*s.width + p.x
+			index := p.y*s.Width + p.x
 
 			if medianValue < strokes[index] {
 				strokes[index] = medianValue
@@ -117,7 +120,7 @@ func (s *SWT) Transform(edges []bool, gradients []gradient, direction float64) [
 // traceRay cast a ray repeatedly from startX and startY perpendicular to the
 // orientation of a stroke until it reaches the ray max length.
 func (s *SWT) traceRay(startX int, startY int, dx float64, dy float64) []point {
-	width, height := s.width, s.height
+	width, height := s.Width, s.Height
 	result := []point{{
 		x: startX,
 		y: startY,

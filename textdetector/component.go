@@ -7,15 +7,17 @@ import (
 )
 
 type ComponentDescriber interface {
+	// FindConnected find the similar components
 	FindConnected(strokes []float64) [][]point
-	Describe(pixels []point, strokes []float64) bool
+	// Filter is used to select the text component candidates with similar
+	// characteristics, based on certain criteria provided as input parameters.
+	Filter(pixels []point, strokes []float64) bool
+	// Group groups together the connected components and present them as single image unit.
 	Group(components []StrokeComponent) []image.Rectangle
 }
 
 type Component struct {
 	*StrokeComponent
-	Width                int
-	Height               int
 	MinComponentHeight   int
 	MaxComponentHeight   int
 	MaxComponentAspect   float64
@@ -44,8 +46,11 @@ type StrokeComponent struct {
 
 var _ ComponentDescriber = (*SWT)(nil)
 
-func (c *Component) FindConnected(strokes []float64) [][]point {
-	visited := make([]bool, c.Width*c.Height)
+// FindConnected finds the connected components based on the strokes similarities.
+// Two gradient stroke can be considered as components if they are spatially connected
+// and their stroke widths are sufficiently similar.
+func (s *SWT) FindConnected(strokes []float64) [][]point {
+	visited := make([]bool, s.Width*s.Height)
 	var components [][]point
 
 	directions := [8]point{
@@ -59,10 +64,10 @@ func (c *Component) FindConnected(strokes []float64) [][]point {
 		{x: 1, y: 1},
 	}
 
-	for y := 0; y < c.Height; y++ {
-		rowOffset := y * c.Width
+	for y := 0; y < s.Height; y++ {
+		rowOffset := y * s.Width
 
-		for x := 0; x < c.Width; x++ {
+		for x := 0; x < s.Width; x++ {
 			startIndex := rowOffset + x
 
 			if visited[startIndex] || strokes[startIndex] == unsetStroke {
@@ -81,18 +86,18 @@ func (c *Component) FindConnected(strokes []float64) [][]point {
 
 				pixels = append(pixels, current)
 
-				currentIndex := current.y*c.Width + current.x
+				currentIndex := current.y*s.Width + current.x
 				currentStroke := strokes[currentIndex]
 
 				for _, delta := range directions {
 					nx := current.x + delta.x
 					ny := current.y + delta.y
 
-					if nx < 0 || nx >= c.Width || ny < 0 || ny >= c.Height {
+					if nx < 0 || nx >= s.Width || ny < 0 || ny >= s.Height {
 						continue
 					}
 
-					neighborIndex := ny*c.Width + nx
+					neighborIndex := ny*s.Width + nx
 
 					if visited[neighborIndex] || strokes[neighborIndex] == unsetStroke {
 						continue
@@ -106,7 +111,7 @@ func (c *Component) FindConnected(strokes []float64) [][]point {
 					}
 
 					ratio := math.Max(currentStroke, neighborStroke) / minimumStroke
-					if ratio > c.MaxStrokeRatio {
+					if ratio > s.MaxStrokeRatio {
 						continue
 					}
 
@@ -125,8 +130,11 @@ func (c *Component) FindConnected(strokes []float64) [][]point {
 	return components
 }
 
-func (c *Component) Describe(pixels []point, strokes []float64) bool {
-	if len(pixels) < c.MinComponentPixels {
+// Filter gets the connected component candidates, applies specific filtering criteria
+// over the obtained results (based on certain criteria provided as input parameters).
+// The final result, after all of the filtering criteria is passed, should be the stroke component.
+func (s *SWT) Filter(pixels []point, strokes []float64) bool {
+	if len(pixels) < s.MinComponentPixels {
 		return false
 	}
 
@@ -144,7 +152,7 @@ func (c *Component) Describe(pixels []point, strokes []float64) bool {
 		maxX = max(maxX, p.x)
 		maxY = max(maxY, p.y)
 
-		value := strokes[p.y*c.Width+p.x]
+		value := strokes[p.y*s.Width+p.x]
 
 		if value == unsetStroke || math.IsNaN(value) || math.IsInf(value, 0) {
 			continue
@@ -161,7 +169,7 @@ func (c *Component) Describe(pixels []point, strokes []float64) bool {
 	width := maxX - minX + 1
 	height := maxY - minY + 1
 
-	if height < c.MinComponentHeight || height > c.MaxComponentHeight {
+	if height < s.MinComponentHeight || height > s.MaxComponentHeight {
 		return false
 	}
 
@@ -174,7 +182,7 @@ func (c *Component) Describe(pixels []point, strokes []float64) bool {
 		float64(height)/float64(width),
 	)
 
-	if aspect > c.MaxComponentAspect {
+	if aspect > s.MaxComponentAspect {
 		return false
 	}
 
@@ -190,7 +198,7 @@ func (c *Component) Describe(pixels []point, strokes []float64) bool {
 
 	variance /= float64(len(values))
 	stdDev := math.Sqrt(variance)
-	if meanStroke <= 0 || stdDev/meanStroke > c.MaxStrokeStdDevRatio {
+	if meanStroke <= 0 || stdDev/meanStroke > s.MaxStrokeStdDevRatio {
 		return false
 	}
 
@@ -202,7 +210,7 @@ func (c *Component) Describe(pixels []point, strokes []float64) bool {
 		return false
 	}
 
-	c.StrokeComponent = &StrokeComponent{
+	s.StrokeComponent = &StrokeComponent{
 		Bounds:       image.Rect(minX, minY, maxX+1, maxY+1),
 		Pixels:       pixels,
 		MeanStroke:   meanStroke,
@@ -221,7 +229,7 @@ func (c *Component) Describe(pixels []point, strokes []float64) bool {
 // Group groups the potential character candidates based on
 // text alignment, similarities, stroke width and spacial distance.
 // As a last step we filter out the overlapping rectangles.
-func (c *Component) Group(components []StrokeComponent) []image.Rectangle {
+func (s *SWT) Group(components []StrokeComponent) []image.Rectangle {
 	var regions []image.Rectangle
 
 	if len(components) == 0 {
@@ -232,7 +240,7 @@ func (c *Component) Group(components []StrokeComponent) []image.Rectangle {
 
 	for i := range components {
 		for j := i + 1; j < len(components); j++ {
-			if c.findCompatible(components[i], components[j]) {
+			if s.findCompatible(components[i], components[j]) {
 				neighbours[i] = append(neighbours[i], j)
 				neighbours[j] = append(neighbours[j], i)
 			}
@@ -267,7 +275,7 @@ func (c *Component) Group(components []StrokeComponent) []image.Rectangle {
 			}
 		}
 
-		if len(group) < c.MinComponentsPerLine {
+		if len(group) < s.MinComponentsPerLine {
 			continue
 		}
 
@@ -282,7 +290,7 @@ func (c *Component) Group(components []StrokeComponent) []image.Rectangle {
 		}
 	}
 
-	regions = c.filterDuplicateRegions(regions)
+	regions = s.filterDuplicateRegions(regions)
 
 	sort.Slice(regions, func(i, j int) bool {
 		if regions[i].Min.Y == regions[j].Min.Y {
@@ -294,7 +302,7 @@ func (c *Component) Group(components []StrokeComponent) []image.Rectangle {
 	return regions
 }
 
-func (c *Component) findCompatible(a, b StrokeComponent) bool {
+func (s *SWT) findCompatible(a, b StrokeComponent) bool {
 	heightRatio := math.Max(
 		float64(a.StrokeHeigth),
 		float64(b.StrokeHeigth),
@@ -303,7 +311,7 @@ func (c *Component) findCompatible(a, b StrokeComponent) bool {
 		float64(b.StrokeHeigth),
 	)
 
-	if heightRatio > c.MaxHeightRatio {
+	if heightRatio > s.MaxHeightRatio {
 		return false
 	}
 
@@ -312,18 +320,18 @@ func (c *Component) findCompatible(a, b StrokeComponent) bool {
 	}
 
 	strokeRatio := math.Max(a.MedianStroke, b.MedianStroke) / math.Min(a.MedianStroke, b.MedianStroke)
-	if strokeRatio > c.MaxMedianStrokeRatio {
+	if strokeRatio > s.MaxMedianStrokeRatio {
 		return false
 	}
 
 	verticalOffset := math.Abs(a.CenterY - b.CenterY)
-	maxVerticalOffset := float64(min(a.StrokeHeigth, b.StrokeHeigth)) * c.MaxVerticalOffset
+	maxVerticalOffset := float64(min(a.StrokeHeigth, b.StrokeHeigth)) * s.MaxVerticalOffset
 	if verticalOffset > maxVerticalOffset {
 		return false
 	}
 
 	horizontalGap := rectangleHorizontalGap(a.Bounds, b.Bounds)
-	maxGap := float64(max(a.StrokeHeigth, b.StrokeHeigth)) * c.MaxHorizontalGap
+	maxGap := float64(max(a.StrokeHeigth, b.StrokeHeigth)) * s.MaxHorizontalGap
 
 	return float64(horizontalGap) <= maxGap
 }

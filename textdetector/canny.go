@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	GaussianSigma = 1.6
-	LowThreshold  = 50
+	GaussianSigma = 1.5
+	LowThreshold  = 90
 	HighThreshold = 100
 )
 
-// Canny struct holds the basic components required to perform the Canny edge detection operation.
-// Width and Height represents the width and height of the source image.
+// Canny holds the minimum required components for the edge detection.
+// Width and Height represents the width and height of the source image, which
+// is passed downstream over the whole edge detection operation.
 type Canny struct {
 	width         int
 	height        int
@@ -42,6 +43,7 @@ type gradient struct {
 type cannyPixel uint8
 
 const (
+	// Type of the resulted canny pixel.
 	cannyNone cannyPixel = iota
 	cannyWeak
 	cannyStrong
@@ -51,7 +53,10 @@ var _ Operator = (*Canny)(nil)
 
 type CannyOption func(*Canny) error
 
-func NewCannyDetecor(width, height int, options ...CannyOption) (*Canny, error) {
+// NewCannyDetector creates a new Canny edge detector with the default values
+// if no additional constructor parameters are provided,
+// otherwise it creates a new constructor with the provided options.
+func NewCannyDetector(width, height int, options ...CannyOption) (*Canny, error) {
 	canny := &Canny{
 		width:  width,
 		height: height,
@@ -78,6 +83,7 @@ func NewCannyDetecor(width, height int, options ...CannyOption) (*Canny, error) 
 	return canny, nil
 }
 
+// EdgeDetect detect edges in a grayscaled converted image passed as flattened pixel buffer.
 func (c *Canny) EdgeDetect(gray []uint8) ([]bool, []gradient, error) {
 	blurred, err := c.GaussianBlur(gray, c.gaussianSigma)
 	if err != nil {
@@ -169,6 +175,8 @@ func (c *Canny) nonMaximumSuppression(magnitudes []float64, gradients []gradient
 	return result
 }
 
+// bilinearInterpolation performs a bilinear interpolation over the pixel magnitudes.
+// This produces more accurate and therefore thinner and better-localized edges.
 func (c *Canny) bilinearInterpolation(input []float64, x float64, y float64) float64 {
 	if x < 0 || y < 0 || x > float64(c.width-1) || y > float64(c.height-1) {
 		return 0
@@ -221,6 +229,8 @@ func (c *Canny) normalize(input []float64, targetMaximum float64) []cannyPixel {
 	return result
 }
 
+// removeWeakEdges removes the weak edges from the provided pixel buffer
+// and returns the final edges represented as boolean true values.
 func (c *Canny) removeWeakEdges(pixels []cannyPixel) []bool {
 	result := make([]bool, c.width*c.height)
 	queue := make([]point, 0)
@@ -289,6 +299,7 @@ func (c *Canny) removeWeakEdges(pixels []cannyPixel) []bool {
 	return result
 }
 
+// ContainsEdges returns true if a first edge is encounter, otherwise returns false.
 func (c *Canny) ContainsEdges(edges []bool) bool {
 	for _, edge := range edges {
 		if edge {
@@ -299,6 +310,7 @@ func (c *Canny) ContainsEdges(edges []bool) bool {
 	return false
 }
 
+// WithDefaultOptions uses the edge detector with the default values.
 func WithDefaultOptions(opt Canny) CannyOption {
 	return func(c *Canny) error {
 		c.gaussianSigma = opt.gaussianSigma
@@ -309,6 +321,7 @@ func WithDefaultOptions(opt Canny) CannyOption {
 	}
 }
 
+// WithGaussianSigma applies a gaussian sigma different from the default value to the edge detector.
 func WithGaussianSigma(sigma float64) CannyOption {
 	return func(c *Canny) error {
 		c.gaussianSigma = sigma
@@ -316,6 +329,7 @@ func WithGaussianSigma(sigma float64) CannyOption {
 	}
 }
 
+// WithLowThreshold applies the lower threshold to the edge detector.
 func WithLowThreshold(lowThreshold float64) CannyOption {
 	return func(c *Canny) error {
 		c.lowThreshold = lowThreshold
@@ -323,6 +337,7 @@ func WithLowThreshold(lowThreshold float64) CannyOption {
 	}
 }
 
+// WithHighThreshold applies the higher threshold to the edge detector.
 func WithHighThreshold(highThreshold float64) CannyOption {
 	return func(c *Canny) error {
 		c.highThreshold = highThreshold

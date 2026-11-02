@@ -6,4 +6,6 @@ package textdetector
 // original paper is also relying on this method.
 type Operator interface {
 	EdgeDetect(grayscale []uint8) ([]bool, []gradient, error)
+
+	ContainsEdges(edges []bool) bool
 }
