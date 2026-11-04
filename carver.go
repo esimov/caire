@@ -21,6 +21,16 @@ type SeamCarver interface {
 // maxFaceDetAttempts defines the maximum number of attempts for face detection.
 const maxFaceDetAttempts = 20
 
+// maxTextDetAttempts defines the maximum number of attempts for text detection.
+const maxTextDetAttempts = 5
+
+var (
+	faceDetAttempts int
+	textDetAttempts int
+	isFaceDetected  bool
+	isTextDetected  bool
+)
+
 // Carver is the seam carving operation core structure, having as parameters the
 // new image width and height and the harvested seams.
 type Carver struct {
@@ -72,7 +82,9 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 	dets := []pigo.Detection{}
 
-	if p.FaceDetector != nil && p.FaceDetect && p.detAttempts < maxFaceDetAttempts {
+	// Perform face detection in case the flag is activated and the failed
+	// detection attempts does not reach the preset maximum attempts.
+	if p.FaceDetector != nil && p.FaceDetect && faceDetAttempts < maxFaceDetAttempts {
 		var ratio float64
 
 		if width < height {
@@ -110,12 +122,12 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 		if len(dets) == 0 {
 			// Retry detecting faces for a certain amount of time.
-			if p.detAttempts < maxFaceDetAttempts {
-				p.detAttempts++
+			if faceDetAttempts < maxFaceDetAttempts {
+				faceDetAttempts++
 			}
 		} else {
-			p.detAttempts = 0
-			p.isFaceDetected = true
+			faceDetAttempts = 0
+			isFaceDetected = true
 		}
 	}
 
@@ -131,7 +143,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 			r, g, b, _ := p.Mask.At(x, y).RGBA()
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-				if p.isFaceDetected {
+				if isFaceDetected {
 					// Reduce the brightness of the mask with a small factor
 					// if human faces are detected. This way we can avoid the
 					// seam carver to remove the pixels inside the detected human faces.
@@ -156,7 +168,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			r, g, b, _ := p.RMask.At(x, y).RGBA()
 			// Replace the white pixels with black.
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-				if p.isFaceDetected {
+				if isFaceDetected {
 					// Reduce the brightness of the mask with a small factor
 					// if human faces are detected. This way we can avoid the
 					// seam carver to remove the pixels inside the detected human faces.
@@ -195,12 +207,22 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 	}
 
-	if p.TextDetect {
+	// Perform text detection in case the flag is activated and the failed
+	// detection attempts does not reach the preset maximum attempts.
+	if p.TextDetect && textDetAttempts < maxTextDetAttempts {
 		p.EdgeDetector.Width = width
 		p.EdgeDetector.Height = height
 		p.DebugMask = image.NewNRGBA(img.Bounds())
 
 		regions := p.TextDetector.Detect(img)
+		if len(regions) == 0 {
+			if textDetAttempts < maxTextDetAttempts {
+				textDetAttempts++
+			}
+		} else {
+			textDetAttempts = 0
+			isTextDetected = true
+		}
 
 		for _, region := range regions {
 			draw.Draw(sobel, region, &image.Uniform{color.White}, image.Point{}, draw.Src)

@@ -42,27 +42,30 @@ type enlargeFn func(*image.NRGBA) (*image.NRGBA, error)
 
 // Processor options
 type Processor struct {
-	FaceAngle      float64
-	SeamColor      string
-	ShapeType      ShapeType
-	SobelThreshold int
-	BlurRadius     int
-	NewWidth       int
-	NewHeight      int
-	FaceDetector   *pigo.Pigo
-	EdgeDetector   *textdetector.CannyDetector
-	TextDetector   *textdetector.SWT
-	Spinner        *common.Spinner
-	Mask           *image.NRGBA
-	RMask          *image.NRGBA
-	DebugMask      *image.NRGBA
-	Percentage     bool
-	Square         bool
-	Debug          bool
-	Preview        bool
-	FaceDetect     bool
-	TextDetect     bool
-	vRes           bool
+	FaceAngle          float64
+	SeamColor          string
+	ShapeType          ShapeType
+	SobelThreshold     int
+	GaussianSigma      float64
+	CannyLowThreshold  float64
+	CannyHighThreshold float64
+	BlurRadius         int
+	NewWidth           int
+	NewHeight          int
+	FaceDetector       *pigo.Pigo
+	EdgeDetector       *textdetector.CannyDetector
+	TextDetector       *textdetector.SWT
+	Spinner            *common.Spinner
+	Mask               *image.NRGBA
+	RMask              *image.NRGBA
+	DebugMask          *image.NRGBA
+	Percentage         bool
+	Square             bool
+	Debug              bool
+	Preview            bool
+	FaceDetect         bool
+	TextDetect         bool
+	vRes               bool
 
 	// imgWorker transfers the intermediate images to the GUI preview.
 	// Both channels are nil when the preview window is not running.
@@ -70,10 +73,8 @@ type Processor struct {
 	errs      chan error
 
 	// State of the current resize operation. Resize resets it on every call.
-	resizeXY       bool     // the image is resized both vertically and horizontally
-	energySeams    [][]Seam // seams already added while enlarging, so the next pass picks a different one
-	detAttempts    int
-	isFaceDetected bool
+	resizeXY    bool     // the image is resized both vertically and horizontally
+	energySeams [][]Seam // seams already added while enlarging, so the next pass picks a different one
 }
 
 // Carve is the main entry point for the image resize operation.
@@ -111,8 +112,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	// Reset the state left behind by a previous run of the same Processor.
 	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
 	p.energySeams = nil
-	p.detAttempts = 0
-	p.isFaceDetected = false
 
 	// The percentage and square options are converted to pixel sizes by
 	// updating NewWidth and NewHeight, and the carving passes replace the
@@ -527,7 +526,14 @@ func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 
 	if p.TextDetect {
-		p.EdgeDetector, err = textdetector.NewCannyDetector(width, height)
+		p.EdgeDetector, err = textdetector.NewCannyDetector(width, height,
+			textdetector.WithDefaultOptions(
+				textdetector.CannyDetector{
+					GaussianSigma: p.GaussianSigma,
+					LowThreshold:  p.CannyLowThreshold,
+					HighThreshold: p.CannyHighThreshold,
+				},
+			))
 		if err != nil {
 			return fmt.Errorf("failed to initialize the Canny edge detector: %w", err)
 		}

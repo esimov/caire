@@ -5,21 +5,15 @@ import (
 	"math"
 )
 
-const (
-	GaussianSigma = 1.5
-	LowThreshold  = 50
-	HighThreshold = 100
-)
-
 // CannyDetector holds the minimum required components for the edge detection.
 // Width and Height represents the width and height of the source image, which
 // is passed downstream over the whole edge detection operation.
 type CannyDetector struct {
 	Width         int
 	Height        int
-	gaussianSigma float64
-	lowThreshold  float64
-	highThreshold float64
+	GaussianSigma float64
+	LowThreshold  float64
+	HighThreshold float64
 }
 
 type point struct {
@@ -54,22 +48,14 @@ func NewCannyDetector(width, height int, options ...CannyOption) (*CannyDetector
 		Height: height,
 	}
 
-	if options == nil {
-		options = append(options, WithDefaultOptions(CannyDetector{
-			gaussianSigma: GaussianSigma,
-			lowThreshold:  LowThreshold,
-			highThreshold: HighThreshold,
-		}))
-	}
-
 	for _, opt := range options {
 		if err := opt(canny); err != nil {
 			return nil, fmt.Errorf("failed to apply the detector options: %w", err)
 		}
 	}
 
-	if canny.lowThreshold >= canny.highThreshold {
-		canny.lowThreshold = canny.highThreshold * 0.5
+	if canny.LowThreshold >= canny.HighThreshold {
+		canny.LowThreshold = canny.HighThreshold * 0.5
 	}
 
 	return canny, nil
@@ -77,7 +63,7 @@ func NewCannyDetector(width, height int, options ...CannyOption) (*CannyDetector
 
 // Detect detect edges in a grayscaled converted image passed as flattened pixel buffer.
 func (c *CannyDetector) Detect(gray []uint8) ([]bool, []gradient, error) {
-	blurred, err := c.GaussianBlur(gray, c.gaussianSigma)
+	blurred, err := c.GaussianBlur(gray, c.GaussianSigma)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error on image bluring opreration: %w", err)
 	}
@@ -209,9 +195,9 @@ func (c *CannyDetector) normalize(input []float64, targetMaximum float64) []cann
 
 	for i := range input {
 		switch {
-		case input[i]*scale >= c.highThreshold:
+		case input[i]*scale >= c.HighThreshold:
 			result[i] = cannyStrong
-		case input[i]*scale >= c.lowThreshold:
+		case input[i]*scale >= c.LowThreshold:
 			result[i] = cannyWeak
 		default:
 			result[i] = cannyNone
@@ -305,9 +291,9 @@ func (c *CannyDetector) ContainsEdges(edges []bool) bool {
 // WithDefaultOptions instantiates the edge detector with the default values.
 func WithDefaultOptions(opt CannyDetector) CannyOption {
 	return func(c *CannyDetector) error {
-		c.gaussianSigma = opt.gaussianSigma
-		c.lowThreshold = opt.lowThreshold
-		c.highThreshold = opt.highThreshold
+		c.GaussianSigma = opt.GaussianSigma
+		c.LowThreshold = opt.LowThreshold
+		c.HighThreshold = opt.HighThreshold
 
 		return nil
 	}
@@ -316,7 +302,7 @@ func WithDefaultOptions(opt CannyDetector) CannyOption {
 // WithGaussianSigma applies a gaussian sigma different from the default value to the edge detector.
 func WithGaussianSigma(sigma float64) CannyOption {
 	return func(c *CannyDetector) error {
-		c.gaussianSigma = sigma
+		c.GaussianSigma = sigma
 		return nil
 	}
 }
@@ -324,7 +310,7 @@ func WithGaussianSigma(sigma float64) CannyOption {
 // WithLowThreshold applies the lower threshold value to the edge detector.
 func WithLowThreshold(lowThreshold float64) CannyOption {
 	return func(c *CannyDetector) error {
-		c.lowThreshold = lowThreshold
+		c.LowThreshold = lowThreshold
 		return nil
 	}
 }
@@ -332,7 +318,7 @@ func WithLowThreshold(lowThreshold float64) CannyOption {
 // WithHighThreshold applies the higher threshold value to the edge detector.
 func WithHighThreshold(highThreshold float64) CannyOption {
 	return func(c *CannyDetector) error {
-		c.highThreshold = highThreshold
+		c.HighThreshold = highThreshold
 		return nil
 	}
 }
