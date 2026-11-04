@@ -36,7 +36,7 @@ var (
 	sobelThreshold = flag.Int("sobel", 2, "Sobel filter threshold")
 	gaussianSigma  = flag.Float64("gaussian", 1.5, "Gaussian Sigma")
 	lowThreshold   = flag.Float64("cannyLow", 50, "Canny low threshold")
-	highThreshold  = flag.Float64("cannyHigh", 100, "Canny high threshold")
+	highThreshold  = flag.Float64("cannyHigh", 300, "Canny high threshold")
 	newWidth       = flag.Int("width", 0, "New width")
 	newHeight      = flag.Int("height", 0, "New height")
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
