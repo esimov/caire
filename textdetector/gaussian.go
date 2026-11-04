@@ -9,26 +9,26 @@ import (
 
 // GaussianBlur applies the gaussian formula to the pixel buffer to reduce the image noisiness.
 // Used as a very efficient and common solution for edge detection.
-func (c *Canny) GaussianBlur(input []uint8, sigma float64) ([]uint8, error) {
-	if c.width <= 0 || c.height <= 0 || len(input) < c.width*c.height {
+func (c *CannyDetector) GaussianBlur(input []uint8, sigma float64) ([]uint8, error) {
+	if c.Width <= 0 || c.Height <= 0 || len(input) < c.Width*c.Height {
 		return nil, fmt.Errorf("the pixel buffer size does not match with the image size")
 	}
 
 	kernel := c.gaussianKernel(sigma)
 	radius := len(kernel) / 2
 
-	horizontal := make([]float64, c.width*c.height)
-	result := make([]uint8, c.width*c.height)
+	horizontal := make([]float64, c.Width*c.Height)
+	result := make([]uint8, c.Width*c.Height)
 
 	// Apply the gaussian blur formula in 2d dimension.
-	for y := 0; y < c.height; y++ {
-		rowOffset := y * c.width
+	for y := 0; y < c.Height; y++ {
+		rowOffset := y * c.Width
 
-		for x := 0; x < c.width; x++ {
+		for x := 0; x < c.Width; x++ {
 			var sum float64
 
 			for k := -radius; k <= radius; k++ {
-				sampleX := common.Clamp(x+k, 0, c.width-1)
+				sampleX := common.Clamp(x+k, 0, c.Width-1)
 
 				sum += float64(input[rowOffset+sampleX]) * kernel[k+radius]
 			}
@@ -37,16 +37,16 @@ func (c *Canny) GaussianBlur(input []uint8, sigma float64) ([]uint8, error) {
 		}
 	}
 
-	for y := 0; y < c.height; y++ {
-		rowOffset := y * c.width
+	for y := 0; y < c.Height; y++ {
+		rowOffset := y * c.Width
 
-		for x := 0; x < c.width; x++ {
+		for x := 0; x < c.Width; x++ {
 			var sum float64
 
 			for k := -radius; k <= radius; k++ {
-				sampleY := common.Clamp(y+k, 0, c.height-1)
+				sampleY := common.Clamp(y+k, 0, c.Height-1)
 
-				sum += horizontal[sampleY*c.width+x] * kernel[k+radius]
+				sum += horizontal[sampleY*c.Width+x] * kernel[k+radius]
 			}
 
 			result[rowOffset+x] = uint8(math.Round(math.Max(0, math.Min(255, sum))))
@@ -56,7 +56,7 @@ func (c *Canny) GaussianBlur(input []uint8, sigma float64) ([]uint8, error) {
 	return result, nil
 }
 
-func (c *Canny) gaussianKernel(sigma float64) []float64 {
+func (c *CannyDetector) gaussianKernel(sigma float64) []float64 {
 	if sigma <= 0 {
 		return []float64{1}
 	}

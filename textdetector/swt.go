@@ -1,7 +1,11 @@
+// Package textdetector is used to identify and group identical characters in image.
+// The implementation is based on this article:
+// https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/201020CVPR20TextDetection.pdf
+// This package could be integrated into the seam removal logic to avoid
+// removing seams from an image where the texts should be preserved.
 package textdetector
 
 import (
-	"errors"
 	"image"
 	"math"
 
@@ -9,6 +13,13 @@ import (
 )
 
 const unsetStroke = math.MaxFloat64
+
+type SWT struct {
+	EdgeDetector
+	*Component
+}
+
+var _ TextDetector = (*SWT)(nil)
 
 // Options controls the text-region detection.
 type Options struct {
@@ -25,7 +36,7 @@ type Options struct {
 	maxStrokeRatio       float64
 }
 
-func defaultOptions() Options {
+func DefaultOptions() Options {
 	return Options{
 		minComponentHeight:   10,
 		maxComponentHeight:   300,
@@ -41,25 +52,8 @@ func defaultOptions() Options {
 	}
 }
 
-// Detect returns candidate text regions.
-//
-// SWT is executed in both directions so it can detect:
-//   - dark text over a light background
-//   - light text over a dark background
-func Detect(ed EdgeDetector, src image.Image) ([]image.Rectangle, error) {
-	if src == nil {
-		return nil, errors.New("swt: nil image")
-	}
-
-	width, heigth := src.Bounds().Dx(), src.Bounds().Dy()
-
-	gray := cimage.RgbToGrayscale(src)
-	edges, gradients, _ := ed.Detect(gray)
-	if !ed.ContainsEdges(edges) {
-		return nil, nil
-	}
-
-	options := defaultOptions()
+func NewSWT(edgeDetector EdgeDetector, options Options) *SWT {
+	normalizeOptions(&options)
 
 	component := &Component{
 		MinComponentHeight:   options.minComponentHeight,
@@ -78,13 +72,27 @@ func Detect(ed EdgeDetector, src image.Image) ([]image.Rectangle, error) {
 		},
 	}
 
-	swt := &SWT{
-		Width:     width,
-		Height:    heigth,
-		Component: component,
+	return &SWT{
+		Component:    component,
+		EdgeDetector: edgeDetector,
 	}
+}
 
-	swt.NormalizeOptions()
+// Detect returns candidate text regions.
+//
+// SWT is executed in both directions so it can detect:
+//   - dark text over a light background
+//   - light text over a dark background
+func (swt *SWT) Detect(src *image.NRGBA) []image.Rectangle {
+	bounds := src.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+
+	gray := cimage.RgbToGrayscale(src)
+	edges, gradients, _ := swt.EdgeDetector.Detect(gray)
+
+	if !swt.EdgeDetector.ContainsEdges(edges) {
+		return nil
+	}
 
 	var strokeComponents []StrokeComponent
 
@@ -92,69 +100,61 @@ func Detect(ed EdgeDetector, src image.Image) ([]image.Rectangle, error) {
 	// - dark text on light background (+1 follows the gradient)
 	// - light text on dark background (-1 follows the inverses gradient)
 	for _, direction := range []float64{1, -1} {
-		strokes := swt.Transform(edges, gradients, direction)
-		connectedComps := swt.FindConnected(strokes)
+		strokes := swt.Transform(width, height, edges, gradients, direction)
+		connectedComps := swt.FindConnected(width, height, strokes)
 
 		for _, candidate := range connectedComps {
-			if ok := swt.Filter(candidate, strokes); ok {
-				strokeComponents = append(strokeComponents, *swt.StrokeComponent)
+			if component, ok := swt.Filter(width, candidate, strokes); ok {
+				strokeComponents = append(strokeComponents, *component)
 			}
 		}
 	}
 
 	regions := swt.Group(strokeComponents)
 
-	return regions, nil
+	return regions
 }
 
-func (swt *SWT) NormalizeOptions() {
-	defaults := defaultOptions()
+func normalizeOptions(options *Options) {
+	defaults := DefaultOptions()
 
-	if swt.MaxStrokeRatio <= 1 {
-		swt.MaxStrokeRatio = defaults.maxStrokeRatio
+	if options.maxStrokeRatio <= 1 {
+		options.maxStrokeRatio = defaults.maxStrokeRatio
 	}
 
-	if swt.MaxComponentAspect <= 1 {
-		swt.MaxComponentAspect = defaults.maxComponentAspect
+	if options.maxComponentAspect <= 1 {
+		options.maxComponentAspect = defaults.maxComponentAspect
 	}
 
-	if swt.MaxStrokeStdDevRatio <= 0 {
-		swt.MaxStrokeStdDevRatio = defaults.maxStrokeStdDevRatio
+	if options.maxStrokeStdDevRatio <= 0 {
+		options.maxStrokeStdDevRatio = defaults.maxStrokeStdDevRatio
 	}
 
-	if swt.MinComponentPixels <= 0 {
-		swt.MinComponentPixels = defaults.minComponentPixels
+	if options.minComponentPixels <= 0 {
+		options.minComponentPixels = defaults.minComponentPixels
 	}
 
-	if swt.MinComponentHeight <= 0 {
-		swt.MinComponentHeight = defaults.minComponentHeight
+	if options.minComponentHeight <= 0 {
+		options.minComponentHeight = defaults.minComponentHeight
 	}
 
-	if swt.MaxComponentHeight <= 0 {
-		swt.MaxComponentHeight = min(defaults.maxComponentHeight, swt.Height)
+	if options.maxHeightRatio <= 1 {
+		options.maxHeightRatio = defaults.maxHeightRatio
 	}
 
-	if swt.MaxComponentHeight < swt.MinComponentHeight {
-		swt.MaxComponentHeight = swt.Height
+	if options.maxMedianStrokeRatio <= 1 {
+		options.maxMedianStrokeRatio = defaults.maxMedianStrokeRatio
 	}
 
-	if swt.MaxHeightRatio <= 1 {
-		swt.MaxHeightRatio = defaults.maxHeightRatio
+	if options.maxHorizontalGap <= 0 {
+		options.maxHorizontalGap = defaults.maxHorizontalGap
 	}
 
-	if swt.MaxMedianStrokeRatio <= 1 {
-		swt.MaxMedianStrokeRatio = defaults.maxMedianStrokeRatio
+	if options.maxVerticalOffset <= 0 {
+		options.maxVerticalOffset = defaults.maxVerticalOffset
 	}
 
-	if swt.MaxHorizontalGap <= 0 {
-		swt.MaxHorizontalGap = defaults.maxHorizontalGap
-	}
-
-	if swt.MaxVerticalOffset <= 0 {
-		swt.MaxVerticalOffset = defaults.maxVerticalOffset
-	}
-
-	if swt.MinComponentsPerLine <= 0 {
-		swt.MinComponentsPerLine = defaults.minComponentsPerLine
+	if options.minComponentsPerLine <= 0 {
+		options.minComponentsPerLine = defaults.minComponentsPerLine
 	}
 }

@@ -12,13 +12,17 @@ import (
 	"strings"
 
 	"github.com/esimov/caire/common"
+	"golang.org/x/image/webp"
 )
 
 // Decode decodes an image file to type image.Image
 func Decode(r io.Reader) (image.Image, error) {
 	img, _, err := image.Decode(r)
 	if err != nil {
-		return nil, fmt.Errorf("could not decode the mask file: %v", err)
+		// Fallback to webp decoder in case of standard image decoding failure.
+		if img, err = webp.Decode(r); err != nil {
+			return nil, fmt.Errorf("image decoding failed: %w", err)
+		}
 	}
 
 	return img, nil
@@ -28,7 +32,7 @@ func Decode(r io.Reader) (image.Image, error) {
 func DecodeContent(src string) (image.Image, error) {
 	file, err := os.Open(src)
 	if err != nil {
-		return nil, fmt.Errorf("could not open the mask file: %v", err)
+		return nil, fmt.Errorf("could not open the file: %w", err)
 	}
 
 	ctype, err := common.DetectContentType(file.Name())
@@ -37,7 +41,7 @@ func DecodeContent(src string) (image.Image, error) {
 	}
 
 	if !strings.Contains(ctype.(string), "image") {
-		return nil, fmt.Errorf("the mask should be an image file")
+		return nil, fmt.Errorf("the file should be of image type")
 	}
 
 	img, err := Decode(file)

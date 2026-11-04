@@ -132,9 +132,9 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			r, g, b, _ := p.Mask.At(x, y).RGBA()
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
 				if p.isFaceDetected {
-					// Reduce the brightness of the mask with a small factor if human faces are detected.
-					// This way we can avoid the seam carver to remove
-					// the pixels inside the detected human faces.
+					// Reduce the brightness of the mask with a small factor
+					// if human faces are detected. This way we can avoid the
+					// seam carver to remove the pixels inside the detected human faces.
 					sobel.Set(x, y, color.RGBA{R: 225, G: 225, B: 225, A: 255})
 				} else {
 					sobel.Set(x, y, color.White)
@@ -157,9 +157,9 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			// Replace the white pixels with black.
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
 				if p.isFaceDetected {
-					// Reduce the brightness of the mask with a small factor if human faces are detected.
-					// This way we can avoid the seam carver to remove
-					// the pixels inside the detected human faces.
+					// Reduce the brightness of the mask with a small factor
+					// if human faces are detected. This way we can avoid the
+					// seam carver to remove the pixels inside the detected human faces.
 					sobel.Set(x, y, color.RGBA{R: 25, G: 25, B: 25, A: 255})
 				} else {
 					sobel.Set(x, y, color.Black)
@@ -171,8 +171,9 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 	}
 
-	// Iterate over the detected faces and fill out the rectangles with white.
-	// We need to trick the sobel detector to consider them as important image parts.
+	// Apply an opaque white color to the detected face area in order to avoid
+	// the seam carver to remove the pixels inside the face zone.
+	// A simple technique to trick the Sobel detector to consider the face area important zone.
 	for _, face := range dets {
 		if (p.NewHeight != 0 && p.NewHeight < face.Scale) ||
 			(p.NewWidth != 0 && p.NewWidth < face.Scale) {
@@ -191,6 +192,19 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			p.DebugMask = image.NewNRGBA(img.Bounds())
 			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
+		}
+	}
+
+	if p.TextDetect {
+		p.EdgeDetector.Width = width
+		p.EdgeDetector.Height = height
+		p.DebugMask = image.NewNRGBA(img.Bounds())
+
+		regions := p.TextDetector.Detect(img)
+
+		for _, region := range regions {
+			draw.Draw(sobel, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			draw.Draw(p.DebugMask, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
 	}
 

@@ -29,7 +29,7 @@ func SobelOperator(img *image.NRGBA, threshold float64) *image.NRGBA {
 	bounds := img.Bounds()
 	dx, dy := bounds.Dx(), bounds.Dy()
 	dst := image.NewNRGBA(bounds)
-	grayscale := RgbToGrayscale(img)
+	gray := RgbToGrayscale(img)
 
 	// at returns the brightness of the pixel at (x, y). Coordinates outside
 	// the image are clamped to the nearest border pixel, so the borders
@@ -37,7 +37,7 @@ func SobelOperator(img *image.NRGBA, threshold float64) *image.NRGBA {
 	at := func(x, y int) int32 {
 		x = min(max(x, 0), dx-1)
 		y = min(max(y, 0), dy-1)
-		return int32(grayscale[y*dx+x])
+		return int32(gray[y*dx+x])
 	}
 
 	for y := 0; y < dy; y++ {

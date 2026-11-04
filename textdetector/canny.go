@@ -1,11 +1,3 @@
-// Package textdetector is used to identify and group characters from an image.
-// The implementation is based on this article:
-// https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/201020CVPR20TextDetection.pdf
-// The scope of this package is to avoid removing seams from certain areas (like on face detection).
-// After successfully detecting text areas in the provided image we can manipulate these areas by
-// applying a  high threshold (bright color) on the detected rectangles.
-// This package could be integrated into the seam removal logic to avoid
-// removing seams from an image where the texts should be preserved.
 package textdetector
 
 import (
@@ -15,16 +7,16 @@ import (
 
 const (
 	GaussianSigma = 1.5
-	LowThreshold  = 90
+	LowThreshold  = 50
 	HighThreshold = 100
 )
 
-// Canny holds the minimum required components for the edge detection.
+// CannyDetector holds the minimum required components for the edge detection.
 // Width and Height represents the width and height of the source image, which
 // is passed downstream over the whole edge detection operation.
-type Canny struct {
-	width         int
-	height        int
+type CannyDetector struct {
+	Width         int
+	Height        int
 	gaussianSigma float64
 	lowThreshold  float64
 	highThreshold float64
@@ -49,21 +41,21 @@ const (
 	cannyStrong
 )
 
-var _ EdgeDetector = (*Canny)(nil)
+var _ EdgeDetector = (*CannyDetector)(nil)
 
-type CannyOption func(*Canny) error
+type CannyOption func(*CannyDetector) error
 
 // NewCannyDetector creates a new Canny edge detector with the default values
 // if no additional constructor parameters are provided,
 // otherwise it creates a new constructor with the provided options.
-func NewCannyDetector(width, height int, options ...CannyOption) (*Canny, error) {
-	canny := &Canny{
-		width:  width,
-		height: height,
+func NewCannyDetector(width, height int, options ...CannyOption) (*CannyDetector, error) {
+	canny := &CannyDetector{
+		Width:  width,
+		Height: height,
 	}
 
 	if options == nil {
-		options = append(options, WithDefaultOptions(Canny{
+		options = append(options, WithDefaultOptions(CannyDetector{
 			gaussianSigma: GaussianSigma,
 			lowThreshold:  LowThreshold,
 			highThreshold: HighThreshold,
@@ -84,7 +76,7 @@ func NewCannyDetector(width, height int, options ...CannyOption) (*Canny, error)
 }
 
 // Detect detect edges in a grayscaled converted image passed as flattened pixel buffer.
-func (c *Canny) Detect(gray []uint8) ([]bool, []gradient, error) {
+func (c *CannyDetector) Detect(gray []uint8) ([]bool, []gradient, error) {
 	blurred, err := c.GaussianBlur(gray, c.gaussianSigma)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error on image bluring opreration: %w", err)
@@ -99,16 +91,16 @@ func (c *Canny) Detect(gray []uint8) ([]bool, []gradient, error) {
 	return edges, gradients, nil
 }
 
-func (c *Canny) applyGradients(input []uint8) ([]gradient, []float64) {
-	gradients := make([]gradient, c.width*c.height)
-	magnitudes := make([]float64, c.width*c.height)
+func (c *CannyDetector) applyGradients(input []uint8) ([]gradient, []float64) {
+	gradients := make([]gradient, c.Width*c.Height)
+	magnitudes := make([]float64, c.Width*c.Height)
 
-	for y := 1; y < c.height-1; y++ {
-		previousRow := (y - 1) * c.width
-		currentRow := y * c.width
-		nextRow := (y + 1) * c.width
+	for y := 1; y < c.Height-1; y++ {
+		previousRow := (y - 1) * c.Width
+		currentRow := y * c.Width
+		nextRow := (y + 1) * c.Width
 
-		for x := 1; x < c.width-1; x++ {
+		for x := 1; x < c.Width-1; x++ {
 			gx := -float64(input[previousRow+x-1]) +
 				float64(input[previousRow+x+1]) -
 				2*float64(input[currentRow+x-1]) +
@@ -140,13 +132,13 @@ func (c *Canny) applyGradients(input []uint8) ([]gradient, []float64) {
 	return gradients, magnitudes
 }
 
-func (c *Canny) nonMaximumSuppression(magnitudes []float64, gradients []gradient) []float64 {
-	result := make([]float64, c.width*c.height)
+func (c *CannyDetector) nonMaximumSuppression(magnitudes []float64, gradients []gradient) []float64 {
+	result := make([]float64, c.Width*c.Height)
 
-	for y := 1; y < c.height-1; y++ {
-		rowOffset := y * c.width
+	for y := 1; y < c.Height-1; y++ {
+		rowOffset := y * c.Width
 
-		for x := 1; x < c.width-1; x++ {
+		for x := 1; x < c.Width-1; x++ {
 			index := rowOffset + x
 			current := magnitudes[index]
 
@@ -177,29 +169,29 @@ func (c *Canny) nonMaximumSuppression(magnitudes []float64, gradients []gradient
 
 // bilinearInterpolation performs a bilinear interpolation over the pixel magnitudes.
 // This produces more accurate and therefore thinner and better-localized edges.
-func (c *Canny) bilinearInterpolation(input []float64, x float64, y float64) float64 {
-	if x < 0 || y < 0 || x > float64(c.width-1) || y > float64(c.height-1) {
+func (c *CannyDetector) bilinearInterpolation(input []float64, x float64, y float64) float64 {
+	if x < 0 || y < 0 || x > float64(c.Width-1) || y > float64(c.Height-1) {
 		return 0
 	}
 
 	x0 := int(math.Floor(x))
 	y0 := int(math.Floor(y))
 
-	x1 := min(x0+1, c.width-1)
-	y1 := min(y0+1, c.height-1)
+	x1 := min(x0+1, c.Width-1)
+	y1 := min(y0+1, c.Height-1)
 
 	dx := x - float64(x0)
 	dy := y - float64(y0)
 
-	rowOffset1 := y0 * c.width
-	rowOffset2 := y1 * c.width
+	rowOffset1 := y0 * c.Width
+	rowOffset2 := y1 * c.Width
 	top := input[rowOffset1+x0]*(1-dx) + input[rowOffset1+x1]*dx
 	bottom := input[rowOffset2+x0]*(1-dx) + input[rowOffset2+x1]*dx
 
 	return top*(1-dy) + bottom*dy
 }
 
-func (c *Canny) normalize(input []float64, targetMaximum float64) []cannyPixel {
+func (c *CannyDetector) normalize(input []float64, targetMaximum float64) []cannyPixel {
 	var maximum float64
 
 	for _, value := range input {
@@ -231,14 +223,14 @@ func (c *Canny) normalize(input []float64, targetMaximum float64) []cannyPixel {
 
 // removeWeakEdges removes the weak edges from the provided pixel buffer
 // and returns the final edges represented as boolean (TRUE) values.
-func (c *Canny) removeWeakEdges(pixels []cannyPixel) []bool {
-	result := make([]bool, c.width*c.height)
+func (c *CannyDetector) removeWeakEdges(pixels []cannyPixel) []bool {
+	result := make([]bool, c.Width*c.Height)
 	queue := make([]point, 0)
 
-	for y := 0; y < c.height; y++ {
-		rowOffset := y * c.width
+	for y := 0; y < c.Height; y++ {
+		rowOffset := y * c.Width
 
-		for x := 0; x < c.width; x++ {
+		for x := 0; x < c.Width; x++ {
 			index := rowOffset + x
 
 			if pixels[index] != cannyStrong {
@@ -274,11 +266,11 @@ func (c *Canny) removeWeakEdges(pixels []cannyPixel) []bool {
 			nx := current.x + direction.x
 			ny := current.y + direction.y
 
-			if nx < 0 || nx >= c.width || ny < 0 || ny >= c.height {
+			if nx < 0 || nx >= c.Width || ny < 0 || ny >= c.Height {
 				continue
 			}
 
-			index := ny*c.width + nx
+			index := ny*c.Width + nx
 
 			if result[index] {
 				continue
@@ -300,7 +292,7 @@ func (c *Canny) removeWeakEdges(pixels []cannyPixel) []bool {
 }
 
 // ContainsEdges returns true if an edge is encountered, otherwise returns false.
-func (c *Canny) ContainsEdges(edges []bool) bool {
+func (c *CannyDetector) ContainsEdges(edges []bool) bool {
 	for _, edge := range edges {
 		if edge {
 			return true
@@ -311,8 +303,8 @@ func (c *Canny) ContainsEdges(edges []bool) bool {
 }
 
 // WithDefaultOptions instantiates the edge detector with the default values.
-func WithDefaultOptions(opt Canny) CannyOption {
-	return func(c *Canny) error {
+func WithDefaultOptions(opt CannyDetector) CannyOption {
+	return func(c *CannyDetector) error {
 		c.gaussianSigma = opt.gaussianSigma
 		c.lowThreshold = opt.lowThreshold
 		c.highThreshold = opt.highThreshold
@@ -323,7 +315,7 @@ func WithDefaultOptions(opt Canny) CannyOption {
 
 // WithGaussianSigma applies a gaussian sigma different from the default value to the edge detector.
 func WithGaussianSigma(sigma float64) CannyOption {
-	return func(c *Canny) error {
+	return func(c *CannyDetector) error {
 		c.gaussianSigma = sigma
 		return nil
 	}
@@ -331,7 +323,7 @@ func WithGaussianSigma(sigma float64) CannyOption {
 
 // WithLowThreshold applies the lower threshold value to the edge detector.
 func WithLowThreshold(lowThreshold float64) CannyOption {
-	return func(c *Canny) error {
+	return func(c *CannyDetector) error {
 		c.lowThreshold = lowThreshold
 		return nil
 	}
@@ -339,7 +331,7 @@ func WithLowThreshold(lowThreshold float64) CannyOption {
 
 // WithHighThreshold applies the higher threshold value to the edge detector.
 func WithHighThreshold(highThreshold float64) CannyOption {
-	return func(c *Canny) error {
+	return func(c *CannyDetector) error {
 		c.highThreshold = highThreshold
 		return nil
 	}

@@ -34,6 +34,10 @@ func Max[T constraints.Ordered](values ...T) T {
 	return acc
 }
 
+func Median[T constraints.Integer | constraints.Float](min, max T) T {
+	return min + (max-min)/2
+}
+
 // Abs returns the absolut value of x.
 func Abs[T constraints.Signed | constraints.Float](x T) T {
 	if x < 0 {

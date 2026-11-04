@@ -59,7 +59,7 @@ func (p *Processor) Execute(img *Image) {
 	p.Spinner = common.NewSpinner(defaultMsg, time.Millisecond*80)
 
 	// Supported files
-	validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
+	validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif", ".webp"}
 
 	// Check if source path is a local image or URL.
 	if common.IsValidUrl(img.Src) {

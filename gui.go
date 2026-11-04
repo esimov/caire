@@ -150,9 +150,9 @@ func (g *Gui) initWindow(width, height int) {
 	rand.NewSource(time.Now().UnixNano())
 
 	g.cfg.angle = 45
-	g.cfg.color.randR = uint8(random(1, 2))
-	g.cfg.color.randG = uint8(random(1, 2))
-	g.cfg.color.randB = uint8(random(1, 2))
+	g.cfg.color.randR = uint8(randomFloat(1, 2))
+	g.cfg.color.randG = uint8(randomFloat(1, 2))
+	g.cfg.color.randB = uint8(randomFloat(1, 2))
 
 	g.cfg.window.width, g.cfg.window.height = float32(width), float32(height)
 	g.cfg.x = interval{min: 0, max: float64(width)}
@@ -167,14 +167,14 @@ func (g *Gui) initWindow(width, height int) {
 
 // getWindowSize returns the resized image dimension.
 func (g *Gui) getWindowSize() (float32, float32) {
-	w, h := g.cfg.window.width, g.cfg.window.height
+	width, height := g.cfg.window.width, g.cfg.window.height
 	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
-	r := getRatio(w, h)
-	if w > maxScreenX && h > maxScreenY {
-		w = w * r
-		h = h * r
+	if width > maxScreenX || height > maxScreenY {
+		ratio := getRatio(width, height)
+		width = width * ratio
+		height = height * ratio
 	}
-	return w, h
+	return width, height
 }
 
 // Run is the core method of the Gio GUI application.
@@ -207,7 +207,7 @@ func (g *Gui) Run() error {
 
 	if g.proc.Debug {
 		g.AddHudControl(hudShowSeams, "Show seams", true)
-		if g.proc.Mask != nil || g.proc.RMask != nil || g.proc.FaceDetect {
+		if g.proc.Mask != nil || g.proc.RMask != nil || g.proc.FaceDetect || g.proc.TextDetect {
 			g.AddHudControl(hudShowDebugMask, "Debug mode", false)
 		}
 	}
@@ -505,9 +505,9 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 
 					if since.Seconds() > 5 {
 						g.cfg.timeStamp = time.Now()
-						g.cfg.color.randR = uint8(random(1, 2))
-						g.cfg.color.randG = uint8(random(1, 2))
-						g.cfg.color.randB = uint8(random(1, 2))
+						g.cfg.color.randR = uint8(randomFloat(1, 2))
+						g.cfg.color.randG = uint8(randomFloat(1, 2))
+						g.cfg.color.randB = uint8(randomFloat(1, 2))
 					}
 
 					paint.LinearGradientOp{
@@ -558,7 +558,7 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 	)
 }
 
-// random generates a random number between two numbers.
-func random(min, max float32) float32 {
+// randomFloat generates a random float32 number between two numbers.
+func randomFloat(min, max float32) float32 {
 	return rand.Float32()*(max-min) + min
 }

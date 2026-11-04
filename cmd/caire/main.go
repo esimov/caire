@@ -44,7 +44,8 @@ var (
 	preview        = flag.Bool("preview", true, "Show GUI window")
 	maskPath       = flag.String("mask", "", "Mask file path for retaining area")
 	rMaskPath      = flag.String("rmask", "", "Mask file path for removing area")
-	faceDetect     = flag.Bool("face", false, "Use face detection")
+	faceDetect     = flag.Bool("faceDetect", false, "Use face detection")
+	textDetect     = flag.Bool("textDetect", false, "Use text detection")
 	faceAngle      = flag.Float64("angle", 0.0, "Face rotation angle")
 	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
 )
@@ -68,6 +69,7 @@ func main() {
 		Debug:          *debug,
 		Preview:        *preview,
 		FaceDetect:     *faceDetect,
+		TextDetect:     *textDetect,
 		FaceAngle:      *faceAngle,
 		SeamColor:      *seamColor,
 		ShapeType:      caire.ShapeType(*shapeType),

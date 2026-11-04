@@ -6,16 +6,6 @@ import (
 	"sort"
 )
 
-type ComponentDescriber interface {
-	// FindConnected find the similar components
-	FindConnected(strokes []float64) [][]point
-	// Filter is used to select the text component candidates with similar
-	// characteristics, based on certain criteria provided as input parameters.
-	Filter(pixels []point, strokes []float64) bool
-	// Group groups together the connected components and present them as single image unit.
-	Group(components []StrokeComponent) []image.Rectangle
-}
-
 type Component struct {
 	*StrokeComponent
 	MinComponentHeight   int
@@ -44,13 +34,11 @@ type StrokeComponent struct {
 	MinComponentPixels int
 }
 
-var _ ComponentDescriber = (*SWT)(nil)
-
 // FindConnected finds the connected components based on the strokes similarities.
 // Two gradient stroke can be considered as components if they are spatially connected
 // and their stroke widths are sufficiently similar.
-func (s *SWT) FindConnected(strokes []float64) [][]point {
-	visited := make([]bool, s.Width*s.Height)
+func (s *SWT) FindConnected(width, height int, strokes []float64) [][]point {
+	visited := make([]bool, width*height)
 	var components [][]point
 
 	directions := [8]point{
@@ -64,10 +52,10 @@ func (s *SWT) FindConnected(strokes []float64) [][]point {
 		{x: 1, y: 1},
 	}
 
-	for y := 0; y < s.Height; y++ {
-		rowOffset := y * s.Width
+	for y := 0; y < height; y++ {
+		rowOffset := y * width
 
-		for x := 0; x < s.Width; x++ {
+		for x := 0; x < width; x++ {
 			startIndex := rowOffset + x
 
 			if visited[startIndex] || strokes[startIndex] == unsetStroke {
@@ -86,18 +74,18 @@ func (s *SWT) FindConnected(strokes []float64) [][]point {
 
 				pixels = append(pixels, current)
 
-				currentIndex := current.y*s.Width + current.x
+				currentIndex := current.y*width + current.x
 				currentStroke := strokes[currentIndex]
 
 				for _, delta := range directions {
 					nx := current.x + delta.x
 					ny := current.y + delta.y
 
-					if nx < 0 || nx >= s.Width || ny < 0 || ny >= s.Height {
+					if nx < 0 || nx >= width || ny < 0 || ny >= height {
 						continue
 					}
 
-					neighborIndex := ny*s.Width + nx
+					neighborIndex := ny*width + nx
 
 					if visited[neighborIndex] || strokes[neighborIndex] == unsetStroke {
 						continue
@@ -133,9 +121,9 @@ func (s *SWT) FindConnected(strokes []float64) [][]point {
 // Filter gets the connected component candidates, applies specific filtering criteria
 // over the obtained results (based on certain criteria provided as input parameters).
 // The final result, after all of the filtering criteria is passed, should be the stroke component.
-func (s *SWT) Filter(pixels []point, strokes []float64) bool {
+func (s *SWT) Filter(imgWidth int, pixels []point, strokes []float64) (*StrokeComponent, bool) {
 	if len(pixels) < s.MinComponentPixels {
-		return false
+		return nil, false
 	}
 
 	minX := math.MaxInt
@@ -152,7 +140,7 @@ func (s *SWT) Filter(pixels []point, strokes []float64) bool {
 		maxX = max(maxX, p.x)
 		maxY = max(maxY, p.y)
 
-		value := strokes[p.y*s.Width+p.x]
+		value := strokes[p.y*imgWidth+p.x]
 
 		if value == unsetStroke || math.IsNaN(value) || math.IsInf(value, 0) {
 			continue
@@ -163,18 +151,18 @@ func (s *SWT) Filter(pixels []point, strokes []float64) bool {
 	}
 
 	if len(values) == 0 {
-		return false
+		return nil, false
 	}
 
 	width := maxX - minX + 1
 	height := maxY - minY + 1
 
 	if height < s.MinComponentHeight || height > s.MaxComponentHeight {
-		return false
+		return nil, false
 	}
 
 	if width < 2 {
-		return false
+		return nil, false
 	}
 
 	aspect := math.Max(
@@ -183,7 +171,7 @@ func (s *SWT) Filter(pixels []point, strokes []float64) bool {
 	)
 
 	if aspect > s.MaxComponentAspect {
-		return false
+		return nil, false
 	}
 
 	meanStroke := sum / float64(len(values))
@@ -199,7 +187,7 @@ func (s *SWT) Filter(pixels []point, strokes []float64) bool {
 	variance /= float64(len(values))
 	stdDev := math.Sqrt(variance)
 	if meanStroke <= 0 || stdDev/meanStroke > s.MaxStrokeStdDevRatio {
-		return false
+		return nil, false
 	}
 
 	area := width * height
@@ -207,10 +195,10 @@ func (s *SWT) Filter(pixels []point, strokes []float64) bool {
 
 	// Reject extremely sparse or almost solid blobs.
 	if density < 0.05 || density > 0.95 {
-		return false
+		return nil, false
 	}
 
-	s.StrokeComponent = &StrokeComponent{
+	return &StrokeComponent{
 		Bounds:       image.Rect(minX, minY, maxX+1, maxY+1),
 		Pixels:       pixels,
 		MeanStroke:   meanStroke,
@@ -221,9 +209,7 @@ func (s *SWT) Filter(pixels []point, strokes []float64) bool {
 		CenterX:      float64(minX+maxX) / 2,
 		CenterY:      float64(minY+maxY) / 2,
 		Density:      density,
-	}
-
-	return true
+	}, true
 }
 
 // Group groups the potential character candidates based on
@@ -352,8 +338,7 @@ func (c *Component) filterDuplicateRegions(regions []image.Rectangle) []image.Re
 			intersectionArea := rectangleArea(intersection)
 
 			smallerArea := min(rectangleArea(candidate), rectangleArea(result[i]))
-			if smallerArea > 0 &&
-				float64(intersectionArea)/float64(smallerArea) >= 0.6 {
+			if smallerArea > 0 && float64(intersectionArea)/float64(smallerArea) >= 0.6 {
 				result[i] = result[i].Union(candidate)
 				merged = true
 				break

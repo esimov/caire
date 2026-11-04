@@ -16,6 +16,7 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
+	"github.com/esimov/caire/textdetector"
 	pigo "github.com/esimov/pigo/core"
 	"golang.org/x/image/bmp"
 )
@@ -49,6 +50,8 @@ type Processor struct {
 	NewWidth       int
 	NewHeight      int
 	FaceDetector   *pigo.Pigo
+	EdgeDetector   *textdetector.CannyDetector
+	TextDetector   *textdetector.SWT
 	Spinner        *common.Spinner
 	Mask           *image.NRGBA
 	RMask          *image.NRGBA
@@ -58,6 +61,7 @@ type Processor struct {
 	Debug          bool
 	Preview        bool
 	FaceDetect     bool
+	TextDetect     bool
 	vRes           bool
 
 	// imgWorker transfers the intermediate images to the GUI preview.
@@ -516,32 +520,38 @@ func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 
 	src, err := cimage.Decode(reader)
 	if err != nil {
-		return fmt.Errorf("cannot decode file: %w", err)
+		return fmt.Errorf("failed to decode image: %w", err)
 	}
 
 	img := cimage.ImgToNRGBA(src)
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+
+	if p.TextDetect {
+		p.EdgeDetector, err = textdetector.NewCannyDetector(width, height)
+		if err != nil {
+			return fmt.Errorf("failed to initialize the Canny edge detector: %w", err)
+		}
+		p.TextDetector = textdetector.NewSWT(p.EdgeDetector, textdetector.DefaultOptions())
+	}
 
 	if p.Preview {
-		guiWidth := img.Bounds().Max.X
-		guiHeight := img.Bounds().Max.Y
-
-		if p.NewWidth > guiWidth {
-			guiWidth = p.NewWidth
+		if p.NewWidth > width {
+			width = p.NewWidth
 		}
-		if p.NewHeight > guiHeight {
-			guiHeight = p.NewHeight
+		if p.NewHeight > height {
+			height = p.NewHeight
 		}
 		if p.resizeXY {
-			guiWidth = int(maxScreenX)
-			guiHeight = int(maxScreenY)
+			width = int(maxScreenX)
+			height = int(maxScreenY)
 		}
 
 		guiWindow := struct {
 			width  int
 			height int
 		}{
-			width:  guiWidth,
-			height: guiHeight,
+			width:  width,
+			height: height,
 		}
 		p.imgWorker = make(chan worker)
 		p.errs = make(chan error)
