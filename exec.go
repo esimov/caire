@@ -264,7 +264,7 @@ func (img *Image) process(p *Processor, in, out string) error {
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}
-		p.Mask = cimage.Dither(mask)
+		p.Mask = cimage.Dither(cimage.ImgToNRGBA(mask))
 		p.DebugMask = p.Mask
 	}
 
@@ -273,7 +273,7 @@ func (img *Image) process(p *Processor, in, out string) error {
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}
-		p.RMask = cimage.Dither(rmask)
+		p.RMask = cimage.Dither(cimage.ImgToNRGBA(rmask))
 		p.DebugMask = p.RMask
 	}
 

@@ -12,8 +12,7 @@ import (
 	pigo "github.com/esimov/pigo/core"
 )
 
-// SeamCarver defines the Resize interface method, which needs to be
-// implemented by the Processor struct.
+// SeamCarver defines the Resize interface method.
 type SeamCarver interface {
 	Resize(*image.NRGBA) (image.Image, error)
 }
@@ -84,7 +83,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 	// Perform face detection in case the flag is activated and the failed
 	// detection attempts does not reach the preset maximum attempts.
-	if p.FaceDetector != nil && p.FaceDetect && faceDetAttempts < maxFaceDetAttempts {
+	if p.FaceDetector != nil && faceDetAttempts < maxFaceDetAttempts {
 		var ratio float64
 
 		if width < height {
@@ -95,7 +94,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		minSize := float64(common.Min(width, height)) * ratio / 3
 
 		// Transform the image to pixel array.
-		pixels := cimage.RgbToGrayscale(img)
+		grayscale := cimage.RgbToGrayscale(img)
 
 		cParams := pigo.CascadeParams{
 			MinSize:     int(minSize),
@@ -104,7 +103,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			ScaleFactor: 1.1,
 
 			ImageParams: pigo.ImageParams{
-				Pixels: pixels,
+				Pixels: grayscale,
 				Rows:   height,
 				Cols:   width,
 				Dim:    width,

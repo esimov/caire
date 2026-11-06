@@ -109,8 +109,12 @@ func (g *Gui) getFillColor() color.Color {
 
 // getRatio returns the image aspect ratio.
 func getRatio(width, height float32) float32 {
-	wr := maxScreenX / float32(width)
-	hr := maxScreenY / float32(height)
+	var ratio float32 = 1
+	if width > maxScreenX && height > maxScreenY {
+		wr := maxScreenX / float32(width)  // width ratio
+		hr := maxScreenY / float32(height) // height ratio
 
-	return common.Median(wr, hr)
+		ratio = common.Median(wr, hr)
+	}
+	return ratio
 }

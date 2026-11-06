@@ -74,9 +74,7 @@ func ImgToNRGBA(img image.Image) *image.NRGBA {
 		for dstY := 0; dstY < dstH; dstY++ {
 			di := dst.PixOffset(0, dstY)
 			si := src.PixOffset(srcMinX, srcMinY+dstY)
-			for dstX := 0; dstX < dstW; dstX++ {
-				copy(dst.Pix[di:di+rowSize], src.Pix[si:si+rowSize])
-			}
+			copy(dst.Pix[di:di+rowSize], src.Pix[si:si+rowSize])
 		}
 	case *image.YCbCr:
 		for dstY := 0; dstY < dstH; dstY++ {
@@ -112,26 +110,19 @@ func ImgToNRGBA(img image.Image) *image.NRGBA {
 }
 
 // RgbToGrayscale converts an image to grayscale mode and returns as pixel buffer.
-func RgbToGrayscale(img image.Image) []uint8 {
-	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	gray := make([]uint8, width*height)
+func RgbToGrayscale(img *image.NRGBA) []uint8 {
+	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
+	pixels := make([]uint8, dx*dy)
 
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			r, g, b, _ := img.At(x, y).RGBA()
-			gray[y*width+x] = uint8(
-				(0.299*float64(r) +
-					0.587*float64(g) +
-					0.114*float64(b)) / 256,
-			)
-		}
+	for i := range pixels {
+		r, g, b := uint32(img.Pix[i*4]), uint32(img.Pix[i*4+1]), uint32(img.Pix[i*4+2])
+		pixels[i] = uint8((299*r + 587*g + 114*b) / 1000)
 	}
-
-	return gray
+	return pixels
 }
 
 // Dither converts an image to black and white image, where the white is fully transparent.
-func Dither(img image.Image) *image.NRGBA {
+func Dither(img *image.NRGBA) *image.NRGBA {
 	bounds := img.Bounds()
 	dithered := image.NewNRGBA(bounds)
 	dx, dy := bounds.Dx(), bounds.Dy()
