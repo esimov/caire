@@ -182,9 +182,9 @@ func (g *Gui) getWindowSize() (float32, float32) {
 // and terminates when the image resizing operation completes.
 func (g *Gui) Run() error {
 	var (
-		rc uint8 = redStart
-		gc uint8 = greenStart
-		bc uint8 = blueStart
+		redCol   uint8 = redStart
+		greenCol uint8 = greenStart
+		blueCol  uint8 = blueStart
 
 		descRed, descGreen, descBlue bool
 	)
@@ -208,7 +208,7 @@ func (g *Gui) Run() error {
 	if g.proc.Debug {
 		g.AddHudControl(hudShowSeams, "Show seams", true)
 		if g.proc.Mask != nil || g.proc.RMask != nil || g.proc.FaceDetect || g.proc.TextDetect {
-			g.AddHudControl(hudShowDebugMask, "Debug mode", false)
+			g.AddHudControl(hudShowDebugMask, "Debug mode", true)
 		}
 	}
 
@@ -300,46 +300,48 @@ func (g *Gui) Run() error {
 					}
 				}
 
+				// Initialize color components for the background visualization
+				// in case we are performing image resize in both axes.
 				{ // red
 					if descRed {
-						rc--
+						redCol--
 					} else {
-						rc++
+						redCol++
 					}
-					if rc >= redEnd {
+					if redCol >= redEnd {
 						descRed = !descRed
 					}
-					if rc == redStart {
+					if redCol == redStart {
 						descRed = !descRed
 					}
 				}
 				{ // green
 					if descGreen {
-						gc--
+						greenCol--
 					} else {
-						gc++
+						greenCol++
 					}
-					if gc >= greenEnd {
+					if greenCol >= greenEnd {
 						descGreen = !descGreen
 					}
-					if gc == greenStart {
+					if greenCol == greenStart {
 						descGreen = !descGreen
 					}
 				}
 				{ // blue
 					if descBlue {
-						bc--
+						blueCol--
 					} else {
-						bc++
+						blueCol++
 					}
-					if bc >= blueEnd {
+					if blueCol >= blueEnd {
 						descBlue = !descBlue
 					}
-					if bc == blueStart {
+					if blueCol == blueStart {
 						descBlue = !descBlue
 					}
 				}
-				g.draw(color.NRGBA{R: rc, G: gc, B: bc})
+				g.draw(color.NRGBA{R: redCol, G: greenCol, B: blueCol})
 				e.Frame(g.ctx.Ops)
 			case app.DestroyEvent:
 				abortFn()

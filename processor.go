@@ -458,16 +458,17 @@ func (p *Processor) rotateMasks(rotate func(*image.NRGBA) *image.NRGBA) {
 // calculateFitness iteratively try to find the best image aspect ratio for the rescale.
 func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 	var (
-		w      = float64(c.Width)
-		h      = float64(c.Height)
-		nw     = float64(p.NewWidth)
-		nh     = float64(p.NewHeight)
-		newImg *image.NRGBA
+		width     = float64(c.Width)
+		height    = float64(c.Height)
+		newWidth  = float64(p.NewWidth)
+		newHeight = float64(p.NewHeight)
+		newImg    *image.NRGBA
 	)
-	wsf := w / nw
-	hsf := h / nh
-	sw := math.Round(w / math.Min(wsf, hsf))
-	sh := math.Round(h / math.Min(wsf, hsf))
+
+	wsf := width / newWidth
+	hsf := height / newHeight
+	sw := math.Round(width / math.Min(wsf, hsf))
+	sh := math.Round(height / math.Min(wsf, hsf))
 
 	if sw <= sh {
 		newImg = imaging.Resize(img, 0, int(sw), imaging.Lanczos)
@@ -502,6 +503,17 @@ func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 	var err error
 
+	// Resize sets this flag as well, but the preview window size depends on it.
+	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
+
+	src, err := cimage.Decode(reader)
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	img := cimage.ImgToNRGBA(src)
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+
 	if p.FaceDetect {
 		// Instantiate a new Pigo object in case the face detection option is used.
 		p.FaceDetector = pigo.NewPigo()
@@ -513,17 +525,6 @@ func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 			return fmt.Errorf("error unpacking the cascade file: %v", err)
 		}
 	}
-
-	// Resize sets this flag as well, but the preview window size depends on it.
-	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
-
-	src, err := cimage.Decode(reader)
-	if err != nil {
-		return fmt.Errorf("failed to decode image: %w", err)
-	}
-
-	img := cimage.ImgToNRGBA(src)
-	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 
 	if p.TextDetect {
 		p.EdgeDetector, err = textdetector.NewCannyDetector(width, height,

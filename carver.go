@@ -93,7 +93,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 		minSize := float64(common.Min(width, height)) * ratio / 3
 
-		// Transform the image to pixel array.
+		// Transform the image grayscale mode.
 		grayscale := cimage.RgbToGrayscale(img)
 
 		cParams := pigo.CascadeParams{
@@ -127,6 +127,56 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		} else {
 			faceDetAttempts = 0
 			isFaceDetected = true
+		}
+	}
+
+	// Apply an opaque white color to the detected face area to avoid
+	// the seam carver to remove the pixels inside the face zone.
+	// This is simple technique to trick the Sobel detector to consider
+	//  the face area an important zone which shouldn't be altered.
+	for _, face := range dets {
+		if (p.NewHeight != 0 && p.NewHeight < face.Scale) ||
+			(p.NewWidth != 0 && p.NewWidth < face.Scale) {
+			return nil, fmt.Errorf("%s %s",
+				"cannot resize the image to the specified dimension without face deformation.\n",
+				"\tRemove the face detection option in case you still wish to resize the image.")
+		}
+		if face.Q > 5.0 {
+			scale := int(float64(face.Scale) / 1.7)
+			rect := image.Rect(
+				face.Col-scale,
+				face.Row-scale,
+				face.Col+scale,
+				face.Row+scale,
+			)
+			p.DebugMask = image.NewNRGBA(img.Bounds())
+			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
+		}
+	}
+
+	// Perform text detection in case the flag is activated and the failed
+	// detection attempts does not reach the preset maximum attempts.
+	if p.TextDetect && textDetAttempts < maxTextDetAttempts {
+		p.EdgeDetector.Width = width
+		p.EdgeDetector.Height = height
+
+		if p.DebugMask == nil {
+			p.DebugMask = image.NewNRGBA(img.Bounds())
+		}
+		regions := p.TextDetector.Detect(img)
+		if len(regions) == 0 {
+			if textDetAttempts < maxTextDetAttempts {
+				textDetAttempts++
+			}
+		} else {
+			textDetAttempts = 0
+			isTextDetected = true
+		}
+
+		for _, region := range regions {
+			draw.Draw(sobel, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			draw.Draw(p.DebugMask, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
 	}
 
@@ -179,53 +229,6 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			} else {
 				p.DebugMask.Set(x, y, color.Transparent)
 			}
-		}
-	}
-
-	// Apply an opaque white color to the detected face area in order to avoid
-	// the seam carver to remove the pixels inside the face zone.
-	// A simple technique to trick the Sobel detector to consider the face area important zone.
-	for _, face := range dets {
-		if (p.NewHeight != 0 && p.NewHeight < face.Scale) ||
-			(p.NewWidth != 0 && p.NewWidth < face.Scale) {
-			return nil, fmt.Errorf("%s %s",
-				"cannot resize the image to the specified dimension without face deformation.\n",
-				"\tRemove the face detection option in case you still wish to resize the image.")
-		}
-		if face.Q > 5.0 {
-			scale := int(float64(face.Scale) / 1.7)
-			rect := image.Rect(
-				face.Col-scale,
-				face.Row-scale,
-				face.Col+scale,
-				face.Row+scale,
-			)
-			p.DebugMask = image.NewNRGBA(img.Bounds())
-			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
-			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
-		}
-	}
-
-	// Perform text detection in case the flag is activated and the failed
-	// detection attempts does not reach the preset maximum attempts.
-	if p.TextDetect && textDetAttempts < maxTextDetAttempts {
-		p.EdgeDetector.Width = width
-		p.EdgeDetector.Height = height
-		p.DebugMask = image.NewNRGBA(img.Bounds())
-
-		regions := p.TextDetector.Detect(img)
-		if len(regions) == 0 {
-			if textDetAttempts < maxTextDetAttempts {
-				textDetAttempts++
-			}
-		} else {
-			textDetAttempts = 0
-			isTextDetected = true
-		}
-
-		for _, region := range regions {
-			draw.Draw(sobel, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
-			draw.Draw(p.DebugMask, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
 	}
 
