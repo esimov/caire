@@ -14,8 +14,9 @@ import (
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/textdetector"
 	pigo "github.com/esimov/pigo/core"
 	"golang.org/x/image/bmp"
 )
@@ -41,24 +42,30 @@ type enlargeFn func(*image.NRGBA) (*image.NRGBA, error)
 
 // Processor options
 type Processor struct {
-	FaceAngle      float64
-	SeamColor      string
-	ShapeType      ShapeType
-	SobelThreshold int
-	BlurRadius     int
-	NewWidth       int
-	NewHeight      int
-	FaceDetector   *pigo.Pigo
-	Spinner        *utils.Spinner
-	Mask           *image.NRGBA
-	RMask          *image.NRGBA
-	DebugMask      *image.NRGBA
-	Percentage     bool
-	Square         bool
-	Debug          bool
-	Preview        bool
-	FaceDetect     bool
-	vRes           bool
+	FaceAngle          float64
+	SeamColor          string
+	ShapeType          ShapeType
+	SobelThreshold     int
+	GaussianSigma      float64
+	CannyLowThreshold  float64
+	CannyHighThreshold float64
+	BlurRadius         int
+	NewWidth           int
+	NewHeight          int
+	FaceDetector       *pigo.Pigo
+	EdgeDetector       *textdetector.CannyDetector
+	TextDetector       *textdetector.SWT
+	Spinner            *common.Spinner
+	Mask               *image.NRGBA
+	RMask              *image.NRGBA
+	DebugMask          *image.NRGBA
+	Percentage         bool
+	Square             bool
+	Debug              bool
+	Preview            bool
+	FaceDetect         bool
+	TextDetect         bool
+	vRes               bool
 
 	// imgWorker transfers the intermediate images to the GUI preview.
 	// Both channels are nil when the preview window is not running.
@@ -66,10 +73,8 @@ type Processor struct {
 	errs      chan error
 
 	// State of the current resize operation. Resize resets it on every call.
-	resizeXY       bool     // the image is resized both vertically and horizontally
-	energySeams    [][]Seam // seams already added while enlarging, so the next pass picks a different one
-	detAttempts    int
-	isFaceDetected bool
+	resizeXY    bool     // the image is resized both vertically and horizontally
+	energySeams [][]Seam // seams already added while enlarging, so the next pass picks a different one
 }
 
 // Carve is the main entry point for the image resize operation.
@@ -107,8 +112,6 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 	// Reset the state left behind by a previous run of the same Processor.
 	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
 	p.energySeams = nil
-	p.detAttempts = 0
-	p.isFaceDetected = false
 
 	// The percentage and square options are converted to pixel sizes by
 	// updating NewWidth and NewHeight, and the carving passes replace the
@@ -314,10 +317,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			pw = c.Width - int(float64(c.Width)-(float64(p.NewWidth)/100*float64(c.Width)))
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
-			p.NewWidth = utils.Abs(c.Width - pw)
-			p.NewHeight = utils.Abs(c.Height - ph)
+			p.NewWidth = common.Abs(c.Width - pw)
+			p.NewHeight = common.Abs(c.Height - ph)
 
-			resImgSize := utils.Min(p.NewWidth, p.NewHeight)
+			resImgSize := common.Min(p.NewWidth, p.NewHeight)
 			return imaging.Resize(img, resImgSize, 0, imaging.Lanczos), nil
 		}
 
@@ -325,7 +328,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if p.Square {
 			// Calling the image rescale method only when both a new width and height is provided.
 			if p.NewWidth != 0 && p.NewHeight != 0 {
-				p.NewWidth = utils.Min(p.NewWidth, p.NewHeight)
+				p.NewWidth = common.Min(p.NewWidth, p.NewHeight)
 				p.NewHeight = p.NewWidth
 
 				newImg = p.calculateFitness(img, c)
@@ -335,7 +338,7 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 
 				nw, nh := img.Bounds().Dx(), img.Bounds().Dy()
 
-				p.NewWidth = utils.Min(nw, nh)
+				p.NewWidth = common.Min(nw, nh)
 				p.NewHeight = p.NewWidth
 			} else {
 				return nil, errors.New("please provide a new WIDTH and HEIGHT when using the square option")
@@ -349,10 +352,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			ph = c.Height - int(float64(c.Height)-(float64(p.NewHeight)/100*float64(c.Height)))
 
 			if p.NewWidth != 0 {
-				p.NewWidth = utils.Abs(c.Width - pw)
+				p.NewWidth = common.Abs(c.Width - pw)
 			}
 			if p.NewHeight != 0 {
-				p.NewHeight = utils.Abs(c.Height - ph)
+				p.NewHeight = common.Abs(c.Height - ph)
 			}
 			if pw >= c.Width || ph >= c.Height {
 				return nil, errors.New("cannot use the percentage flag for image enlargement")
@@ -455,16 +458,17 @@ func (p *Processor) rotateMasks(rotate func(*image.NRGBA) *image.NRGBA) {
 // calculateFitness iteratively try to find the best image aspect ratio for the rescale.
 func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 	var (
-		w      = float64(c.Width)
-		h      = float64(c.Height)
-		nw     = float64(p.NewWidth)
-		nh     = float64(p.NewHeight)
-		newImg *image.NRGBA
+		width     = float64(c.Width)
+		height    = float64(c.Height)
+		newWidth  = float64(p.NewWidth)
+		newHeight = float64(p.NewHeight)
+		newImg    *image.NRGBA
 	)
-	wsf := w / nw
-	hsf := h / nh
-	sw := math.Round(w / math.Min(wsf, hsf))
-	sh := math.Round(h / math.Min(wsf, hsf))
+
+	wsf := width / newWidth
+	hsf := height / newHeight
+	sw := math.Round(width / math.Min(wsf, hsf))
+	sh := math.Round(height / math.Min(wsf, hsf))
 
 	if sw <= sh {
 		newImg = imaging.Resize(img, 0, int(sw), imaging.Lanczos)
@@ -499,6 +503,17 @@ func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
 func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 	var err error
 
+	// Resize sets this flag as well, but the preview window size depends on it.
+	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
+
+	src, err := cimage.Decode(reader)
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	img := cimage.ImgToNRGBA(src)
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+
 	if p.FaceDetect {
 		// Instantiate a new Pigo object in case the face detection option is used.
 		p.FaceDetector = pigo.NewPigo()
@@ -511,37 +526,39 @@ func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 		}
 	}
 
-	// Resize sets this flag as well, but the preview window size depends on it.
-	p.resizeXY = p.NewWidth != 0 && p.NewHeight != 0
-
-	src, err := cimage.Decode(reader)
-	if err != nil {
-		return fmt.Errorf("cannot decode file: %w", err)
+	if p.TextDetect {
+		p.EdgeDetector, err = textdetector.NewCannyDetector(width, height,
+			textdetector.WithDefaultOptions(
+				textdetector.CannyDetector{
+					GaussianSigma: p.GaussianSigma,
+					LowThreshold:  p.CannyLowThreshold,
+					HighThreshold: p.CannyHighThreshold,
+				},
+			))
+		if err != nil {
+			return fmt.Errorf("failed to initialize the Canny edge detector: %w", err)
+		}
+		p.TextDetector = textdetector.NewSWT(p.EdgeDetector, textdetector.DefaultOptions())
 	}
 
-	img := cimage.ImgToNRGBA(src)
-
 	if p.Preview {
-		guiWidth := img.Bounds().Max.X
-		guiHeight := img.Bounds().Max.Y
-
-		if p.NewWidth > guiWidth {
-			guiWidth = p.NewWidth
+		if p.NewWidth > width {
+			width = p.NewWidth
 		}
-		if p.NewHeight > guiHeight {
-			guiHeight = p.NewHeight
+		if p.NewHeight > height {
+			height = p.NewHeight
 		}
 		if p.resizeXY {
-			guiWidth = int(maxScreenX)
-			guiHeight = int(maxScreenY)
+			width = int(maxScreenX)
+			height = int(maxScreenY)
 		}
 
 		guiWindow := struct {
 			width  int
 			height int
 		}{
-			width:  guiWidth,
-			height: guiHeight,
+			width:  width,
+			height: height,
 		}
 		p.imgWorker = make(chan worker)
 		p.errs = make(chan error)

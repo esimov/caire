@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 	"github.com/stretchr/testify/assert"
 )
@@ -288,7 +288,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
-		MaxSize:     utils.Max(dx, dy),
+		MaxSize:     common.Max(dx, dy),
 		ShiftFactor: 0.1,
 		ScaleFactor: 1.1,
 
@@ -337,14 +337,14 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	// Transform the image to a pixel array.
 	pixels := cimage.RgbToGrayscale(img)
 
-	sobel := cimage.SobelDetector(img, float64(p.SobelThreshold))
+	sobel := cimage.SobelOperator(img, float64(p.SobelThreshold))
 
 	err = cimage.Stackblur(img, sobel, uint32(p.BlurRadius))
 	assert.NoError(t, err)
 
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
-		MaxSize:     utils.Max(dx, dy),
+		MaxSize:     common.Max(dx, dy),
 		ShiftFactor: 0.1,
 		ScaleFactor: 1.1,
 
@@ -418,7 +418,7 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 	pixels := cimage.RgbToGrayscale(img)
 	cParams := pigo.CascadeParams{
 		MinSize:     100,
-		MaxSize:     utils.Max(dx, dy),
+		MaxSize:     common.Max(dx, dy),
 		ShiftFactor: 0.1,
 		ScaleFactor: 1.1,
 
@@ -601,7 +601,7 @@ func TestCarver_SobelShouldDetectEdgesInEveryColorChannel(t *testing.T) {
 	draw.Draw(img, image.Rect(0, 0, imgWidth/2, imgHeight), green, image.Point{}, draw.Src)
 	draw.Draw(img, image.Rect(imgWidth/2, 0, imgWidth, imgHeight), blue, image.Point{}, draw.Src)
 
-	sobel := cimage.SobelDetector(img, 0)
+	sobel := cimage.SobelOperator(img, 0)
 
 	var energy int
 	for i := 0; i < len(sobel.Pix); i += 4 {

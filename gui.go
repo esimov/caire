@@ -22,9 +22,9 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/imop"
-	"github.com/esimov/caire/utils"
 )
 
 type hudControlType int
@@ -150,9 +150,9 @@ func (g *Gui) initWindow(width, height int) {
 	rand.NewSource(time.Now().UnixNano())
 
 	g.cfg.angle = 45
-	g.cfg.color.randR = uint8(random(1, 2))
-	g.cfg.color.randG = uint8(random(1, 2))
-	g.cfg.color.randB = uint8(random(1, 2))
+	g.cfg.color.randR = uint8(randomFloat(1, 2))
+	g.cfg.color.randG = uint8(randomFloat(1, 2))
+	g.cfg.color.randB = uint8(randomFloat(1, 2))
 
 	g.cfg.window.width, g.cfg.window.height = float32(width), float32(height)
 	g.cfg.x = interval{min: 0, max: float64(width)}
@@ -167,14 +167,14 @@ func (g *Gui) initWindow(width, height int) {
 
 // getWindowSize returns the resized image dimension.
 func (g *Gui) getWindowSize() (float32, float32) {
-	w, h := g.cfg.window.width, g.cfg.window.height
+	width, height := g.cfg.window.width, g.cfg.window.height
 	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
-	r := getRatio(w, h)
-	if w > maxScreenX && h > maxScreenY {
-		w = w * r
-		h = h * r
+	if width > maxScreenX || height > maxScreenY {
+		ratio := getRatio(width, height)
+		width = width * ratio
+		height = height * ratio
 	}
-	return w, h
+	return width, height
 }
 
 // Run is the core method of the Gio GUI application.
@@ -182,9 +182,9 @@ func (g *Gui) getWindowSize() (float32, float32) {
 // and terminates when the image resizing operation completes.
 func (g *Gui) Run() error {
 	var (
-		rc uint8 = redStart
-		gc uint8 = greenStart
-		bc uint8 = blueStart
+		redCol   uint8 = redStart
+		greenCol uint8 = greenStart
+		blueCol  uint8 = blueStart
 
 		descRed, descGreen, descBlue bool
 	)
@@ -207,8 +207,8 @@ func (g *Gui) Run() error {
 
 	if g.proc.Debug {
 		g.AddHudControl(hudShowSeams, "Show seams", true)
-		if g.proc.Mask != nil || g.proc.RMask != nil || g.proc.FaceDetect {
-			g.AddHudControl(hudShowDebugMask, "Debug mode", false)
+		if g.proc.Mask != nil || g.proc.RMask != nil || g.proc.FaceDetect || g.proc.TextDetect {
+			g.AddHudControl(hudShowDebugMask, "Debug mode", true)
 		}
 	}
 
@@ -225,9 +225,9 @@ func (g *Gui) Run() error {
 				(g.proc.NewHeight > 0 && g.proc.NewHeight != dy) {
 
 				errorMsg := fmt.Sprintf("%s %s %s",
-					utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-					utils.DecorateText("⇢ process aborted by the user...", utils.DefaultMessage),
-					utils.DecorateText("✘\n", utils.ErrorMessage),
+					common.DecorateText("⚡ CAIRE", common.StatusMessage),
+					common.DecorateText("⇢ process aborted by the user...", common.DefaultMessage),
+					common.DecorateText("✘\n", common.ErrorMessage),
 				)
 				g.proc.Spinner.StopMsg = errorMsg
 				g.proc.Spinner.Stop()
@@ -300,46 +300,48 @@ func (g *Gui) Run() error {
 					}
 				}
 
+				// Initialize color components for the background visualization
+				// in case we are performing image resize in both axes.
 				{ // red
 					if descRed {
-						rc--
+						redCol--
 					} else {
-						rc++
+						redCol++
 					}
-					if rc >= redEnd {
+					if redCol >= redEnd {
 						descRed = !descRed
 					}
-					if rc == redStart {
+					if redCol == redStart {
 						descRed = !descRed
 					}
 				}
 				{ // green
 					if descGreen {
-						gc--
+						greenCol--
 					} else {
-						gc++
+						greenCol++
 					}
-					if gc >= greenEnd {
+					if greenCol >= greenEnd {
 						descGreen = !descGreen
 					}
-					if gc == greenStart {
+					if greenCol == greenStart {
 						descGreen = !descGreen
 					}
 				}
 				{ // blue
 					if descBlue {
-						bc--
+						blueCol--
 					} else {
-						bc++
+						blueCol++
 					}
-					if bc >= blueEnd {
+					if blueCol >= blueEnd {
 						descBlue = !descBlue
 					}
-					if bc == blueStart {
+					if blueCol == blueStart {
 						descBlue = !descBlue
 					}
 				}
-				g.draw(color.NRGBA{R: rc, G: gc, B: bc})
+				g.draw(color.NRGBA{R: redCol, G: greenCol, B: blueCol})
 				e.Frame(g.ctx.Ops)
 			case app.DestroyEvent:
 				abortFn()
@@ -505,9 +507,9 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 
 					if since.Seconds() > 5 {
 						g.cfg.timeStamp = time.Now()
-						g.cfg.color.randR = uint8(random(1, 2))
-						g.cfg.color.randG = uint8(random(1, 2))
-						g.cfg.color.randB = uint8(random(1, 2))
+						g.cfg.color.randR = uint8(randomFloat(1, 2))
+						g.cfg.color.randG = uint8(randomFloat(1, 2))
+						g.cfg.color.randB = uint8(randomFloat(1, 2))
 					}
 
 					paint.LinearGradientOp{
@@ -558,7 +560,7 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 	)
 }
 
-// random generates a random number between two numbers.
-func random(min, max float32) float32 {
+// randomFloat generates a random float32 number between two numbers.
+func randomFloat(min, max float32) float32 {
 	return rand.Float32()*(max-min) + min
 }

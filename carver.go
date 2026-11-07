@@ -7,21 +7,31 @@ import (
 	"image/draw"
 	"math"
 
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	"github.com/esimov/caire/utils"
 	pigo "github.com/esimov/pigo/core"
 )
 
-// SeamCarver defines the Carve interface method, which have to be
-// implemented by the Processor struct.
+// SeamCarver defines the Resize interface method.
 type SeamCarver interface {
 	Resize(*image.NRGBA) (image.Image, error)
 }
 
-// maxFaceDetAttempts defines the maximum number of attempts of face detections
+// maxFaceDetAttempts defines the maximum number of attempts for face detection.
 const maxFaceDetAttempts = 20
 
-// Carver is the main entry struct having as parameters the newly generated image width, height and seam points.
+// maxTextDetAttempts defines the maximum number of attempts for text detection.
+const maxTextDetAttempts = 5
+
+var (
+	faceDetAttempts int
+	textDetAttempts int
+	isFaceDetected  bool
+	isTextDetected  bool
+)
+
+// Carver is the seam carving operation core structure, having as parameters the
+// new image width and height and the harvested seams.
 type Carver struct {
 	Points []float64
 	Seams  []Seam
@@ -29,7 +39,7 @@ type Carver struct {
 	Height int
 }
 
-// Seam struct contains the seam pixel coordinates.
+// Seam contains the seam pixel coordinates.
 type Seam struct {
 	X int
 	Y int
@@ -67,11 +77,13 @@ func (c *Carver) set(x, y int, px float64) {
 //     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	sobel := cimage.SobelDetector(img, float64(p.SobelThreshold))
+	sobel := cimage.SobelOperator(img, float64(p.SobelThreshold))
 
 	dets := []pigo.Detection{}
 
-	if p.FaceDetector != nil && p.FaceDetect && p.detAttempts < maxFaceDetAttempts {
+	// Perform face detection in case the flag is activated and the failed
+	// detection attempts does not reach the preset maximum attempts.
+	if p.FaceDetector != nil && faceDetAttempts < maxFaceDetAttempts {
 		var ratio float64
 
 		if width < height {
@@ -79,19 +91,19 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		} else {
 			ratio = float64(height) / float64(width)
 		}
-		minSize := float64(utils.Min(width, height)) * ratio / 3
+		minSize := float64(common.Min(width, height)) * ratio / 3
 
-		// Transform the image to pixel array.
-		pixels := cimage.RgbToGrayscale(img)
+		// Transform the image grayscale mode.
+		grayscale := cimage.RgbToGrayscale(img)
 
 		cParams := pigo.CascadeParams{
 			MinSize:     int(minSize),
-			MaxSize:     utils.Min(width, height),
+			MaxSize:     common.Min(width, height),
 			ShiftFactor: 0.1,
 			ScaleFactor: 1.1,
 
 			ImageParams: pigo.ImageParams{
-				Pixels: pixels,
+				Pixels: grayscale,
 				Rows:   height,
 				Cols:   width,
 				Dim:    width,
@@ -109,12 +121,62 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 		if len(dets) == 0 {
 			// Retry detecting faces for a certain amount of time.
-			if p.detAttempts < maxFaceDetAttempts {
-				p.detAttempts++
+			if faceDetAttempts < maxFaceDetAttempts {
+				faceDetAttempts++
 			}
 		} else {
-			p.detAttempts = 0
-			p.isFaceDetected = true
+			faceDetAttempts = 0
+			isFaceDetected = true
+		}
+	}
+
+	// Apply an opaque white color to the detected face area to avoid
+	// the seam carver to remove the pixels inside the face zone.
+	// This is simple technique to trick the Sobel detector to consider
+	//  the face area an important zone which shouldn't be altered.
+	for _, face := range dets {
+		if (p.NewHeight != 0 && p.NewHeight < face.Scale) ||
+			(p.NewWidth != 0 && p.NewWidth < face.Scale) {
+			return nil, fmt.Errorf("%s %s",
+				"cannot resize the image to the specified dimension without face deformation.\n",
+				"\tRemove the face detection option in case you still wish to resize the image.")
+		}
+		if face.Q > 5.0 {
+			scale := int(float64(face.Scale) / 1.7)
+			rect := image.Rect(
+				face.Col-scale,
+				face.Row-scale,
+				face.Col+scale,
+				face.Row+scale,
+			)
+			p.DebugMask = image.NewNRGBA(img.Bounds())
+			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
+		}
+	}
+
+	// Perform text detection in case the flag is activated and the failed
+	// detection attempts does not reach the preset maximum attempts.
+	if p.TextDetect && textDetAttempts < maxTextDetAttempts {
+		p.EdgeDetector.Width = width
+		p.EdgeDetector.Height = height
+
+		if p.DebugMask == nil {
+			p.DebugMask = image.NewNRGBA(img.Bounds())
+		}
+		regions := p.TextDetector.Detect(img)
+		if len(regions) == 0 {
+			if textDetAttempts < maxTextDetAttempts {
+				textDetAttempts++
+			}
+		} else {
+			textDetAttempts = 0
+			isTextDetected = true
+		}
+
+		for _, region := range regions {
+			draw.Draw(sobel, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			draw.Draw(p.DebugMask, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
 	}
 
@@ -130,10 +192,10 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 
 			r, g, b, _ := p.Mask.At(x, y).RGBA()
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-				if p.isFaceDetected {
-					// Reduce the brightness of the mask with a small factor if human faces are detected.
-					// This way we can avoid the seam carver to remove
-					// the pixels inside the detected human faces.
+				if isFaceDetected {
+					// Reduce the brightness of the mask with a small factor
+					// if human faces are detected. This way we can avoid the
+					// seam carver to remove the pixels inside the detected human faces.
 					sobel.Set(x, y, color.RGBA{R: 225, G: 225, B: 225, A: 255})
 				} else {
 					sobel.Set(x, y, color.White)
@@ -155,10 +217,10 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			r, g, b, _ := p.RMask.At(x, y).RGBA()
 			// Replace the white pixels with black.
 			if r>>8 == 0xff && g>>8 == 0xff && b>>8 == 0xff {
-				if p.isFaceDetected {
-					// Reduce the brightness of the mask with a small factor if human faces are detected.
-					// This way we can avoid the seam carver to remove
-					// the pixels inside the detected human faces.
+				if isFaceDetected {
+					// Reduce the brightness of the mask with a small factor
+					// if human faces are detected. This way we can avoid the
+					// seam carver to remove the pixels inside the detected human faces.
 					sobel.Set(x, y, color.RGBA{R: 25, G: 25, B: 25, A: 255})
 				} else {
 					sobel.Set(x, y, color.Black)
@@ -167,29 +229,6 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 			} else {
 				p.DebugMask.Set(x, y, color.Transparent)
 			}
-		}
-	}
-
-	// Iterate over the detected faces and fill out the rectangles with white.
-	// We need to trick the sobel detector to consider them as important image parts.
-	for _, face := range dets {
-		if (p.NewHeight != 0 && p.NewHeight < face.Scale) ||
-			(p.NewWidth != 0 && p.NewWidth < face.Scale) {
-			return nil, fmt.Errorf("%s %s",
-				"cannot resize the image to the specified dimension without face deformation.\n",
-				"\tRemove the face detection option in case you still wish to resize the image.")
-		}
-		if face.Q > 5.0 {
-			scale := int(float64(face.Scale) / 1.7)
-			rect := image.Rect(
-				face.Col-scale,
-				face.Row-scale,
-				face.Col+scale,
-				face.Row+scale,
-			)
-			p.DebugMask = image.NewNRGBA(img.Bounds())
-			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
-			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
 	}
 

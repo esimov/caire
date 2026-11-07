@@ -11,37 +11,42 @@ import (
 	"os"
 	"strings"
 
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
+	"golang.org/x/image/webp"
 )
-
-func DecodeContent(src string) (image.Image, error) {
-	file, err := os.Open(src)
-	if err != nil {
-		return nil, fmt.Errorf("could not open the mask file: %v", err)
-	}
-
-	ctype, err := utils.DetectContentType(file.Name())
-	if err != nil {
-		return nil, err
-	}
-
-	if !strings.Contains(ctype.(string), "image") {
-		return nil, fmt.Errorf("the mask should be an image file")
-	}
-
-	img, err := Decode(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode content: %w", err)
-	}
-
-	return img, nil
-}
 
 // Decode decodes an image file to type image.Image
 func Decode(r io.Reader) (image.Image, error) {
 	img, _, err := image.Decode(r)
 	if err != nil {
-		return nil, fmt.Errorf("could not decode the mask file: %v", err)
+		// Fallback to webp decoder in case of standard image decoding failure.
+		if img, err = webp.Decode(r); err != nil {
+			return nil, fmt.Errorf("image decoding failed: %w", err)
+		}
+	}
+
+	return img, nil
+}
+
+// DecodeContent takes a source path as function argument and decodes as an image.
+func DecodeContent(src string) (image.Image, error) {
+	file, err := os.Open(src)
+	if err != nil {
+		return nil, fmt.Errorf("could not open the file: %w", err)
+	}
+
+	ctype, err := common.DetectContentType(file.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	if !strings.Contains(ctype.(string), "image") {
+		return nil, fmt.Errorf("the file should be of image type")
+	}
+
+	img, err := Decode(file)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode content: %w", err)
 	}
 
 	return img, nil
@@ -69,9 +74,7 @@ func ImgToNRGBA(img image.Image) *image.NRGBA {
 		for dstY := 0; dstY < dstH; dstY++ {
 			di := dst.PixOffset(0, dstY)
 			si := src.PixOffset(srcMinX, srcMinY+dstY)
-			for dstX := 0; dstX < dstW; dstX++ {
-				copy(dst.Pix[di:di+rowSize], src.Pix[si:si+rowSize])
-			}
+			copy(dst.Pix[di:di+rowSize], src.Pix[si:si+rowSize])
 		}
 	case *image.YCbCr:
 		for dstY := 0; dstY < dstH; dstY++ {
@@ -106,28 +109,20 @@ func ImgToNRGBA(img image.Image) *image.NRGBA {
 	return dst
 }
 
-// RgbToGrayscale converts an image to grayscale mode and
-// returns the pixel values as an one dimensional array.
+// RgbToGrayscale converts an image to grayscale mode and returns as pixel buffer.
 func RgbToGrayscale(img *image.NRGBA) []uint8 {
-	width, height := img.Bounds().Dx(), img.Bounds().Dy()
-	gray := make([]uint8, width*height)
+	dx, dy := img.Bounds().Max.X, img.Bounds().Max.Y
+	pixels := make([]uint8, dx*dy)
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			r, g, b, _ := img.At(x, y).RGBA()
-			gray[y*width+x] = uint8(
-				(0.299*float64(r) +
-					0.587*float64(g) +
-					0.114*float64(b)) / 256,
-			)
-		}
+	for i := range pixels {
+		r, g, b := uint32(img.Pix[i*4]), uint32(img.Pix[i*4+1]), uint32(img.Pix[i*4+2])
+		pixels[i] = uint8((299*r + 587*g + 114*b) / 1000)
 	}
-
-	return gray
+	return pixels
 }
 
 // Dither converts an image to black and white image, where the white is fully transparent.
-func Dither(img image.Image) *image.NRGBA {
+func Dither(img *image.NRGBA) *image.NRGBA {
 	bounds := img.Bounds()
 	dithered := image.NewNRGBA(bounds)
 	dx, dy := bounds.Dx(), bounds.Dy()
@@ -155,7 +150,7 @@ func ImageToPix(img *image.NRGBA) []uint8 {
 
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-			r, g, b, _ := img.At(y, x).RGBA()
+			r, g, b, _ := img.At(x, y).RGBA()
 			pixels = append(pixels, uint8(r>>8), uint8(g>>8), uint8(b>>8), 255)
 		}
 	}
@@ -163,26 +158,21 @@ func ImageToPix(img *image.NRGBA) []uint8 {
 	return pixels
 }
 
-// PixToImage converts an array buffer to an image.
+// PixToImage converts an RGBA pixel buffer to an image.
 func PixToImage(pixels []uint8, width, height int) image.Image {
 	dst := image.NewNRGBA(image.Rect(0, 0, width, height))
 	bounds := dst.Bounds()
 	dx, dy := bounds.Max.X, bounds.Max.Y
-	col := color.NRGBA{
-		R: uint8(0),
-		G: uint8(0),
-		B: uint8(0),
-		A: uint8(255),
-	}
 
 	for x := bounds.Min.X; x < dx; x++ {
-		for y := bounds.Min.Y; y < dy*4; y += 4 {
-			col.R = uint8(pixels[y+x*dy*4])
-			col.G = uint8(pixels[y+x*dy*4+1])
-			col.B = uint8(pixels[y+x*dy*4+2])
-			col.A = uint8(pixels[y+x*dy*4+3])
+		for y := bounds.Min.Y; y < dy; y++ {
+			pixIdx := y*dst.Stride + x*4
+			col := pixels[y*width+x]
 
-			dst.SetNRGBA(x, int(y/4), col)
+			dst.Pix[pixIdx] = col
+			dst.Pix[pixIdx+1] = col
+			dst.Pix[pixIdx+2] = col
+			dst.Pix[pixIdx+3] = 255
 		}
 	}
 
