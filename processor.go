@@ -9,7 +9,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 
@@ -224,6 +223,11 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = cimage.RotateImage90(img)
 			p.rotateMasks(cimage.RotateImage90)
+
+			// Apply the vertical text detection when the image is rotated 90°.
+			if p.TextDetector != nil {
+				p.TextDetector.Direction = textdetector.Vertical
+			}
 		}
 		if dx > p.NewHeight {
 			img, err = p.shrink(img)
@@ -233,6 +237,12 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if p.resizeXY {
 				img = cimage.RotateImage270(img)
 				p.rotateMasks(cimage.RotateImage270)
+
+				// Once the image is rotated back to its original aspect
+				// apply the horizontal text detection.
+				if p.TextDetector != nil {
+					p.TextDetector.Direction = textdetector.Horizontal
+				}
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
@@ -256,6 +266,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if p.resizeXY {
 				img = cimage.RotateImage270(img)
 				p.rotateMasks(cimage.RotateImage270)
+
+				if p.TextDetector != nil {
+					p.TextDetector.Direction = textdetector.Horizontal
+				}
 			}
 		}
 		return img, nil
@@ -270,6 +284,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = cimage.RotateImage90(img)
 			p.rotateMasks(cimage.RotateImage90)
+
+			if p.TextDetector != nil {
+				p.TextDetector.Direction = textdetector.Vertical
+			}
 		}
 		if dx < p.NewHeight {
 			img, err = p.enlarge(img)
@@ -279,6 +297,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if p.resizeXY {
 				img = cimage.RotateImage270(img)
 				p.rotateMasks(cimage.RotateImage270)
+
+				if p.TextDetector != nil {
+					p.TextDetector.Direction = textdetector.Horizontal
+				}
 			}
 			if p.NewWidth > 0 && p.NewWidth != dy {
 				if p.NewWidth <= dy {
@@ -302,6 +324,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			if p.resizeXY {
 				img = cimage.RotateImage270(img)
 				p.rotateMasks(cimage.RotateImage270)
+
+				if p.TextDetector != nil {
+					p.TextDetector.Direction = textdetector.Horizontal
+				}
 			}
 		}
 		return img, nil
@@ -408,6 +434,8 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 			p.rotateMasks(cimage.RotateImage90)
 
 			if p.TextDetector != nil {
+				// Signal the text detector that we are performing the
+				// seam carving operation on the vertical axis.
 				p.TextDetector.Direction = textdetector.Vertical
 			}
 		}
@@ -459,45 +487,43 @@ func (p *Processor) rotateMasks(rotate func(*image.NRGBA) *image.NRGBA) {
 	}
 }
 
-// calculateFitness iteratively try to find the best image aspect ratio for the rescale.
+// calculateFitness tries to find the best image aspect ratio for the rescale.
 func (p *Processor) calculateFitness(img *image.NRGBA, c *Carver) *image.NRGBA {
-	var (
-		width     = float64(c.Width)
-		height    = float64(c.Height)
-		newWidth  = float64(p.NewWidth)
-		newHeight = float64(p.NewHeight)
-		newImg    *image.NRGBA
-	)
+	width := float64(c.Width)
+	height := float64(c.Height)
 
-	wsf := width / newWidth
-	hsf := height / newHeight
-	sw := math.Round(width / math.Min(wsf, hsf))
-	sh := math.Round(height / math.Min(wsf, hsf))
+	widthFactor := width / float64(p.NewWidth)
+	heightFactor := height / float64(p.NewHeight)
 
-	if sw <= sh {
-		newImg = imaging.Resize(img, 0, int(sw), imaging.Lanczos)
+	var newImg *image.NRGBA
+
+	if widthFactor < heightFactor {
+		// Width reaches the target first.
+		newImg = imaging.Resize(img, p.NewWidth, 0, imaging.Lanczos)
+
 		if p.Mask != nil {
-			p.Mask = imaging.Resize(p.Mask, 0, int(sw), imaging.Lanczos)
+			p.Mask = imaging.Resize(p.Mask, p.NewWidth, 0, imaging.Lanczos)
 		}
+
 		if p.RMask != nil {
-			p.RMask = imaging.Resize(p.RMask, 0, int(sw), imaging.Lanczos)
+			p.RMask = imaging.Resize(p.RMask, p.NewWidth, 0, imaging.Lanczos)
 		}
 	} else {
-		newImg = imaging.Resize(img, 0, int(sh), imaging.Lanczos)
-		if p.Mask != nil {
-			p.Mask = imaging.Resize(p.Mask, 0, int(sh), imaging.Lanczos)
-		}
-		if p.RMask != nil {
-			p.RMask = imaging.Resize(p.RMask, 0, int(sh), imaging.Lanczos)
-		}
-	}
-	dx, dy := newImg.Bounds().Max.X, newImg.Bounds().Max.Y
-	c.Width = dx
-	c.Height = dy
+		// Height reaches the target first.
+		newImg = imaging.Resize(img, 0, p.NewHeight, imaging.Lanczos)
 
-	if int(sw) < p.NewWidth || int(sh) < p.NewHeight {
-		newImg = p.calculateFitness(newImg, c)
+		if p.Mask != nil {
+			p.Mask = imaging.Resize(p.Mask, 0, p.NewHeight, imaging.Lanczos)
+		}
+
+		if p.RMask != nil {
+			p.RMask = imaging.Resize(p.RMask, 0, p.NewHeight, imaging.Lanczos)
+		}
 	}
+
+	c.Width = newImg.Bounds().Dx()
+	c.Height = newImg.Bounds().Dy()
+
 	return newImg
 }
 
