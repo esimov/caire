@@ -15,8 +15,8 @@ type Component struct {
 	MinComponentsPerLine int
 	MaxHeightRatio       float64
 	MaxMedianStrokeRatio float64
-	MaxVerticalOffset    float64
-	MaxHorizontalGap     float64
+	MaxOffset            float64
+	MaxGap               float64
 }
 
 type StrokeComponent struct {
@@ -33,6 +33,13 @@ type StrokeComponent struct {
 	MaxStrokeRatio     float64
 	MinComponentPixels int
 }
+
+type TextDirection uint8
+
+const (
+	Horizontal TextDirection = iota
+	Vertical
+)
 
 // FindConnected finds the connected components based on the strokes similarities.
 // Two gradient stroke can be considered as components if they are spatially connected
@@ -215,7 +222,7 @@ func (s *SWT) Filter(imgWidth int, pixels []point, strokes []float64) (*StrokeCo
 // Group groups the potential character candidates based on
 // text alignment, similarities, stroke width and spacial distance.
 // As a last step we filter out the overlapping rectangles.
-func (s *SWT) Group(components []StrokeComponent) []image.Rectangle {
+func (s *SWT) Group(components []StrokeComponent, direction TextDirection) []image.Rectangle {
 	var regions []image.Rectangle
 
 	if len(components) == 0 {
@@ -226,7 +233,7 @@ func (s *SWT) Group(components []StrokeComponent) []image.Rectangle {
 
 	for i := range components {
 		for j := i + 1; j < len(components); j++ {
-			if s.findCompatible(components[i], components[j]) {
+			if s.findCompatible(components[i], components[j], direction) {
 				neighbours[i] = append(neighbours[i], j)
 				neighbours[j] = append(neighbours[j], i)
 			}
@@ -288,7 +295,7 @@ func (s *SWT) Group(components []StrokeComponent) []image.Rectangle {
 	return regions
 }
 
-func (s *SWT) findCompatible(a, b StrokeComponent) bool {
+func (s *SWT) findCompatible(a, b StrokeComponent, direction TextDirection) bool {
 	heightRatio := math.Max(
 		float64(a.StrokeHeigth),
 		float64(b.StrokeHeigth),
@@ -310,16 +317,37 @@ func (s *SWT) findCompatible(a, b StrokeComponent) bool {
 		return false
 	}
 
-	verticalOffset := math.Abs(a.CenterY - b.CenterY)
-	maxVerticalOffset := float64(min(a.StrokeHeigth, b.StrokeHeigth)) * s.MaxVerticalOffset
-	if verticalOffset > maxVerticalOffset {
+	// Apply different formula for horizontal and vertical text detection.
+	// When we are running the seam removal operation on the vertical axis,
+	// before each step the image rotated 90° and once the seam is removed
+	// the image is rotated back 270° to its original position.
+	switch direction {
+	case Horizontal:
+		offset := math.Abs(a.CenterY - b.CenterY)
+		maxOffset := float64(min(a.StrokeHeigth, b.StrokeHeigth)) * s.MaxOffset
+
+		if offset > maxOffset {
+			return false
+		}
+
+		gap := rectangleHorizontalGap(a.Bounds, b.Bounds)
+		maxGap := float64(max(a.StrokeHeigth, b.StrokeHeigth)) * s.MaxGap
+
+		return float64(gap) <= maxGap
+	case Vertical:
+		offset := math.Abs(a.CenterX - b.CenterX)
+		maxOffset := float64(min(a.StrokeWidth, b.StrokeWidth)) * s.MaxOffset
+		if offset > maxOffset {
+			return false
+		}
+
+		gap := rectangleHorizontalGap(a.Bounds, b.Bounds)
+		maxGap := float64(max(a.StrokeWidth, b.StrokeWidth)) * s.MaxGap
+
+		return float64(gap) <= maxGap
+	default:
 		return false
 	}
-
-	horizontalGap := rectangleHorizontalGap(a.Bounds, b.Bounds)
-	maxGap := float64(max(a.StrokeHeigth, b.StrokeHeigth)) * s.MaxHorizontalGap
-
-	return float64(horizontalGap) <= maxGap
 }
 
 func (c *Component) filterDuplicateRegions(regions []image.Rectangle) []image.Rectangle {
@@ -368,6 +396,18 @@ func rectangleHorizontalGap(a image.Rectangle, b image.Rectangle) int {
 
 	if b.Max.X < a.Min.X {
 		return a.Min.X - b.Max.X
+	}
+
+	return 0
+}
+
+func rectangleVerticalGap(a image.Rectangle, b image.Rectangle) int {
+	if a.Max.Y < b.Min.Y {
+		return b.Min.Y - a.Max.Y
+	}
+
+	if b.Max.Y < a.Min.Y {
+		return a.Min.Y - b.Max.Y
 	}
 
 	return 0

@@ -76,6 +76,7 @@ func (c *Carver) set(x, y int, px float64) {
 //   - the minimum energy level is calculated by summing up the current pixel value
 //     with the minimum pixel value of the neighboring pixels from the previous row.
 func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, error) {
+
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	sobel := cimage.SobelOperator(img, float64(p.SobelThreshold))
 
@@ -155,8 +156,8 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 	}
 
-	// Perform text detection in case the flag is activated and the failed
-	// detection attempts does not reach the preset maximum attempts.
+	// Perform text detection in case the corresponding flag is activated and
+	// the failed detection attempts does not reach the preset maximum attempts.
 	if p.TextDetect && textDetAttempts < maxTextDetAttempts {
 		p.EdgeDetector.Width = width
 		p.EdgeDetector.Height = height
@@ -164,6 +165,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		if p.DebugMask == nil {
 			p.DebugMask = image.NewNRGBA(img.Bounds())
 		}
+
 		regions := p.TextDetector.Detect(img)
 		if len(regions) == 0 {
 			if textDetAttempts < maxTextDetAttempts {
@@ -281,6 +283,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		right := c.get(c.Width-1, y) + math.Min(c.get(c.Width-1, y-1), c.get(c.Width-2, y-1))
 		c.set(c.Width-1, y, right)
 	}
+
 	return srcImg, nil
 }
 

@@ -217,9 +217,9 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		p.vRes = true
 		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
 
-		// If the image is resized both horizontally and vertically we need
-		// to rotate the image each time when invoking the shrink function.
-		// Otherwise we rotate the image only once, right before calling this function.
+		// In case the image is resized both horizontally and vertically we need
+		// to rotate the image each time the shrink function is invoked,
+		// otherwise we rotate the image only once, right before calling this function.
 		if p.resizeXY {
 			dx, dy = img.Bounds().Dy(), img.Bounds().Dx()
 			img = cimage.RotateImage90(img)
@@ -406,6 +406,10 @@ func (p *Processor) Resize(img *image.NRGBA) (image.Image, error) {
 		if !p.resizeXY {
 			img = cimage.RotateImage90(img)
 			p.rotateMasks(cimage.RotateImage90)
+
+			if p.TextDetector != nil {
+				p.TextDetector.Direction = textdetector.Vertical
+			}
 		}
 		if p.NewHeight > c.Height {
 			img, err = enlargeVertFn(img)

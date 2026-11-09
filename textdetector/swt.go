@@ -17,6 +17,7 @@ const unsetStroke = math.MaxFloat64
 type SWT struct {
 	EdgeDetector
 	*Component
+	Direction TextDirection
 }
 
 var _ TextDetector = (*SWT)(nil)
@@ -63,8 +64,8 @@ func NewSWT(edgeDetector EdgeDetector, options Options) *SWT {
 		MinComponentsPerLine: options.minComponentsPerLine,
 		MaxHeightRatio:       options.maxHeightRatio,
 		MaxMedianStrokeRatio: options.maxMedianStrokeRatio,
-		MaxVerticalOffset:    options.maxVerticalOffset,
-		MaxHorizontalGap:     options.maxHorizontalGap,
+		MaxOffset:            options.maxVerticalOffset,
+		MaxGap:               options.maxHorizontalGap,
 
 		StrokeComponent: &StrokeComponent{
 			MaxStrokeRatio:     options.maxStrokeRatio,
@@ -110,7 +111,7 @@ func (swt *SWT) Detect(src *image.NRGBA) []image.Rectangle {
 		}
 	}
 
-	regions := swt.Group(strokeComponents)
+	regions := swt.Group(strokeComponents, swt.Direction)
 
 	return regions
 }

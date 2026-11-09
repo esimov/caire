@@ -27,5 +27,5 @@ type TextDetector interface {
 	Filter(width int, pixels []point, strokes []float64) (*StrokeComponent, bool)
 
 	// Group groups together the connected components and present them as single image unit.
-	Group(components []StrokeComponent) []image.Rectangle
+	Group(components []StrokeComponent, direction TextDirection) []image.Rectangle
 }
