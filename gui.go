@@ -27,7 +27,7 @@ import (
 	"github.com/esimov/caire/imop"
 )
 
-type hudControlType int
+type hudControlType uint8
 
 const (
 	hudShowSeams hudControlType = iota
@@ -45,6 +45,11 @@ const (
 	redEnd   = 255
 	greenEnd = 112
 	blueEnd  = 105
+)
+
+const (
+	previewMessage = "Preview is not available while the image is resized both horizontally and vertically!"
+	successMessage = "Done, you can close this window!"
 )
 
 var (
@@ -300,48 +305,52 @@ func (g *Gui) Run() error {
 					}
 				}
 
-				// Initialize color components for the background visualization
-				// in case we are performing image resize in both axes.
-				{ // red
-					if descRed {
-						redCol--
-					} else {
-						redCol++
+				// Disable the preview mode when the image is resized both horizontally and vertically.
+				// Show a background visualization during the resize operation.
+				if g.proc.resizeXY {
+					{ // red
+						if descRed {
+							redCol--
+						} else {
+							redCol++
+						}
+						if redCol >= redEnd {
+							descRed = !descRed
+						}
+						if redCol == redStart {
+							descRed = !descRed
+						}
 					}
-					if redCol >= redEnd {
-						descRed = !descRed
+					{ // green
+						if descGreen {
+							greenCol--
+						} else {
+							greenCol++
+						}
+						if greenCol >= greenEnd {
+							descGreen = !descGreen
+						}
+						if greenCol == greenStart {
+							descGreen = !descGreen
+						}
 					}
-					if redCol == redStart {
-						descRed = !descRed
+					{ // blue
+						if descBlue {
+							blueCol--
+						} else {
+							blueCol++
+						}
+						if blueCol >= blueEnd {
+							descBlue = !descBlue
+						}
+						if blueCol == blueStart {
+							descBlue = !descBlue
+						}
 					}
+					g.visualizeProcess(color.NRGBA{R: redCol, G: greenCol, B: blueCol})
+				} else {
+					g.draw()
 				}
-				{ // green
-					if descGreen {
-						greenCol--
-					} else {
-						greenCol++
-					}
-					if greenCol >= greenEnd {
-						descGreen = !descGreen
-					}
-					if greenCol == greenStart {
-						descGreen = !descGreen
-					}
-				}
-				{ // blue
-					if descBlue {
-						blueCol--
-					} else {
-						blueCol++
-					}
-					if blueCol >= blueEnd {
-						descBlue = !descBlue
-					}
-					if blueCol == blueStart {
-						descBlue = !descBlue
-					}
-				}
-				g.draw(color.NRGBA{R: redCol, G: greenCol, B: blueCol})
 				e.Frame(g.ctx.Ops)
 			case app.DestroyEvent:
 				abortFn()
@@ -358,7 +367,7 @@ type (
 
 // draw draws the resized image in the GUI window (obtained from a channel)
 // and in case the debug mode is activated it prints out the seams.
-func (g *Gui) draw(bgColor color.NRGBA) {
+func (g *Gui) draw() {
 	g.ctx.Execute(op.InvalidateCmd{})
 
 	c := g.setColor(g.cfg.color.background)
@@ -424,6 +433,7 @@ func (g *Gui) draw(bgColor color.NRGBA) {
 			}),
 		)
 	}
+
 	if g.proc.Debug {
 		layout.Stack{}.Layout(g.ctx,
 			layout.Stacked(func(gtx C) D {
@@ -465,42 +475,44 @@ func (g *Gui) draw(bgColor color.NRGBA) {
 			}),
 		)
 	}
-
-	// Disable the preview mode and warn the user in case the image is resized both horizontally and vertically.
-	if g.proc.resizeXY {
-		var msg string
-
-		if !g.process.isDone {
-			msg = "Preview is not available while the image is resized both horizontally and vertically!"
-		} else {
-			msg = "Done, you may close this window!"
-			bgColor = color.NRGBA{R: 45, G: 45, B: 42, A: 0xff}
-		}
-		g.displayMessage(g.ctx, bgColor, msg)
-	}
 }
 
-// displayMessage show a static message when the image is resized both horizontally and vertically.
-func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) {
-	g.theme.Palette.Fg = color.NRGBA{R: 251, G: 254, B: 249, A: 0xff}
-	paint.ColorOp{Color: bgCol}.Add(ctx.Ops)
+// visualizeProcess shows a background visualization during the resize process on X and Y axis.
+func (g *Gui) visualizeProcess(bgColor color.NRGBA) {
+	g.ctx.Execute(op.InvalidateCmd{})
 
-	rect := image.Rectangle{
-		Max: ctx.Constraints.Max,
+	var msg string
+
+	if !g.process.isDone {
+		msg = previewMessage
+	} else {
+		msg = successMessage
+		bgColor = color.NRGBA{R: 45, G: 45, B: 42, A: 0xff}
 	}
 
-	defer clip.Rect(rect).Push(ctx.Ops).Pop()
-	paint.PaintOp{}.Add(ctx.Ops)
+	g.theme.Palette.Fg = color.NRGBA{R: 251, G: 254, B: 249, A: 0xff}
+	paint.ColorOp{Color: bgColor}.Add(g.ctx.Ops)
 
-	layout.Stack{}.Layout(ctx,
+	rect := image.Rectangle{
+		Max: g.ctx.Constraints.Max,
+	}
+
+	defer clip.Rect(rect).Push(g.ctx.Ops).Pop()
+	paint.PaintOp{}.Add(g.ctx.Ops)
+
+	layout.Stack{}.Layout(g.ctx,
 		layout.Stacked(func(gtx C) D {
-			return layout.UniformInset(unit.Dp(4)).Layout(ctx, func(gtx C) D {
+			return layout.UniformInset(unit.Dp(4)).Layout(g.ctx, func(gtx C) D {
 				if !g.process.isDone {
 					gtx.Constraints.Min.Y = 0
 					tr := f32.Affine2D{}
 					dr := image.Rectangle{Max: gtx.Constraints.Min}
 
-					tr = tr.Rotate(f32.Pt(float32(ctx.Constraints.Max.X/2), float32(ctx.Constraints.Max.Y/2)), 0.005*-g.cfg.angle)
+					tr = tr.Rotate(
+						f32.Pt(
+							float32(g.ctx.Constraints.Max.X/2),
+							float32(g.ctx.Constraints.Max.Y/2)),
+						0.005*-g.cfg.angle)
 					op.Affine(tr).Add(gtx.Ops)
 
 					since := time.Since(g.cfg.timeStamp)
@@ -515,8 +527,8 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 					paint.LinearGradientOp{
 						Stop1:  layout.FPt(dr.Min.Div(2)),
 						Stop2:  layout.FPt(dr.Max.Mul(2)),
-						Color1: color.NRGBA{R: 41, G: bgCol.G * g.cfg.color.randG, B: bgCol.B * g.cfg.color.randB, A: 0xFF},
-						Color2: color.NRGBA{R: bgCol.R * g.cfg.color.randR, G: 29, B: 54, A: 0xFF},
+						Color1: color.NRGBA{R: 41, G: bgColor.G * g.cfg.color.randG, B: bgColor.B * g.cfg.color.randB, A: 0xFF},
+						Color2: color.NRGBA{R: bgColor.R * g.cfg.color.randR, G: 29, B: 54, A: 0xFF},
 					}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
 
@@ -536,8 +548,8 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 			})
 		}),
 		layout.Stacked(func(gtx C) D {
-			return layout.UniformInset(unit.Dp(4)).Layout(ctx, func(gtx C) D {
-				return layout.Center.Layout(ctx, func(gtx C) D {
+			return layout.UniformInset(unit.Dp(4)).Layout(g.ctx, func(gtx C) D {
+				return layout.Center.Layout(g.ctx, func(gtx C) D {
 					m := material.Label(g.theme, unit.Sp(40), msg)
 					m.Alignment = text.Middle
 
@@ -551,8 +563,8 @@ func (g *Gui) displayMessage(ctx layout.Context, bgCol color.NRGBA, msg string) 
 				return layout.Dimensions{}
 			}
 
-			return layout.Inset{Top: 70}.Layout(ctx, func(gtx C) D {
-				return layout.Center.Layout(ctx, func(gtx C) D {
+			return layout.Inset{Top: 70}.Layout(g.ctx, func(gtx C) D {
+				return layout.Center.Layout(g.ctx, func(gtx C) D {
 					return material.Label(g.theme, unit.Sp(13), info).Layout(gtx)
 				})
 			})
