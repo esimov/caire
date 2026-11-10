@@ -341,7 +341,7 @@ func (s *SWT) findCompatible(a, b StrokeComponent, direction TextDirection) bool
 			return false
 		}
 
-		gap := rectangleHorizontalGap(a.Bounds, b.Bounds)
+		gap := rectangleVerticalGap(a.Bounds, b.Bounds)
 		maxGap := float64(max(a.StrokeWidth, b.StrokeWidth)) * s.MaxGap
 
 		return float64(gap) <= maxGap

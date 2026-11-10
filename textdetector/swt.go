@@ -30,8 +30,8 @@ type Options struct {
 	maxStrokeStdDevRatio float64
 	maxHeightRatio       float64
 	maxMedianStrokeRatio float64
-	maxHorizontalGap     float64
-	maxVerticalOffset    float64
+	maxGap               float64
+	maxOffset            float64
 	minComponentsPerLine int
 	minComponentPixels   int
 	maxStrokeRatio       float64
@@ -45,8 +45,8 @@ func DefaultOptions() Options {
 		maxStrokeStdDevRatio: 0.5,
 		maxHeightRatio:       2.0,
 		maxMedianStrokeRatio: 2.0,
-		maxHorizontalGap:     3.0,
-		maxVerticalOffset:    0.6,
+		maxGap:               2.5,
+		maxOffset:            0.6,
 		minComponentsPerLine: 3,
 		minComponentPixels:   2,
 		maxStrokeRatio:       2.0,
@@ -64,8 +64,8 @@ func NewSWT(edgeDetector EdgeDetector, options Options) *SWT {
 		MinComponentsPerLine: options.minComponentsPerLine,
 		MaxHeightRatio:       options.maxHeightRatio,
 		MaxMedianStrokeRatio: options.maxMedianStrokeRatio,
-		MaxOffset:            options.maxVerticalOffset,
-		MaxGap:               options.maxHorizontalGap,
+		MaxOffset:            options.maxOffset,
+		MaxGap:               options.maxGap,
 
 		StrokeComponent: &StrokeComponent{
 			MaxStrokeRatio:     options.maxStrokeRatio,
@@ -147,12 +147,12 @@ func normalizeOptions(options *Options) {
 		options.maxMedianStrokeRatio = defaults.maxMedianStrokeRatio
 	}
 
-	if options.maxHorizontalGap <= 0 {
-		options.maxHorizontalGap = defaults.maxHorizontalGap
+	if options.maxGap <= 0 {
+		options.maxGap = defaults.maxGap
 	}
 
-	if options.maxVerticalOffset <= 0 {
-		options.maxVerticalOffset = defaults.maxVerticalOffset
+	if options.maxOffset <= 0 {
+		options.maxOffset = defaults.maxOffset
 	}
 
 	if options.minComponentsPerLine <= 0 {

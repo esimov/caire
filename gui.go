@@ -53,8 +53,8 @@ const (
 )
 
 var (
-	maxScreenX float32 = 1280
-	maxScreenY float32 = 720
+	maxScreenX float32 = 1152
+	maxScreenY float32 = 768
 
 	defaultBkgColor  = color.Transparent
 	defaultFillColor = color.Black
