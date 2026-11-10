@@ -2,7 +2,6 @@ package textdetector
 
 import (
 	"math"
-	"sort"
 )
 
 type ray struct {
@@ -122,7 +121,7 @@ func (s *SWT) traceRay(width, height int, startX, startY int, dx, dy float64) []
 		x: startX,
 		y: startY,
 	}}
-	maxRayLength := max(width, height) / 3
+	maxRayLength := min(max(width, height)/3, s.MaxRayLength)
 
 	lastX := startX
 	lastY := startY
@@ -175,18 +174,57 @@ func makeFloatBuffer(length int, initial float64) []float64 {
 }
 
 func calculateMedian(values []float64) float64 {
-	if len(values) == 0 {
+	n := len(values)
+
+	if n == 0 {
 		return 0
 	}
 
-	sorted := append([]float64{}, values...)
-	sort.Float64s(sorted)
+	middle := n / 2
 
-	middle := len(sorted) / 2
-
-	if len(sorted)%2 == 0 {
-		return (sorted[middle-1] + sorted[middle]) / 2
+	if n%2 != 0 {
+		return quickSelect(values, middle)
 	}
 
-	return sorted[middle]
+	upper := quickSelect(values, middle)
+	lower := quickSelect(values[:middle], middle-1)
+
+	return (lower + upper) / 2
+}
+
+// quickSelect finds the k-th smallest element (1-based index)
+func quickSelect(input []float64, k int) float64 {
+	left := 0
+	right := len(input) - 1
+
+	for left <= right {
+		pivotIdx := partition(input, left, right)
+
+		if pivotIdx == k-1 {
+			return input[pivotIdx]
+		} else if pivotIdx > k-1 {
+			right = pivotIdx - 1
+		} else {
+			left = pivotIdx + 1
+		}
+	}
+
+	return 0
+}
+
+// partition rearranges elements around a pivot and returns its final index
+func partition(input []float64, left, right int) int {
+	pivot := input[right] // choose last element as pivot
+	i := left             // index for smaller elements
+
+	for j := left; j < right; j++ {
+		if input[j] < pivot {
+			input[i], input[j] = input[j], input[i]
+			i++
+		}
+	}
+	// place pivot in correct position
+	input[i], input[right] = input[right], input[i]
+
+	return i
 }

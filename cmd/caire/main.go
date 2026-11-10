@@ -30,27 +30,29 @@ var Version string
 
 var (
 	// Flags
-	source         = flag.String("in", pipeName, "Source")
-	destination    = flag.String("out", pipeName, "Destination")
-	blurRadius     = flag.Int("blur", 4, "Blur radius")
-	sobelThreshold = flag.Int("sobel", 2, "Sobel filter threshold")
-	gaussianSigma  = flag.Float64("gaussian", 1.5, "Gaussian Sigma")
-	lowThreshold   = flag.Float64("cannyLow", 50, "Canny low threshold")
-	highThreshold  = flag.Float64("cannyHigh", 300, "Canny high threshold")
-	newWidth       = flag.Int("width", 0, "New width")
-	newHeight      = flag.Int("height", 0, "New height")
-	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
-	square         = flag.Bool("square", false, "Reduce image to square dimensions")
-	debug          = flag.Bool("debug", false, "Show the seams")
-	shapeType      = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
-	seamColor      = flag.String("color", "#ff0000", "Seam color")
-	preview        = flag.Bool("preview", true, "Show GUI window")
-	maskPath       = flag.String("mask", "", "Mask file path for retaining area")
-	rMaskPath      = flag.String("rmask", "", "Mask file path for removing area")
-	faceDetect     = flag.Bool("faceDetect", false, "Use face detection")
-	textDetect     = flag.Bool("textDetect", false, "Use text detection")
-	faceAngle      = flag.Float64("angle", 0.0, "Face rotation angle")
-	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
+	source          = flag.String("in", pipeName, "Source")
+	destination     = flag.String("out", pipeName, "Destination")
+	blurRadius      = flag.Int("blur", 4, "Blur radius")
+	sobelThreshold  = flag.Int("sobel", 2, "Sobel filter threshold")
+	gaussianSigma   = flag.Float64("gaussian", 1.5, "Gaussian Sigma")
+	lowThreshold    = flag.Float64("cannyLow", 50, "Canny low threshold")
+	highThreshold   = flag.Float64("cannyHigh", 300, "Canny high threshold")
+	newWidth        = flag.Int("width", 0, "New width")
+	newHeight       = flag.Int("height", 0, "New height")
+	percentage      = flag.Bool("perc", false, "Reduce image by percentage")
+	square          = flag.Bool("square", false, "Reduce image to square dimensions")
+	debug           = flag.Bool("debug", false, "Show the seams")
+	shapeType       = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
+	seamColor       = flag.String("color", "#ff0000", "Seam color")
+	preview         = flag.Bool("preview", true, "Show GUI window")
+	maskPath        = flag.String("mask", "", "Mask file path for retaining area")
+	rMaskPath       = flag.String("rmask", "", "Mask file path for removing area")
+	faceDetect      = flag.Bool("faceDetect", false, "Use face detection")
+	textDetect      = flag.Bool("textDetect", false, "Use text detection")
+	textDetInterval = flag.Int("textDetInterval", 1, "The sequence interval after the text detector should be re-activated. \n"+
+		"For a better performance this value can be increased, but to the detriment of accuracy.")
+	faceAngle = flag.Float64("angle", 0.0, "Face rotation angle")
+	workers   = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
 )
 
 func main() {
@@ -76,6 +78,7 @@ func main() {
 		Preview:            *preview,
 		FaceDetect:         *faceDetect,
 		TextDetect:         *textDetect,
+		TextDetInterval:    *textDetInterval,
 		FaceAngle:          *faceAngle,
 		SeamColor:          *seamColor,
 		ShapeType:          caire.ShapeType(*shapeType),

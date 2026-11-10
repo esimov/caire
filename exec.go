@@ -171,7 +171,7 @@ func (p *Processor) Execute(img *Image) {
 		img.printOpStatus(img.Dst, err)
 	}
 	if err == nil {
-		fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", common.DecorateText(
+		fmt.Fprintf(os.Stderr, "\nFinished in: %s\n", common.DecorateText(
 			common.FormatTime(time.Since(now)), common.SuccessMessage),
 		)
 	}

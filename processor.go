@@ -64,6 +64,7 @@ type Processor struct {
 	Preview            bool
 	FaceDetect         bool
 	TextDetect         bool
+	TextDetInterval    int
 	vRes               bool
 
 	// imgWorker transfers the intermediate images to the GUI preview.

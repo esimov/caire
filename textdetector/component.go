@@ -10,6 +10,7 @@ type Component struct {
 	*StrokeComponent
 	MinComponentHeight   int
 	MaxComponentHeight   int
+	MaxRayLength         int
 	MaxComponentAspect   float64
 	MaxStrokeStdDevRatio float64
 	MinComponentsPerLine int

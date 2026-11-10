@@ -26,6 +26,7 @@ var _ TextDetector = (*SWT)(nil)
 type Options struct {
 	minComponentHeight   int
 	maxComponentHeight   int
+	maxRayLength         int
 	maxComponentAspect   float64
 	maxStrokeStdDevRatio float64
 	maxHeightRatio       float64
@@ -41,6 +42,7 @@ func DefaultOptions() Options {
 	return Options{
 		minComponentHeight:   10,
 		maxComponentHeight:   300,
+		maxRayLength:         200,
 		maxComponentAspect:   10.0,
 		maxStrokeStdDevRatio: 0.5,
 		maxHeightRatio:       2.0,
@@ -59,6 +61,7 @@ func NewSWT(edgeDetector EdgeDetector, options Options) *SWT {
 	component := &Component{
 		MinComponentHeight:   options.minComponentHeight,
 		MaxComponentHeight:   options.maxComponentHeight,
+		MaxRayLength:         options.maxRayLength,
 		MaxComponentAspect:   options.maxComponentAspect,
 		MaxStrokeStdDevRatio: options.maxStrokeStdDevRatio,
 		MinComponentsPerLine: options.minComponentsPerLine,

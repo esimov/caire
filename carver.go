@@ -24,10 +24,11 @@ const maxFaceDetAttempts = 20
 const maxTextDetAttempts = 5
 
 var (
-	faceDetAttempts int
-	textDetAttempts int
-	isFaceDetected  bool
-	isTextDetected  bool
+	faceDetAttempts  int
+	textDetAttempts  int
+	textDetIteration int
+	isFaceDetected   bool
+	isTextDetected   bool
 )
 
 // Carver is the seam carving operation core structure, having as parameters the
@@ -131,6 +132,12 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 	}
 
+	// Avoid re-initializing the debug mask image for both face and text detection.
+	// Initialize only once when the debug mode is activated.
+	if p.Debug {
+		p.DebugMask = image.NewNRGBA(img.Bounds())
+	}
+
 	// Apply an opaque white color to the detected face area to avoid
 	// the seam carver to remove the pixels inside the face zone.
 	// This is simple technique to trick the Sobel detector to consider
@@ -150,7 +157,6 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 				face.Col+scale,
 				face.Row+scale,
 			)
-			p.DebugMask = image.NewNRGBA(img.Bounds())
 			draw.Draw(sobel, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 			draw.Draw(p.DebugMask, rect, &image.Uniform{color.White}, image.Point{}, draw.Src)
 		}
@@ -162,24 +168,28 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		p.EdgeDetector.Width = width
 		p.EdgeDetector.Height = height
 
-		if p.DebugMask == nil {
-			p.DebugMask = image.NewNRGBA(img.Bounds())
-		}
+		// Activate the text detector at certain interval only,
+		// in order to increase the seam carver performance.
+		if textDetIteration%p.TextDetInterval == 0 {
+			textDetIteration = 0
 
-		regions := p.TextDetector.Detect(img)
-		if len(regions) == 0 {
-			if textDetAttempts < maxTextDetAttempts {
-				textDetAttempts++
+			regions := p.TextDetector.Detect(img)
+			if len(regions) == 0 {
+				if textDetAttempts < maxTextDetAttempts {
+					textDetAttempts++
+				}
+			} else {
+				textDetAttempts = 0
+				isTextDetected = true
 			}
-		} else {
-			textDetAttempts = 0
-			isTextDetected = true
+
+			for _, region := range regions {
+				draw.Draw(sobel, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
+				draw.Draw(p.DebugMask, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
+			}
 		}
 
-		for _, region := range regions {
-			draw.Draw(sobel, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
-			draw.Draw(p.DebugMask, region, &image.Uniform{color.White}, image.Point{}, draw.Src)
-		}
+		textDetIteration++
 	}
 
 	// Traverse the pixel data of the binary file used for protecting the regions
