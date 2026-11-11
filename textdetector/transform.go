@@ -161,18 +161,6 @@ func (s *SWT) areOpposingGradients(start gradient, end gradient, direction float
 	return dot <= -0.866
 }
 
-func makeFloatBuffer(length int, initial float64) []float64 {
-	result := make([]float64, length)
-
-	if initial != 0 {
-		for i := range result {
-			result[i] = initial
-		}
-	}
-
-	return result
-}
-
 func calculateMedian(values []float64) float64 {
 	n := len(values)
 
@@ -200,9 +188,9 @@ func quickSelect(input []float64, k int) float64 {
 	for left <= right {
 		pivotIdx := partition(input, left, right)
 
-		if pivotIdx == k-1 {
+		if pivotIdx == k {
 			return input[pivotIdx]
-		} else if pivotIdx > k-1 {
+		} else if pivotIdx > k {
 			right = pivotIdx - 1
 		} else {
 			left = pivotIdx + 1
@@ -227,4 +215,16 @@ func partition(input []float64, left, right int) int {
 	input[i], input[right] = input[right], input[i]
 
 	return i
+}
+
+func makeFloatBuffer(length int, initial float64) []float64 {
+	result := make([]float64, length)
+
+	if initial != 0 {
+		for i := range result {
+			result[i] = initial
+		}
+	}
+
+	return result
 }
