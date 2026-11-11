@@ -186,12 +186,12 @@ func (c *CannyDetector) normalize(input []float64, targetMaximum float64) []cann
 		}
 	}
 
-	if maximum <= 0 {
-		return nil
-	}
-
 	scale := targetMaximum / maximum
 	result := make([]cannyPixel, len(input))
+
+	if maximum <= 0 {
+		return result
+	}
 
 	for i := range input {
 		switch {

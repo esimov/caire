@@ -52,7 +52,7 @@ type Color struct {
 	R, G, B float64
 }
 
-// NewBlend intantiates a new Blend.
+// NewBlend instantiates a new Blend.
 func NewBlend() *Blend {
 	return &Blend{
 		Modes: []BlendType{
