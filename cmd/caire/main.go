@@ -49,8 +49,8 @@ var (
 	rMaskPath       = flag.String("rmask", "", "Mask file path for removing area")
 	faceDetect      = flag.Bool("faceDetect", false, "Use face detection")
 	textDetect      = flag.Bool("textDetect", false, "Use text detection")
-	textDetInterval = flag.Int("textDetInterval", 1, "The sequence interval after the text detector should be re-activated. \n"+
-		"For a better performance this value can be increased, but to the detriment of accuracy.")
+	textDetInterval = flag.Int("textDetInterval", 1, "The time interval after the text detector should be re-activated. \n"+
+		"For a better performance this value can be increased, but to the detriment of accuracy")
 	faceAngle = flag.Float64("angle", 0.0, "Face rotation angle")
 	workers   = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
 )

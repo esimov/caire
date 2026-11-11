@@ -41,7 +41,7 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		minComponentHeight:   10,
-		maxComponentHeight:   300,
+		maxComponentHeight:   200,
 		maxRayLength:         200,
 		maxComponentAspect:   10.0,
 		maxStrokeStdDevRatio: 0.5,

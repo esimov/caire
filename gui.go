@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"math"
 	"math/rand"
 	"time"
 
@@ -159,27 +158,25 @@ func (g *Gui) initWindow(width, height int) {
 	g.cfg.color.randG = uint8(randomFloat(1, 2))
 	g.cfg.color.randB = uint8(randomFloat(1, 2))
 
-	g.cfg.window.width, g.cfg.window.height = float32(width), float32(height)
+	g.cfg.window.width = float32(width)
+	g.cfg.window.height = float32(height)
+
 	g.cfg.x = interval{min: 0, max: float64(width)}
 	g.cfg.y = interval{min: 0, max: float64(height)}
 
 	g.cfg.color.background = defaultBkgColor
 	g.cfg.color.fill = defaultFillColor
 
-	g.cfg.window.width, g.cfg.window.height = g.getWindowSize()
+	g.cfg.window.width, g.cfg.window.height = g.windowSize()
 	g.cfg.window.title = "Preview process..."
 }
 
-// getWindowSize returns the resized image dimension.
-func (g *Gui) getWindowSize() (float32, float32) {
+// windowSize returns the resized GUI window.
+func (g *Gui) windowSize() (float32, float32) {
 	width, height := g.cfg.window.width, g.cfg.window.height
-	// Maintain the image aspect ratio in case the image width and height is greater than the predefined window.
-	if width > maxScreenX || height > maxScreenY {
-		ratio := getRatio(width, height)
-		width = width * ratio
-		height = height * ratio
-	}
-	return width, height
+	ratio := getRatio(width, height)
+
+	return width * ratio, height * ratio
 }
 
 // Run is the core method of the Gio GUI application.
@@ -194,15 +191,14 @@ func (g *Gui) Run() error {
 		descRed, descGreen, descBlue bool
 	)
 
-	width := unit.Dp(g.cfg.window.width)
-	height := unit.Dp(g.cfg.window.height)
+	width, height := g.windowSize()
 
 	w := new(app.Window)
 	w.Option(
 		app.Title(g.cfg.window.title),
-		app.Size(width, height),
-		app.MinSize(width, height),
-		app.MaxSize(width, height),
+		app.Size(unit.Dp(width), unit.Dp(height)),
+		app.MinSize(unit.Dp(width), unit.Dp(height)),
+		app.MaxSize(unit.Dp(width), unit.Dp(height)),
 	)
 
 	// Center the window.
@@ -374,62 +370,51 @@ func (g *Gui) draw() {
 	paint.Fill(g.ctx.Ops, c)
 
 	if g.process.img != nil {
-		src := paint.NewImageOp(g.process.img)
+		img := g.process.img
+		src := paint.NewImageOp(img)
 		src.Add(g.ctx.Ops)
 
 		layout.Stack{}.Layout(g.ctx,
 			layout.Stacked(func(gtx C) D {
-				paint.FillShape(gtx.Ops, c,
-					clip.Rect{Max: g.ctx.Constraints.Max}.Op(),
-				)
-				return layout.UniformInset(unit.Dp(0)).Layout(gtx,
-					func(gtx C) D {
-						widget.Image{
-							Src:   src,
-							Scale: 1 / float32(unit.Dp(1)),
-							Fit:   widget.Contain,
-						}.Layout(gtx)
+				imageWidget := widget.Image{
+					Src:      src,
+					Scale:    1 / float32(unit.Dp(1)),
+					Fit:      widget.Contain,
+					Position: layout.Center,
+				}
 
-						if seam, ok := g.huds[hudShowSeams]; ok {
-							if seam.enabled.Value {
-								tr := f32.Affine2D{}
-								screen := layout.FPt(g.ctx.Constraints.Max)
-								width, height := float32(g.process.img.Bounds().Dx()), float32(g.process.img.Bounds().Dy())
-								sw, sh := float32(screen.X), float32(screen.Y)
+				imageDimension := imageWidget.Layout(gtx)
 
-								if sw > width {
-									ratio := sw / width
-									tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(1, ratio))
-								} else if sh > height {
-									ratio := sh / height
-									tr = tr.Scale(f32.Pt(sw/2, sh/2), f32.Pt(ratio, 1))
-								}
+				if seam, ok := g.huds[hudShowSeams]; ok && seam.enabled.Value {
+					imageWidth := float32(img.Bounds().Dx())
+					imageHeight := float32(img.Bounds().Dy())
 
-								if g.proc.vRes {
-									angle := float32(270 * math.Pi / 180)
-									half := float32(math.Round(float64(sh*0.5-height*0.5) * 0.5))
+					renderedWidth := float32(imageDimension.Size.X)
+					renderedHeight := float32(imageDimension.Size.Y)
 
-									ox := math.Abs(float64(sw - (sw - (sw/2 - sh/2))))
-									oy := math.Abs(float64(sh - (sh - (sw/2 - height/2 + half))))
-									tr = tr.Rotate(f32.Pt(sw/2, sh/2), -angle)
+					scaleX := renderedWidth / imageWidth
+					scaleY := renderedHeight / imageHeight
 
-									if screen.X > screen.Y {
-										tr = tr.Offset(f32.Pt(float32(ox), float32(oy)))
-									} else {
-										tr = tr.Offset(f32.Pt(float32(-ox), float32(-oy)))
-									}
-								}
-								op.Affine(tr).Add(gtx.Ops)
+					offsetX := float32(gtx.Constraints.Max.X-imageDimension.Size.X) / 2
+					offsetY := float32(gtx.Constraints.Max.Y-imageDimension.Size.Y) / 2
 
-								for _, s := range g.process.seams {
-									dpx := gtx.Dp(unit.Dp(s.X))
-									dpy := gtx.Dp(unit.Dp(s.Y))
-									g.DrawSeam(g.proc.ShapeType, float32(dpx), float32(dpy), 1.0)
-								}
-							}
+					for _, seam := range g.process.seams {
+						x := float32(seam.X)
+						y := float32(seam.Y)
+
+						if g.proc.vRes {
+							originalHeight := float32(img.Bounds().Dx())
+							x, y = originalHeight-1-y, x
 						}
-						return layout.Dimensions{Size: gtx.Constraints.Max}
-					})
+
+						px := offsetX + x*scaleX
+						py := offsetY + y*scaleY
+
+						g.DrawSeam(g.proc.ShapeType, px, py, 1)
+					}
+				}
+
+				return imageDimension
 			}),
 		)
 	}

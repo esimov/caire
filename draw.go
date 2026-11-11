@@ -20,13 +20,11 @@ const (
 // DrawSeam visualizes the seam carver in action when the preview mode is activated.
 // It receives as parameters the shape type, the seam (x,y) coordinates and it's thickness.
 func (g *Gui) DrawSeam(shape ShapeType, x, y, thickness float32) {
-	r := getRatio(g.cfg.window.width, g.cfg.window.height)
-
 	switch shape {
 	case Circle:
-		g.drawCircle(x*r, y*r, thickness)
+		g.drawCircle(x, y, thickness)
 	case Line:
-		g.drawLine(x*r, y*r, thickness)
+		g.drawLine(x, y, thickness)
 	}
 }
 
@@ -110,11 +108,12 @@ func (g *Gui) getFillColor() color.Color {
 // getRatio returns the image aspect ratio.
 func getRatio(width, height float32) float32 {
 	var ratio float32 = 1
-	if width > maxScreenX && height > maxScreenY {
+	if width > maxScreenX || height > maxScreenY {
 		wr := maxScreenX / float32(width)  // width ratio
 		hr := maxScreenY / float32(height) // height ratio
 
 		ratio = common.Median(wr, hr)
 	}
+
 	return ratio
 }
