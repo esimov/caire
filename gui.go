@@ -168,7 +168,7 @@ func (g *Gui) initWindow(width, height int) {
 	g.cfg.color.fill = defaultFillColor
 
 	g.cfg.window.width, g.cfg.window.height = g.windowSize()
-	g.cfg.window.title = "Preview process..."
+	g.cfg.window.title = "CAIRE - Preview"
 }
 
 // windowSize returns the resized GUI window.
@@ -241,7 +241,7 @@ func (g *Gui) Run() error {
 		select {
 		case res := <-g.process.worker:
 			if res.done {
-				w.Option(app.Title("Done!"))
+				w.Option(app.Title("CAIRE - Success!"))
 				g.process.isDone = true
 				break
 			}

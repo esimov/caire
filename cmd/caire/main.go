@@ -30,25 +30,26 @@ var Version string
 
 var (
 	// Flags
-	source          = flag.String("in", pipeName, "Source")
-	destination     = flag.String("out", pipeName, "Destination")
-	blurRadius      = flag.Int("blur", 4, "Blur radius")
-	sobelThreshold  = flag.Int("sobel", 2, "Sobel filter threshold")
-	gaussianSigma   = flag.Float64("gaussian", 1.5, "Gaussian Sigma")
-	lowThreshold    = flag.Float64("cannyLow", 50, "Canny low threshold")
-	highThreshold   = flag.Float64("cannyHigh", 300, "Canny high threshold")
-	newWidth        = flag.Int("width", 0, "New width")
-	newHeight       = flag.Int("height", 0, "New height")
-	percentage      = flag.Bool("perc", false, "Reduce image by percentage")
-	square          = flag.Bool("square", false, "Reduce image to square dimensions")
-	debug           = flag.Bool("debug", false, "Show the seams")
-	shapeType       = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
-	seamColor       = flag.String("color", "#ff0000", "Seam color")
-	preview         = flag.Bool("preview", true, "Show GUI window")
-	maskPath        = flag.String("mask", "", "Mask file path for retaining area")
-	rMaskPath       = flag.String("rmask", "", "Mask file path for removing area")
-	faceDetect      = flag.Bool("faceDetect", false, "Use face detection")
-	textDetect      = flag.Bool("textDetect", false, "Use text detection")
+	source         = flag.String("in", pipeName, "Source image")
+	destination    = flag.String("out", pipeName, "Destination image")
+	blurRadius     = flag.Int("blur", 4, "Blur radius")
+	sobelThreshold = flag.Int("sobel", 2, "Sobel filter threshold")
+	gaussianSigma  = flag.Float64("gaussian", 1.5, "Gaussian sigma for text detection")
+	lowThreshold   = flag.Float64("cannyLow", 50, "Canny low threshold")
+	highThreshold  = flag.Float64("cannyHigh", 300, "Canny high threshold")
+	newWidth       = flag.Int("width", 0, "Desired image width")
+	newHeight      = flag.Int("height", 0, "Desired image height")
+	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
+	square         = flag.Bool("square", false, "Reduce image to square dimensions")
+	debug          = flag.Bool("debug", false, "Show the seams")
+	shapeType      = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
+	seamColor      = flag.String("color", "#ff0000", "Seam color")
+	preview        = flag.Bool("preview", true, "Show GUI window")
+	maskPath       = flag.String("mask", "", "File path to the mask used to retain specific image areas. \n"+
+		"These areas won't be altered")
+	rMaskPath       = flag.String("rmask", "", "File path to the mask used to force removing specific image areas.")
+	faceDetect      = flag.Bool("faceDetect", false, "Activate face detection")
+	textDetect      = flag.Bool("textDetect", false, "Activate text detection")
 	textDetInterval = flag.Int("textDetInterval", 1, "The time interval after the text detector should be re-activated. \n"+
 		"For a better performance this value can be increased, but to the detriment of accuracy")
 	faceAngle = flag.Float64("angle", 0.0, "Face rotation angle")
@@ -101,9 +102,8 @@ func main() {
 		}
 
 		if *preview {
-			// When the preview mode is activated we have to execute the resizing process
-			// in a separate goroutine in order to not block the Gio thread,
-			// which have to run on the main OS thread of the operating systems like MacOS.
+			// Spawn the image resize process in a new goroutine to avoid blocking the Gio thread,
+			// which should run in the main OS thread on operating systems like MacOS.
 			go proc.Execute(op)
 			app.Main()
 		} else {

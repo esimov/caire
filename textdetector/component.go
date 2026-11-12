@@ -8,16 +8,35 @@ import (
 
 type Component struct {
 	*StrokeComponent
-	MinComponentHeight   int
-	MaxComponentHeight   int
-	MaxRayLength         int
-	MaxComponentAspect   float64
+	// MinComponentHeight defines the minimum height of a valid character component.
+	MinComponentHeight int
+
+	// MaxComponentHeight defines the maximum height of a valid character component.
+	MaxComponentHeight int
+
+	// MaxRayLength defines the maximum distance an SWT ray can travel when searching for an opposing edge.
+	MaxRayLength int
+
+	// MaxComponentAspect defines the maximum width-to-height or height-to-width ratio of a character component.
+	MaxComponentAspect float64
+
+	// MaxStrokeStdDevRatio defines the maximum allowed stroke-width variation within a component.
 	MaxStrokeStdDevRatio float64
+
+	// MinComponentsPerLine defines the minimum number of compatible components required to form a text region.
 	MinComponentsPerLine int
-	MaxHeightRatio       float64
+
+	// MaxHeightRatio defines the maximum allowed height difference ratio between grouped components.
+	MaxHeightRatio float64
+
+	// MaxMedianStrokeRatio defines the maximum allowed median stroke-width ratio between grouped components.
 	MaxMedianStrokeRatio float64
-	MaxOffset            float64
-	MaxGap               float64
+
+	// MaxOffset controls how far character group components can be misaligned relative to each other.
+	MaxOffset float64
+
+	// MaxGap defines the maximum allowed gap between the grouped character components.
+	MaxGap float64
 }
 
 type StrokeComponent struct {

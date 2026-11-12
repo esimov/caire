@@ -48,7 +48,7 @@ func DefaultOptions() Options {
 		maxHeightRatio:       2.0,
 		maxMedianStrokeRatio: 2.0,
 		maxGap:               2.5,
-		maxOffset:            0.6,
+		maxOffset:            0.5,
 		minComponentsPerLine: 3,
 		minComponentPixels:   2,
 		maxStrokeRatio:       2.0,
