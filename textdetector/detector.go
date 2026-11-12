@@ -4,8 +4,8 @@ import "image"
 
 // EdgeDetector is the generic interface for edge detection.
 // Any kind of edge detection algorithm can be plugged in which satisfies this method definition.
-// The Stroke Width Transform integration is using the Canny Edge detector,
-// because of it's accuracy and efficiency.
+// The Stroke Width Transform implementation uses the Canny Edge detector
+// due to its higher accuracy and efficiency.
 type EdgeDetector interface {
 	// Detect returns the detected edges together with their gradient.
 	Detect(grayscale []uint8) ([]bool, []gradient, error)
