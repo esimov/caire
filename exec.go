@@ -16,8 +16,8 @@ import (
 
 	"slices"
 
+	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	"github.com/esimov/caire/utils"
 	"golang.org/x/term"
 )
 
@@ -53,39 +53,39 @@ func Resize(s SeamCarver, img *image.NRGBA) (image.Image, error) {
 func (p *Processor) Execute(img *Image) {
 	var err error
 	defaultMsg := fmt.Sprintf("%s %s",
-		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-		utils.DecorateText("⇢ resizing image (be patient, it may take a while)...", utils.DefaultMessage),
+		common.DecorateText("⚡ CAIRE", common.StatusMessage),
+		common.DecorateText("⇢ resizing image (be patient, it may take a while)...", common.DefaultMessage),
 	)
-	p.Spinner = utils.NewSpinner(defaultMsg, time.Millisecond*80)
+	p.Spinner = common.NewSpinner(defaultMsg, time.Millisecond*80)
 
 	// Supported files
-	validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif"}
+	validExtensions := []string{".jpg", ".png", ".jpeg", ".bmp", ".gif", ".webp"}
 
 	// Check if source path is a local image or URL.
-	if utils.IsValidUrl(img.Src) {
-		src, err := utils.DownloadImage(img.Src)
+	if common.IsValidUrl(img.Src) {
+		src, err := common.DownloadImage(img.Src)
 		if src != nil {
 			defer os.Remove(src.Name())
 		}
 
 		if err != nil {
 			log.Fatalf(
-				utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
-				utils.DecorateText(err.Error(), utils.DefaultMessage),
+				common.DecorateText("Failed to load the source image: %v", common.ErrorMessage),
+				common.DecorateText(err.Error(), common.DefaultMessage),
 			)
 		}
 		fs, err = src.Stat()
 		if err != nil {
 			log.Fatalf(
-				utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
-				utils.DecorateText(err.Error(), utils.DefaultMessage),
+				common.DecorateText("Failed to load the source image: %v", common.ErrorMessage),
+				common.DecorateText(err.Error(), common.DefaultMessage),
 			)
 		}
 		img, err := os.Open(src.Name())
 		if err != nil {
 			log.Fatalf(
-				utils.DecorateText("Unable to open the temporary image file: %v", utils.ErrorMessage),
-				utils.DecorateText(err.Error(), utils.DefaultMessage),
+				common.DecorateText("Unable to open the temporary image file: %v", common.ErrorMessage),
+				common.DecorateText(err.Error(), common.DefaultMessage),
 			)
 		}
 
@@ -99,8 +99,8 @@ func (p *Processor) Execute(img *Image) {
 		}
 		if err != nil {
 			log.Fatalf(
-				utils.DecorateText("Failed to load the source image: %v", utils.ErrorMessage),
-				utils.DecorateText(err.Error(), utils.DefaultMessage),
+				common.DecorateText("Failed to load the source image: %v", common.ErrorMessage),
+				common.DecorateText(err.Error(), common.DefaultMessage),
 			)
 		}
 	}
@@ -116,8 +116,8 @@ func (p *Processor) Execute(img *Image) {
 			err = os.Mkdir(img.Dst, 0755)
 			if err != nil {
 				log.Fatalf(
-					utils.DecorateText("Unable to get dir stats: %v\n", utils.ErrorMessage),
-					utils.DecorateText(err.Error(), utils.DefaultMessage),
+					common.DecorateText("Unable to get dir stats: %v\n", common.ErrorMessage),
+					common.DecorateText(err.Error(), common.DefaultMessage),
 				)
 			}
 		}
@@ -158,21 +158,21 @@ func (p *Processor) Execute(img *Image) {
 		}
 
 		if err = <-errc; err != nil {
-			fmt.Fprintf(os.Stderr, "%s", utils.DecorateText(err.Error(), utils.ErrorMessage))
+			fmt.Fprintf(os.Stderr, "%s", common.DecorateText(err.Error(), common.ErrorMessage))
 		}
 
 	case mode.IsRegular() || mode&os.ModeNamedPipe != 0: // check for regular files or pipe names
 		ext := filepath.Ext(img.Dst)
 		if !slices.Contains(validExtensions, ext) && img.Dst != img.PipeName {
-			log.Fatalf("%s", utils.DecorateText(fmt.Sprintf("%v file type not supported", ext), utils.ErrorMessage))
+			log.Fatalf("%s", common.DecorateText(fmt.Sprintf("%v file type not supported", ext), common.ErrorMessage))
 		}
 
 		err = img.process(p, img.Src, img.Dst)
 		img.printOpStatus(img.Dst, err)
 	}
 	if err == nil {
-		fmt.Fprintf(os.Stderr, "\nExecution time: %s\n", utils.DecorateText(
-			utils.FormatTime(time.Since(now)), utils.SuccessMessage),
+		fmt.Fprintf(os.Stderr, "\nFinished in: %s\n", common.DecorateText(
+			common.FormatTime(time.Since(now)), common.SuccessMessage),
 		)
 	}
 }
@@ -214,15 +214,15 @@ func (img *Image) process(p *Processor, in, out string) error {
 	p.Spinner.Start()
 
 	successMsg = fmt.Sprintf("%s %s %s",
-		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-		utils.DecorateText("⇢", utils.DefaultMessage),
-		utils.DecorateText("the image has been resized successfully ✔", utils.SuccessMessage),
+		common.DecorateText("⚡ CAIRE", common.StatusMessage),
+		common.DecorateText("⇢", common.DefaultMessage),
+		common.DecorateText("the image has been resized successfully ✔", common.SuccessMessage),
 	)
 
 	errorMsg = fmt.Sprintf("%s %s %s",
-		utils.DecorateText("⚡ CAIRE", utils.StatusMessage),
-		utils.DecorateText("resizing image failed...", utils.DefaultMessage),
-		utils.DecorateText("✘", utils.ErrorMessage),
+		common.DecorateText("⚡ CAIRE", common.StatusMessage),
+		common.DecorateText("resizing image failed...", common.DefaultMessage),
+		common.DecorateText("✘", common.ErrorMessage),
 	)
 
 	src, dst, err := img.pathToFile(in, out)
@@ -264,7 +264,7 @@ func (img *Image) process(p *Processor, in, out string) error {
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}
-		p.Mask = cimage.Dither(mask)
+		p.Mask = cimage.Dither(cimage.ImgToNRGBA(mask))
 		p.DebugMask = p.Mask
 	}
 
@@ -273,7 +273,7 @@ func (img *Image) process(p *Processor, in, out string) error {
 		if err != nil {
 			return fmt.Errorf("cannot decode image: %w", err)
 		}
-		p.RMask = cimage.Dither(rmask)
+		p.RMask = cimage.Dither(cimage.ImgToNRGBA(rmask))
 		p.DebugMask = p.RMask
 	}
 
@@ -304,7 +304,7 @@ func (img *Image) pathToFile(in, out string) (io.Reader, io.Writer, error) {
 		err error
 	)
 	// Check if the source path is a local image or URL.
-	if utils.IsValidUrl(in) {
+	if common.IsValidUrl(in) {
 		src = imgFile
 	} else {
 		// Check if the source is a pipe name or a regular file.
@@ -341,14 +341,14 @@ func (img *Image) pathToFile(in, out string) (io.Reader, io.Writer, error) {
 func (img *Image) printOpStatus(fname string, err error) {
 	if err != nil {
 		log.Fatalf(
-			utils.DecorateText("\nError resizing the image: %s", utils.ErrorMessage),
-			utils.DecorateText(fmt.Sprintf("\n\tReason: %v\n", err.Error()), utils.DefaultMessage),
+			common.DecorateText("\nError resizing the image: %s", common.ErrorMessage),
+			common.DecorateText(fmt.Sprintf("\n\tReason: %v\n", err.Error()), common.DefaultMessage),
 		)
 	} else {
 		if fname != img.PipeName {
 			fmt.Fprintf(os.Stderr, "\nThe image has been saved as: %s %s\n\n",
-				utils.DecorateText(filepath.Base(fname), utils.SuccessMessage),
-				utils.DefaultColor,
+				common.DecorateText(filepath.Base(fname), common.SuccessMessage),
+				common.DefaultColor,
 			)
 		}
 	}

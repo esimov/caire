@@ -15,7 +15,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
 )
 
 type BlendType int
@@ -52,7 +52,7 @@ type Color struct {
 	R, G, B float64
 }
 
-// NewBlend intantiates a new Blend.
+// NewBlend instantiates a new Blend.
 func NewBlend() *Blend {
 	return &Blend{
 		Modes: []BlendType{
@@ -66,7 +66,7 @@ func NewBlend() *Blend {
 
 // Set activate one of the supported blend modes.
 func (bl *Blend) Set(blendType BlendType) error {
-	if utils.Contains(bl.Modes, blendType) {
+	if common.Contains(bl.Modes, blendType) {
 		bl.CurrentOp = blendType
 		return nil
 	}
@@ -99,8 +99,8 @@ func (bl *Blend) clip(rgb Color) Color {
 	r, g, b := rgb.R, rgb.G, rgb.B
 
 	l := bl.Lum(rgb)
-	min := utils.Min(r, g, b)
-	max := utils.Max(r, g, b)
+	min := common.Min(r, g, b)
+	max := common.Max(r, g, b)
 
 	if min < 0 {
 		r = l + (((r - l) * l) / (l - min))
@@ -118,7 +118,7 @@ func (bl *Blend) clip(rgb Color) Color {
 
 // Sat gets the saturation of a color.
 func (bl *Blend) Sat(rgb Color) float64 {
-	return utils.Max(rgb.R, rgb.G, rgb.B) - utils.Min(rgb.R, rgb.G, rgb.B)
+	return common.Max(rgb.R, rgb.G, rgb.B) - common.Min(rgb.R, rgb.G, rgb.B)
 }
 
 // channel is a key/value struct pair used for sorting the color channels

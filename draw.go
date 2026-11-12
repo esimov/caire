@@ -7,7 +7,7 @@ import (
 	"gioui.org/f32"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
 )
 
 type ShapeType string
@@ -20,13 +20,11 @@ const (
 // DrawSeam visualizes the seam carver in action when the preview mode is activated.
 // It receives as parameters the shape type, the seam (x,y) coordinates and it's thickness.
 func (g *Gui) DrawSeam(shape ShapeType, x, y, thickness float32) {
-	r := getRatio(g.cfg.window.width, g.cfg.window.height)
-
 	switch shape {
 	case Circle:
-		g.drawCircle(x*r, y*r, thickness)
+		g.drawCircle(x, y, thickness)
 	case Line:
-		g.drawLine(x*r, y*r, thickness)
+		g.drawLine(x, y, thickness)
 	}
 }
 
@@ -43,7 +41,7 @@ func (g *Gui) drawCircle(x, y, radius float32) {
 	p1 = g.point(x+float32(sq), y).Sub(orig)
 	p2 = g.point(x-float32(sq), y).Sub(orig)
 
-	col := utils.HexToRGBA(g.proc.SeamColor)
+	col := common.HexToRGBA(g.proc.SeamColor)
 	g.setFillColor(col)
 
 	var path clip.Path
@@ -70,7 +68,7 @@ func (g *Gui) drawLine(x, y, thickness float32) {
 	path.Line(p2.Sub(path.Pos()))
 	path.Close()
 
-	col := utils.HexToRGBA(g.proc.SeamColor)
+	col := common.HexToRGBA(g.proc.SeamColor)
 	g.setFillColor(col)
 
 	defer clip.Stroke{Path: path.End(), Width: float32(thickness)}.Op().Push(g.ctx.Ops).Pop()
@@ -108,13 +106,14 @@ func (g *Gui) getFillColor() color.Color {
 }
 
 // getRatio returns the image aspect ratio.
-func getRatio(w, h float32) float32 {
-	var r float32 = 1
-	if w > maxScreenX && h > maxScreenY {
-		wr := maxScreenX / float32(w) // width ratio
-		hr := maxScreenY / float32(h) // height ratio
+func getRatio(width, height float32) float32 {
+	var ratio float32 = 1
+	if width > maxScreenX || height > maxScreenY {
+		wr := maxScreenX / float32(width)  // width ratio
+		hr := maxScreenY / float32(height) // height ratio
 
-		r = utils.Max(wr, hr)
+		ratio = common.Median(wr, hr)
 	}
-	return r
+
+	return ratio
 }

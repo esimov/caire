@@ -9,7 +9,7 @@ import (
 
 	"gioui.org/app"
 	"github.com/esimov/caire"
-	"github.com/esimov/caire/utils"
+	"github.com/esimov/caire/common"
 )
 
 const HelpBanner = `
@@ -30,23 +30,30 @@ var Version string
 
 var (
 	// Flags
-	source         = flag.String("in", pipeName, "Source")
-	destination    = flag.String("out", pipeName, "Destination")
+	source         = flag.String("in", pipeName, "Source image")
+	destination    = flag.String("out", pipeName, "Destination image")
 	blurRadius     = flag.Int("blur", 4, "Blur radius")
 	sobelThreshold = flag.Int("sobel", 2, "Sobel filter threshold")
-	newWidth       = flag.Int("width", 0, "New width")
-	newHeight      = flag.Int("height", 0, "New height")
+	gaussianSigma  = flag.Float64("gaussian", 1.5, "Gaussian sigma for text detection")
+	lowThreshold   = flag.Float64("cannyLow", 50, "Canny low threshold")
+	highThreshold  = flag.Float64("cannyHigh", 300, "Canny high threshold")
+	newWidth       = flag.Int("width", 0, "Desired image width")
+	newHeight      = flag.Int("height", 0, "Desired image height")
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
 	debug          = flag.Bool("debug", false, "Show the seams")
 	shapeType      = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
 	seamColor      = flag.String("color", "#ff0000", "Seam color")
 	preview        = flag.Bool("preview", true, "Show GUI window")
-	maskPath       = flag.String("mask", "", "Mask file path for retaining area")
-	rMaskPath      = flag.String("rmask", "", "Mask file path for removing area")
-	faceDetect     = flag.Bool("face", false, "Use face detection")
-	faceAngle      = flag.Float64("angle", 0.0, "Face rotation angle")
-	workers        = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
+	maskPath       = flag.String("mask", "", "File path to the mask used to retain specific image areas. \n"+
+		"These areas won't be altered")
+	rMaskPath       = flag.String("rmask", "", "File path to the mask used to force removing specific image areas.")
+	faceDetect      = flag.Bool("faceDetect", false, "Activate face detection")
+	textDetect      = flag.Bool("textDetect", false, "Activate text detection")
+	textDetInterval = flag.Int("textDetInterval", 1, "The time interval after the text detector should be re-activated. \n"+
+		"For a better performance this value can be increased, but to the detriment of accuracy")
+	faceAngle = flag.Float64("angle", 0.0, "Face rotation angle")
+	workers   = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")
 )
 
 func main() {
@@ -59,25 +66,30 @@ func main() {
 	flag.Parse()
 
 	proc := &caire.Processor{
-		BlurRadius:     *blurRadius,
-		SobelThreshold: *sobelThreshold,
-		NewWidth:       *newWidth,
-		NewHeight:      *newHeight,
-		Percentage:     *percentage,
-		Square:         *square,
-		Debug:          *debug,
-		Preview:        *preview,
-		FaceDetect:     *faceDetect,
-		FaceAngle:      *faceAngle,
-		SeamColor:      *seamColor,
-		ShapeType:      caire.ShapeType(*shapeType),
+		BlurRadius:         *blurRadius,
+		SobelThreshold:     *sobelThreshold,
+		GaussianSigma:      *gaussianSigma,
+		CannyLowThreshold:  *lowThreshold,
+		CannyHighThreshold: *highThreshold,
+		NewWidth:           *newWidth,
+		NewHeight:          *newHeight,
+		Percentage:         *percentage,
+		Square:             *square,
+		Debug:              *debug,
+		Preview:            *preview,
+		FaceDetect:         *faceDetect,
+		TextDetect:         *textDetect,
+		TextDetInterval:    *textDetInterval,
+		FaceAngle:          *faceAngle,
+		SeamColor:          *seamColor,
+		ShapeType:          caire.ShapeType(*shapeType),
 	}
 
 	if !(*newWidth > 0 || *newHeight > 0 || *percentage || *square) {
 		flag.Usage()
 		log.Fatalf("%s%s",
-			utils.DecorateText("\nPlease provide a width, height or percentage for image rescaling!", utils.ErrorMessage),
-			utils.DefaultColor,
+			common.DecorateText("\nPlease provide a width, height or percentage for image rescaling!", common.ErrorMessage),
+			common.DefaultColor,
 		)
 	} else {
 		op := &caire.Image{
@@ -90,9 +102,8 @@ func main() {
 		}
 
 		if *preview {
-			// When the preview mode is activated we have to execute the resizing process
-			// in a separate goroutine in order to not block the Gio thread,
-			// which have to run on the main OS thread of the operating systems like MacOS.
+			// Spawn the image resize process in a new goroutine to avoid blocking the Gio thread,
+			// which should run in the main OS thread on operating systems like MacOS.
 			go proc.Execute(op)
 			app.Main()
 		} else {
