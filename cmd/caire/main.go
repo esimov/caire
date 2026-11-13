@@ -36,21 +36,21 @@ var (
 	sobelThreshold = flag.Int("sobel", 2, "Sobel filter threshold")
 	gaussianSigma  = flag.Float64("gaussian", 1.5, "Gaussian sigma for text detection")
 	lowThreshold   = flag.Float64("cannyLow", 50, "Canny low threshold")
-	highThreshold  = flag.Float64("cannyHigh", 300, "Canny high threshold")
+	highThreshold  = flag.Float64("cannyHigh", 120, "Canny high threshold")
 	newWidth       = flag.Int("width", 0, "Desired image width")
 	newHeight      = flag.Int("height", 0, "Desired image height")
 	percentage     = flag.Bool("perc", false, "Reduce image by percentage")
 	square         = flag.Bool("square", false, "Reduce image to square dimensions")
-	debug          = flag.Bool("debug", false, "Show the seams")
+	debug          = flag.Bool("debug", false, "Enable/disable debug mode in preview window")
 	shapeType      = flag.String("shape", "circle", "Shape type used for debugging: circle|line")
 	seamColor      = flag.String("color", "#ff0000", "Seam color")
 	preview        = flag.Bool("preview", true, "Show GUI window")
-	maskPath       = flag.String("mask", "", "File path to the mask used to retain specific image areas. \n"+
+	maskPath       = flag.String("mask", "", "File path to the mask image used to retain specific image areas. \n"+
 		"These areas won't be altered")
-	rMaskPath       = flag.String("rmask", "", "File path to the mask used to force removing specific image areas.")
+	rMaskPath       = flag.String("rmask", "", "File path to the mask image used to force removing specific image areas.")
 	faceDetect      = flag.Bool("faceDetect", false, "Activate face detection")
 	textDetect      = flag.Bool("textDetect", false, "Activate text detection")
-	textDetInterval = flag.Int("textDetInterval", 1, "The time interval after the text detector should be re-activated. \n"+
+	textDetInterval = flag.Int("textDetInterval", 1, "The number of cycles after the text detector should be re-activated. \n"+
 		"For a better performance this value can be increased, but to the detriment of accuracy")
 	faceAngle = flag.Float64("angle", 0.0, "Face rotation angle")
 	workers   = flag.Int("conc", runtime.NumCPU(), "Number of files to process concurrently")

@@ -12,7 +12,9 @@ type CannyDetector struct {
 	Width         int
 	Height        int
 	GaussianSigma float64
-	LowThreshold  float64
+	// Minimum cut-off suppression of gradient magnitudes
+	LowThreshold float64
+	// Maximum cut-off suppression of gradient magnitudes
 	HighThreshold float64
 }
 

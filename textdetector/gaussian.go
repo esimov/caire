@@ -69,9 +69,7 @@ func (c *CannyDetector) gaussianKernel(sigma float64) []float64 {
 	var sum float64
 
 	for i := -radius; i <= radius; i++ {
-		value := math.Exp(
-			-float64(i*i) / (2 * sigma * sigma),
-		)
+		value := math.Exp(-float64(i*i) / (2 * math.Pow(sigma, 2)))
 
 		kernel[i+radius] = value
 		sum += value
