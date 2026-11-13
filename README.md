@@ -91,13 +91,13 @@ The following flags are supported:
 
 <p align="center"><img alt="GUI preview" title="GUI preview" src="https://github.com/esimov/caire/raw/master/gui_preview.gif"></p>
 
-A GUI preview mode is also incorporated into the library for in time process visualization. The [Gio](http://gioui.org/) GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) .
+A GUI interface is also incorporated into the library to visualize the process in real time. The GUI is based on the [Gio](http://gioui.org/) library. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) .
 
-The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivated.
+The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivated by default.
 
 ## Face detection
 
-The library is capable of detecting human faces prior resizing the images by using the lightweight Pigo (https://github.com/esimov/pigo) face detection library.
+The library is capable to detect human faces prior resizing the images by using the lightweight Pigo (https://github.com/esimov/pigo) face detection library.
 
 The image below illustrates the application capabilities for human face detection prior resizing. It's clearly visible that with face detection activated the algorithm will avoid cropping pixels inside the detected faces, retaining the face zone unaltered.
 
@@ -118,7 +118,7 @@ $ caire -in input.jpg -out output.jpg -face=1 -perc=1 -width=20
 
 ## Text detection
 
-Starting from **v1.6.0** the library encompass text detection capabilities also with the desired scope to avoid the seam carver to remove (not even accidentally) text areas. This is hidden behind a feature flag named `-textDetect`. 
+Starting from **v1.6.0** the library encompass text detection capabilities also, with the desired scope to avoid the seam carver to remove (not even accidentally) text areas. This is hidden behind a feature flag named `-textDetect`. 
 
 Once it's activated the text detector will scan the image for text areas having identical characteristics, and marks them as grouped components belonging to the same zone. Each of the detected text zone then will get an increased pixel intensity, which tricks the Sobel detector to treat them as areas which shouldn't be altered by the seam carver. However this can generate false positive results, so adapt the flags to each image in particular. 
 
