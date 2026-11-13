@@ -118,11 +118,16 @@ $ caire -in input.jpg -out output.jpg -faceDetect=1 -perc=1 -width=20
 
 ## Text detection
 
-Starting from **v1.6.0** the library encompass text detection capabilities also, with the desired scope to avoid the seam carver to remove (not even accidentally) text areas. This is hidden behind a feature flag named `-textDetect`. 
+Starting from **v1.6.0** the library support text detection capabilities also. This is hidden behind a feature flag named `-textDetect`. 
 
-Once it's activated the text detector will scan the image for text areas having identical characteristics, and marks them as grouped components belonging to the same zone. Each of the detected text zone then will get an increased pixel intensity, which tricks the Sobel detector to treat them as areas which shouldn't be altered by the seam carver. However this can generate false positive results, so adapt the flags to each image in particular. 
+Once it's activated the text detector will scan the image for text areas with identical characteristics, and marks them as grouped components belonging to the same zone. Then we increase the pixel intensity of each detected text zone, which tricks the Sobel detector to treat them as areas which shouldn't be altered by the seam carver. However this can generate false positive results, so adapt the flags to each image in particular. 
 
-As a rule of thumb, try to avoid using the `-textDetect` flag when the image does not have texts inside. Otherwise play with the `-gaussian`, `-cannyHigh` and `-cannyLow` parameters. These will tell the Canny detector how to threat the gradient changes in edge detection.
+As a rule of thumb, try to avoid using the `-textDetect` flag when the image does not contains texts. Otherwise play with the `-gaussian`, `-cannyHigh` and `-cannyLow` parameters. These will tell the Canny detector how to threat the gradient changes in edge detection.
+
+#### Example
+| Text detection activated | Text detection deactivated |
+| --- | --- |
+| ![text_detection_disabled](https://github.com/user-attachments/assets/1949187a-252c-4d35-91e1-0f3cc4dc68b6) | ![text_detection_enabled](https://github.com/user-attachments/assets/7f097494-b343-4e9c-9a93-7a8b70fed58e)
 
 Below is a screen recording of the text detector in action:
 
