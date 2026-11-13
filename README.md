@@ -29,15 +29,14 @@
 Key features which differentiates this library from the other existing open source solutions:
 
 - [x] **GUI progress indicator**
+- [x] [Face detection support to avoid face deformation](#face-detection)
+- [x] [Text detection support to avoid text deformation](#text-detection)
 - [x] Customizable command line support
 - [x] Support for both shrinking or enlarging the image
 - [x] Resize image both vertically and horizontally
-- [x] Face detection to avoid face deformation
-- [x] Support for multiple output image type (jpg, jpeg, png, bmp)
+- [x] Support for multiple output image type (jpg, jpeg, png, bmp, webp)
 - [x] Support for `stdin` and `stdout` pipe commands
 - [x] Can process whole directories recursively and concurrently
-- [x] Use of sobel threshold for fine tuning
-- [x] Use of blur filter for increased edge detection
 - [x] Support for squaring the image with a single command
 - [x] Support for proportional scaling
 - [x] Support for protective mask
@@ -58,36 +57,43 @@ The library can also be installed via Homebrew.
 $ brew install caire
 ```
 
-## Usage
-
-```bash
-$ caire -in input.jpg -out output.jpg
-```
-
-### Supported commands:
+## Supported commands:
 ```bash
 $ caire --help
 ```
 The following flags are supported:
 
-| Flag | Default | Description |
-| --- | --- | --- |
+| Flag | Type | Description | Default Value |
+| --- | --- | --- | --- |
 | `in` | - | Input file |
 | `out` | - | Output file |
-| `width` | n/a | New width |
-| `height` | n/a | New height |
-| `preview` | true | Show GUI window |
-| `perc` | false | Reduce image by percentage |
-| `square` | false | Reduce image to square dimensions |
-| `blur` | 4 | Blur radius |
-| `sobel` | 2 | Sobel filter threshold |
-| `debug` | false | Use debugger |
-| `face` | false | Use face detection |
-| `angle` | float | Plane rotated faces angle |
-| `mask` | string | Mask file path |
-| `rmask` | string | Remove mask file path |
-| `color` | string | Seam color (default `#ff0000`) |
-| `shape` | string | Shape type used for debugging: `circle`,`line` (default `circle`) |
+| `width` | n/a | Desired image width |
+| `height` | n/a | Desired image height |
+| `preview` | bool | Show GUI window | true
+| `debug` | bool | Enable/disable debugging in preview mode | false
+| `perc` | bool | Reduce image by percentage | false
+| `square` | bool | Reduce image to square dimensions | false
+| `blur` | int | Edge detector blur radius | 4
+| `sobel` | int | Sobel filter threshold | 2
+| `faceDetect` | bool | Activate face detection | false
+| `textDetect` | bool | Activate text detection | false
+| `textDetInterval` | int | The number of cycles after the text detector should be re-activated | 1
+| `cannyHigh` | float | Canny edge detector high threshold  | 300
+| `cannyLow` | float | Canny edge detector low threshold  | 50
+| `gaussian` | float | Gaussian sigma for text detection  | 1.5
+| `angle` | float | Face rotation angle | 0
+| `mask` | string |  File path to the mask image used to retain specific image areas |
+| `rmask` | string | File path to the mask image used to force removing specific image areas. |
+| `color` | string | Seam color | #ff0000
+| `shape` | string | Shape type used for debugging: `circle`,`line` | circle
+
+## GUI progress indicator
+
+<p align="center"><img alt="GUI preview" title="GUI preview" src="https://github.com/esimov/caire/raw/master/gui_preview.gif"></p>
+
+A GUI preview mode is also incorporated into the library for in time process visualization. The [Gio](http://gioui.org/) GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) .
+
+The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivated.
 
 ## Face detection
 
@@ -101,21 +107,31 @@ The image below illustrates the application capabilities for human face detectio
 
 [Sample image source](http://www.lens-rumors.com/wp-content/uploads/2014/12/EF-M-55-200mm-f4.5-6.3-IS-STM-sample.jpg)
 
-### GUI progress indicator
-
-<p align="center"><img alt="GUI preview" title="GUI preview" src="https://github.com/esimov/caire/raw/master/gui_preview.gif"></p>
-
-A GUI preview mode is also incorporated into the library for in time process visualization. The [Gio](http://gioui.org/) GUI library has been used because of its robustness and modern architecture. Prior running it please make sure that you have installed all the required dependencies noted in the installation section (https://gioui.org/#installation) .
-
-The preview window is activated by default but you can deactivate it any time by setting the `-preview` flag to false. When the images are processed concurrently from a directory the preview mode is deactivated.
-
-### Face detection to avoid face deformation
-In order to detect faces prior rescaling, use the `-face` flag. There is no need to provide a face classification file, since it's already embedded into the generated binary file. The sample code below will resize the provided image with 20%, but checks for human faces in order tot avoid face deformations.
+### Enable face detection to avoid face deformation
+In order to detect faces prior rescaling, use the `-faceDetect` flag. There is no need to provide a face classification file, since it's already embedded into the generated binary file. The sample code below will resize the provided image with 20%, but checks for human faces in order tot avoid face deformations.
 
 For face detection related settings please check the Pigo [documentation](https://github.com/esimov/pigo/blob/master/README.md).
 
 ```bash
 $ caire -in input.jpg -out output.jpg -face=1 -perc=1 -width=20
+```
+
+## Text detection
+
+Starting from **v1.6.0** the library encompass text detection capabilities also with the desired scope to avoid the seam carver to remove (not even accidentally) text areas. This is hidden behind a feature flag named `-textDetect`. 
+
+Once it's activated the text detector will scan the image for text areas having identical characteristics, and marks them as grouped components belonging to the same zone. Each of the detected text zone then will get an increased pixel intensity, which tricks the Sobel detector to treat them as areas which shouldn't be altered by the seam carver. However this can generate false positive results, so adapt the flags to each image in particular. 
+
+As a rule of thumb, try to avoid using the `-textDetect` flag when the image does not have texts inside. Otherwise play with the `-gaussian`, `-cannyHigh` and `-cannyLow` parameters. These will tell the Canny detector how to threat the gradient changes in edge detection.
+
+Below is a screen recording of the text detector in action:
+
+https://github.com/user-attachments/assets/2b3dfd84-4450-4402-a955-61beb82cf307
+
+## Usage
+
+```bash
+$ caire -in input.jpg -out output.jpg
 ```
 
 ### Support for `stdin` and `stdout` pipe commands
@@ -165,7 +181,7 @@ When an image is resized on both the X and Y axis, the algorithm will first try 
 - `-mask`: The path to the protective mask. The mask should be in binary format and have the same size as the input image. White areas represent regions where no seams should be carved.
 - `-rmask`: The path to the removal mask. The mask should be in binary format and have the same size as the input image. White areas represent regions to be removed.
 
-Mask | Mask removal
+Mask protection | Mask removal
 :-: | :-:
 <video src='https://user-images.githubusercontent.com/883386/197509861-86733da8-0846-419a-95eb-4fb5a97607d5.mp4' width=180/> | <video src='https://user-images.githubusercontent.com/883386/197397857-7b785d7c-2f80-4aed-a5d2-75c429389060.mp4' width=180/>
 
