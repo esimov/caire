@@ -4,7 +4,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/esimov/caire.svg)](https://pkg.go.dev/github.com/esimov/caire)
 [![license](https://img.shields.io/github/license/esimov/caire)](./LICENSE)
 [![release](https://img.shields.io/badge/release-v1.6.0-blue.svg)](https://github.com/esimov/caire/releases/tag/v1.6.0)
-[![homebrew](https://img.shields.io/badge/homebrew-v1.5.0-orange.svg)](https://formulae.brew.sh/formula/caire)
+[![homebrew](https://img.shields.io/badge/homebrew-v1.6.0-orange.svg)](https://formulae.brew.sh/formula/caire)
 [![caire](https://snapcraft.io/caire/badge.svg)](https://snapcraft.io/caire)
 
 **Caire** is a content aware image resize library based on *[Seam Carving for Content-Aware Image Resizing](https://inst.eecs.berkeley.edu/~cs194-26/fa16/hw/proj4-seamcarving/imret.pdf)* paper.
@@ -120,12 +120,16 @@ $ caire -in input.jpg -out output.jpg -faceDetect=1 -perc=1 -width=20
 
 Starting with **[v1.6.0](https://github.com/esimov/caire/releases/tag/v1.6.0)** the library support text detection capabilities also. This is hidden behind a feature flag named `-textDetect`. 
 
-Once it's activated the text detector will scan the image for text areas with identical characteristics, and mark them as grouped components belonging to the same zone. Then the color intensity is getting increased for each detected text zone, which tricks the Sobel detector to treat them as important areas which shouldn't be altered by the seam carver. Note this can generate false positive results also, so adapt the flags for each image specifically.
+Once activated the text detector will scan the image to detect text areas with identical characteristics, and mark them as grouped components belonging to the same zone. Then the color intensity is increased for each detected text zone, which tricks the Sobel detector to treat them as important areas which shouldn't be altered by the seam carver. 
 
-As a rule of thumb, try to avoid using the `-textDetect` flag when the image does not contains texts. Otherwise play with the `-gaussian`, `-cannyHigh` and `-cannyLow` parameters. These will tell the Canny detector how to threat the gradient changes in edge detection.
+Note this can generate false positive results also, so adapt the flags for each image specifically. 
+
+As a rule of thumb, try to avoid using the `-textDetect` flag when the image does not contains texts. Otherwise play with `-gaussian`, `-cannyHigh` and `-cannyLow` parameters. These will tell the Canny detector how to threat the gradient changes in edge detection. 
+
+Also keep in mind that text detection will drop the performance. You can use the `-textDetInterval` flag to limit how often the detector should be activated during the seam removal operation.
 
 #### Example
-| Text detection activated | Text detection deactivated |
+| With text detection | Without text detection |
 | --- | --- |
 | ![text_detection_disabled](https://github.com/user-attachments/assets/1949187a-252c-4d35-91e1-0f3cc4dc68b6) | ![text_detection_enabled](https://github.com/user-attachments/assets/7f097494-b343-4e9c-9a93-7a8b70fed58e)
 
