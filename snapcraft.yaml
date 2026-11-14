@@ -1,16 +1,17 @@
 name: caire
-version: '1.4.4'
+version: '1.6.0'
 summary: Content aware image resize library
 description: |
   Content aware image resize library
 grade: stable
 confinement: strict
-base: core18
+base: core22
 parts:
   caire:
     plugin: go
+    build-snaps:
+      - go
     source: https://github.com/esimov/caire.git
-    go-importpath: github.com/esimov/caire
     stage-packages:
       - libegl1
       - libglvnd0
