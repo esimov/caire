@@ -133,9 +133,11 @@ Also keep in mind that text detection will drop the performance. You can use the
 | --- | --- |
 | ![text_detection_disabled](https://github.com/user-attachments/assets/1949187a-252c-4d35-91e1-0f3cc4dc68b6) | ![text_detection_enabled](https://github.com/user-attachments/assets/7f097494-b343-4e9c-9a93-7a8b70fed58e)
 
+### Demo
 Below is a screen recording of the text detector in action.
 
-https://github.com/user-attachments/assets/2b3dfd84-4450-4402-a955-61beb82cf307
+https://github.com/user-attachments/assets/91b4dc04-a8ec-4544-96b4-474765f00814
+
 
 ## Usage
 
