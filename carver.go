@@ -364,6 +364,27 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 	// Reduce the image width with one pixel on each iteration.
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
 
+	if bounds.Min == (image.Point{}) && bounds.Max.X > 0 {
+		// Copy each row without the seam pixel. This gives the same result
+		// as the pixel loop below, but without a color allocation per pixel.
+		w := bounds.Max.X
+		for _, seam := range seams {
+			y := seam.Y
+			if debug && seam.X >= 0 && seam.X < w {
+				c.Seams = append(c.Seams, Seam{X: seam.X, Y: y})
+			}
+			if y < 0 || y >= bounds.Max.Y {
+				continue
+			}
+			sx := min(max(seam.X, 0), w-1)
+			src := img.Pix[y*img.Stride : y*img.Stride+w*4]
+			row := dst.Pix[y*dst.Stride : y*dst.Stride+(w-1)*4]
+			copy(row, src[:sx*4])
+			copy(row[sx*4:], src[(sx+1)*4:])
+		}
+		return dst
+	}
+
 	for _, seam := range seams {
 		y := seam.Y
 		for x := 0; x < bounds.Max.X; x++ {
