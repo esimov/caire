@@ -406,15 +406,29 @@ func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGB
 		// Copy pixels before the seam.
 		copy(row, src[:sx*4])
 
-		left := max(sx-1, 0) * 4
-		right := min(sx+1, width-1) * 4
-		pix := sx * 4
+		left := max(sx-1, 0)
+		right := min(sx+1, width-1)
 
-		// Calculate the average premultiplied color of the neighboring pixels.
-		row[pix] = uint8((uint16(src[left]) + uint16(src[right])) >> 1)
-		row[pix+1] = uint8((uint16(src[left+1]) + uint16(src[right+1])) >> 1)
-		row[pix+2] = uint8((uint16(src[left+2]) + uint16(src[right+2])) >> 1)
-		row[pix+3] = uint8((uint16(src[left+3]) + uint16(src[right+3])) >> 1)
+		lr, lg, lb, la := img.NRGBAAt(left+bounds.Min.X, y+bounds.Min.Y).RGBA()
+		rr, rg, rb, ra := img.NRGBAAt(right+bounds.Min.X, y+bounds.Min.Y).RGBA()
+
+		// Calculate the average premultiplied color only for the inserted pixel.
+		// If we are not doing this, the carver will mangle totally transparent
+		// pixels from the neighbors with these premultiplied values.
+		avr, avg, avb, ava := (lr+rr)>>1, (lg+rg)>>1, (lb+rb)>>1, (la+ra)>>1
+
+		c := color.NRGBAModel.Convert(color.RGBA{
+			R: uint8(avr >> 8),
+			G: uint8(avg >> 8),
+			B: uint8(avb >> 8),
+			A: uint8(ava >> 8),
+		}).(color.NRGBA)
+
+		pixel := sx * 4
+		row[pixel] = c.R
+		row[pixel+1] = c.G
+		row[pixel+2] = c.B
+		row[pixel+3] = c.A
 
 		// Copy the seam and every pixel after it one position to the right.
 		copy(row[(sx+1)*4:], src[sx*4:])
