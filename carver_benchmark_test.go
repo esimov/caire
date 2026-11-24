@@ -9,7 +9,7 @@ import (
 	cimage "github.com/esimov/caire/image"
 )
 
-func Benchmark_Carver(b *testing.B) {
+func BenchmarkCarver_RemoveSeam(b *testing.B) {
 	sampleImg := filepath.Join("./testdata", "sample.jpg")
 	f, err := os.Open(sampleImg)
 	if err != nil {
@@ -36,5 +36,33 @@ func Benchmark_Carver(b *testing.B) {
 		seams := c.FindLowestEnergySeams(p)
 		img = c.RemoveSeam(img, seams, p.Debug)
 	}
+}
 
+func BenchmarkCarver_AddSeam(b *testing.B) {
+	sampleImg := filepath.Join("./testdata", "sample.jpg")
+	f, err := os.Open(sampleImg)
+	if err != nil {
+		b.Fatalf("could not load sample image: %v", err)
+	}
+	defer f.Close()
+
+	src, _, err := image.Decode(f)
+	if err != nil {
+		b.Fatalf("error decoding image: %v", err)
+	}
+
+	img := cimage.ImgToNRGBA(src)
+
+	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
+	c := NewCarver(width, height)
+
+	for b.Loop() {
+		_, err := c.ComputeSeams(p, img)
+		if err != nil {
+			b.FailNow()
+		}
+
+		seams := c.FindLowestEnergySeams(p)
+		img = c.AddSeam(img, seams, p.Debug)
+	}
 }
