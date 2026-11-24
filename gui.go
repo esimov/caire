@@ -389,26 +389,27 @@ func (g *Gui) draw() {
 					imageWidth := float32(img.Bounds().Dx())
 					imageHeight := float32(img.Bounds().Dy())
 
-					renderedWidth := float32(imageDimension.Size.X)
-					renderedHeight := float32(imageDimension.Size.Y)
+					widgetWidth := float32(imageDimension.Size.X)
+					widgetHeight := float32(imageDimension.Size.Y)
 
-					scaleX := renderedWidth / imageWidth
-					scaleY := renderedHeight / imageHeight
+					scale := min(widgetWidth/imageWidth, widgetHeight/imageHeight)
 
-					offsetX := float32(gtx.Constraints.Max.X-imageDimension.Size.X) / 2
-					offsetY := float32(gtx.Constraints.Max.Y-imageDimension.Size.Y) / 2
+					renderedWidth := imageWidth * scale
+					renderedHeight := imageHeight * scale
+
+					offsetX := (widgetWidth - renderedWidth) / 2
+					offsetY := (widgetHeight - renderedHeight) / 2
 
 					for _, seam := range g.process.seams {
 						x := float32(seam.X)
 						y := float32(seam.Y)
 
 						if g.proc.vRes {
-							originalHeight := float32(img.Bounds().Dx())
-							x, y = originalHeight-1-y, x
+							x, y = imageWidth-1-y, x
 						}
 
-						px := offsetX + x*scaleX
-						py := offsetY + y*scaleY
+						px := offsetX + x*scale
+						py := offsetY + y*scale
 
 						g.DrawSeam(g.proc.ShapeType, px, py, 1)
 					}
