@@ -98,7 +98,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		// Transform the image grayscale mode.
 		grayscale := cimage.RgbToGrayscale(img)
 
-		cParams := pigo.CascadeParams{
+		cParams := &pigo.CascadeParams{
 			MinSize:     int(minSize),
 			MaxSize:     common.Min(width, height),
 			ShiftFactor: 0.1,
@@ -116,7 +116,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 		// Run the classifier over the obtained leaf nodes and return the detection results.
 		// The result contains quadruplets representing the row, column, scale and detection score.
-		dets = p.FaceDetector.RunCascade(cParams, p.FaceAngle)
+		dets = p.FaceDetector.RunClassifier(cParams, p.FaceAngle)
 
 		// Calculate the intersection over union (IoU) of two clusters.
 		dets = p.FaceDetector.ClusterDetections(dets, 0.1)
