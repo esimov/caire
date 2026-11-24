@@ -11,7 +11,7 @@ import (
 
 	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	pigo "github.com/esimov/pigo/core"
+	pigo "github.com/esimov/pigo/pkg"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -271,10 +271,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	}
 	defer f.Close()
 
-	p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
-	if err != nil {
-		t.Fatalf("error unpacking the cascade file: %v", err)
-	}
+	p.FaceDetector = pigo.UnpackCascade()
 
 	src, _, err := image.Decode(f)
 	if err != nil {
@@ -286,7 +283,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 	// Transform the image to a pixel array.
 	pixels := cimage.RgbToGrayscale(img)
 
-	cParams := pigo.CascadeParams{
+	cParams := &pigo.CascadeParams{
 		MinSize:     100,
 		MaxSize:     common.Max(dx, dy),
 		ShiftFactor: 0.1,
@@ -302,7 +299,7 @@ func TestCarver_ShouldDetectFace(t *testing.T) {
 
 	// Run the classifier over the obtained leaf nodes and return the detection results.
 	// The result contains quadruplets representing the row, column, scale and detection score.
-	faces := p.FaceDetector.RunCascade(cParams, p.FaceAngle)
+	faces := p.FaceDetector.RunClassifier(cParams, p.FaceAngle)
 
 	// Calculate the intersection over union (IoU) of two clusters.
 	faces = p.FaceDetector.ClusterDetections(faces, 0.2)
@@ -321,10 +318,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	}
 	defer f.Close()
 
-	p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
-	if err != nil {
-		t.Fatalf("error unpacking the cascade file: %v", err)
-	}
+	p.FaceDetector = pigo.UnpackCascade()
 
 	src, _, err := image.Decode(f)
 	if err != nil {
@@ -342,7 +336,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 	err = cimage.Stackblur(img, sobel, uint32(p.BlurRadius))
 	assert.NoError(t, err)
 
-	cParams := pigo.CascadeParams{
+	cParams := &pigo.CascadeParams{
 		MinSize:     100,
 		MaxSize:     common.Max(dx, dy),
 		ShiftFactor: 0.1,
@@ -358,7 +352,7 @@ func TestCarver_ShouldNotRemoveFaceZone(t *testing.T) {
 
 	// Run the classifier over the obtained leaf nodes and return the detection results.
 	// The result contains quadruplets representing the row, column, scale and detection score.
-	faces := p.FaceDetector.RunCascade(cParams, p.FaceAngle)
+	faces := p.FaceDetector.RunClassifier(cParams, p.FaceAngle)
 
 	// Calculate the intersection over union (IoU) of two clusters.
 	faces = p.FaceDetector.ClusterDetections(faces, 0.2)
@@ -402,10 +396,7 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 	}
 	defer f.Close()
 
-	p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
-	if err != nil {
-		t.Fatalf("error unpacking the cascade file: %v", err)
-	}
+	p.FaceDetector = pigo.UnpackCascade()
 
 	src, _, err := image.Decode(f)
 	if err != nil {
@@ -416,7 +407,8 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 
 	// Transform the image to a pixel array.
 	pixels := cimage.RgbToGrayscale(img)
-	cParams := pigo.CascadeParams{
+
+	cParams := &pigo.CascadeParams{
 		MinSize:     100,
 		MaxSize:     common.Max(dx, dy),
 		ShiftFactor: 0.1,
@@ -432,7 +424,7 @@ func TestCarver_ShouldNotResizeWithFaceDistorsion(t *testing.T) {
 
 	// Run the classifier over the obtained leaf nodes and return the detection results.
 	// The result contains quadruplets representing the row, column, scale and detection score.
-	faces := p.FaceDetector.RunCascade(cParams, p.FaceAngle)
+	faces := p.FaceDetector.RunClassifier(cParams, p.FaceAngle)
 
 	// Calculate the intersection over union (IoU) of two clusters.
 	faces = p.FaceDetector.ClusterDetections(faces, 0.2)

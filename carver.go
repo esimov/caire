@@ -9,7 +9,7 @@ import (
 
 	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
-	pigo "github.com/esimov/pigo/core"
+	pigo "github.com/esimov/pigo/pkg"
 )
 
 // SeamCarver defines the Resize interface method.
@@ -98,7 +98,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		// Transform the image grayscale mode.
 		grayscale := cimage.RgbToGrayscale(img)
 
-		cParams := pigo.CascadeParams{
+		cParams := &pigo.CascadeParams{
 			MinSize:     int(minSize),
 			MaxSize:     common.Min(width, height),
 			ShiftFactor: 0.1,
@@ -116,7 +116,7 @@ func (c *Carver) ComputeSeams(p *Processor, img *image.NRGBA) (*image.NRGBA, err
 		}
 		// Run the classifier over the obtained leaf nodes and return the detection results.
 		// The result contains quadruplets representing the row, column, scale and detection score.
-		dets = p.FaceDetector.RunCascade(cParams, p.FaceAngle)
+		dets = p.FaceDetector.RunClassifier(cParams, p.FaceAngle)
 
 		// Calculate the intersection over union (IoU) of two clusters.
 		dets = p.FaceDetector.ClusterDetections(dets, 0.1)
@@ -364,65 +364,74 @@ func (c *Carver) RemoveSeam(img *image.NRGBA, seams []Seam, debug bool) *image.N
 	// Reduce the image width with one pixel on each iteration.
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()-1, bounds.Dy()))
 
-	// Copy each row without the seam pixel, instead of one pixel at a time.
-	w := bounds.Max.X
+	// Copy each row before the seam, instead copying pixel-by-pixel.
+	width := bounds.Max.X
 	for _, seam := range seams {
 		y := seam.Y
-		if debug && seam.X >= 0 && seam.X < w {
+		if debug {
 			c.Seams = append(c.Seams, Seam{X: seam.X, Y: y})
 		}
 		if y < 0 || y >= bounds.Max.Y {
 			continue
 		}
-		sx := min(max(seam.X, 0), w-1)
-		src := img.Pix[y*img.Stride : y*img.Stride+w*4]
-		row := dst.Pix[y*dst.Stride : y*dst.Stride+(w-1)*4]
+		sx := min(max(seam.X, 0), width-1)
+		src := img.Pix[y*img.Stride : y*img.Stride+width*4]
+		row := dst.Pix[y*dst.Stride : y*dst.Stride+(width-1)*4]
 		copy(row, src[:sx*4])
 		copy(row[sx*4:], src[(sx+1)*4:])
 	}
+
 	return dst
 }
 
-// AddSeam add a new seam.
+// AddSeam adds a new seam based on the average pixel color of the neighboring seams.
 func (c *Carver) AddSeam(img *image.NRGBA, seams []Seam, debug bool) *image.NRGBA {
-	var (
-		lr, lg, lb, la uint32
-		rr, rg, rb, ra uint32
-	)
-
 	bounds := img.Bounds()
 	dst := image.NewNRGBA(image.Rect(0, 0, bounds.Dx()+1, bounds.Dy()))
 
+	width := bounds.Max.X
 	for _, seam := range seams {
 		y := seam.Y
-		for x := 0; x < bounds.Max.X; x++ {
-			if seam.X == x {
-				if debug {
-					c.Seams = append(c.Seams, Seam{X: x, Y: y})
-				}
-				if x > 0 {
-					lr, lg, lb, la = img.At(x-1, y).RGBA()
-				} else {
-					lr, lg, lb, la = img.At(x, y).RGBA()
-				}
-
-				if x < bounds.Max.X-1 {
-					rr, rg, rb, ra = img.At(x+1, y).RGBA()
-				} else {
-					rr, rg, rb, ra = img.At(x, y).RGBA()
-				}
-
-				// calculate the average premultiplied color and alpha of the neighboring pixels
-				avr, avg, avb, ava := (lr+rr)>>1, (lg+rg)>>1, (lb+rb)>>1, (la+ra)>>1
-				dst.Set(x, y, color.RGBA{uint8(avr >> 8), uint8(avg >> 8), uint8(avb >> 8), uint8(ava >> 8)})
-				dst.Set(x+1, y, img.At(x, y))
-			} else if seam.X < x {
-				dst.Set(x, y, img.At(x-1, y))
-				dst.Set(x+1, y, img.At(x, y))
-			} else {
-				dst.Set(x, y, img.At(x, y))
-			}
+		if debug {
+			c.Seams = append(c.Seams, Seam{X: seam.X, Y: y})
 		}
+		if y < 0 || y >= bounds.Max.Y {
+			continue
+		}
+
+		sx := min(max(seam.X, 0), width-1)
+		src := img.Pix[y*img.Stride : y*img.Stride+width*4]
+		row := dst.Pix[y*dst.Stride : y*dst.Stride+(width+1)*4]
+
+		// Copy pixels before the seam.
+		copy(row, src[:sx*4])
+
+		left := max(sx-1, 0)
+		right := min(sx+1, width-1)
+
+		lr, lg, lb, la := img.NRGBAAt(left+bounds.Min.X, y+bounds.Min.Y).RGBA()
+		rr, rg, rb, ra := img.NRGBAAt(right+bounds.Min.X, y+bounds.Min.Y).RGBA()
+
+		// Calculate the average premultiplied color only for the inserted pixel.
+		// If we are not doing this, the carver will mangle totally transparent
+		// pixels from the neighbors with these premultiplied values.
+		avr, avg, avb, ava := (lr+rr)>>1, (lg+rg)>>1, (lb+rb)>>1, (la+ra)>>1
+
+		c := color.NRGBAModel.Convert(color.RGBA{
+			R: uint8(avr >> 8),
+			G: uint8(avg >> 8),
+			B: uint8(avb >> 8),
+			A: uint8(ava >> 8),
+		}).(color.NRGBA)
+
+		pixel := sx * 4
+		row[pixel] = c.R
+		row[pixel+1] = c.G
+		row[pixel+2] = c.B
+		row[pixel+3] = c.A
+
+		// Copy the seam and every pixel after it one position to the right.
+		copy(row[(sx+1)*4:], src[sx*4:])
 	}
 
 	return dst

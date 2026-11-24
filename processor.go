@@ -16,7 +16,7 @@ import (
 	"github.com/esimov/caire/common"
 	cimage "github.com/esimov/caire/image"
 	"github.com/esimov/caire/textdetector"
-	pigo "github.com/esimov/pigo/core"
+	pigo "github.com/esimov/pigo/pkg"
 	"golang.org/x/image/bmp"
 )
 
@@ -546,15 +546,9 @@ func (p *Processor) Process(reader io.Reader, writer io.Writer) error {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 
 	if p.FaceDetect {
-		// Instantiate a new Pigo object in case the face detection option is used.
-		p.FaceDetector = pigo.NewPigo()
-
 		// Unpack the binary file. This will return the number of cascade trees,
 		// the tree depth, the threshold and the prediction from tree's leaf nodes.
-		p.FaceDetector, err = p.FaceDetector.Unpack(cascadeFile)
-		if err != nil {
-			return fmt.Errorf("error unpacking the cascade file: %v", err)
-		}
+		p.FaceDetector = pigo.UnpackCascade()
 	}
 
 	if p.TextDetect {
