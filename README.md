@@ -120,13 +120,13 @@ $ caire -in input.jpg -out output.jpg -faceDetect=1 -perc=1 -width=20
 
 Starting with **[v1.6.0](https://github.com/esimov/caire/releases/tag/v1.6.0)** the library support text detection capabilities also. This is hidden behind a feature flag `-textDetect` which is disabled by default.
 
-Once activated the text detector will scan the image to detect text areas with identical characteristics, and mark them as grouped components belonging to the same zone. Then the color intensity is increased for each detected text zone, which tricks the Sobel detector to treat them as important areas which shouldn't be altered by the seam carver.
+Once activated, the text detector will scan the image for text areas with identical characteristics, and mark them as grouped components belonging to the same zone. Then a high color threshold is applied for each detected text zone, which tricks the Sobel detector to treat them as important areas which shouldn't be altered by the seam carver.
 
-Note this can generate false positive results also, so adapt the flags for each image particularly.
+**Note: this can generate false positive results also, so adapt these flags to each image particularly.**
 
-As a rule of thumb, try to avoid using the `-textDetect` flag when the image does not contains texts, since this will cause significant drop in performance. You can fine tune the detection results, by changing the `-gaussian`, `-cannyHigh` and `-cannyLow` parameters. These will tell the Canny detector how to threat the gradient changes in edge detection.
+As a rule of thumb, try to avoid using the `-textDetect` flag when the image does not contains texts, since this will introduce drop in performance. You can fine tune the detection results, by changing the `-gaussian`, `-cannyHigh` and `-cannyLow` parameters. These will tell the Canny detector how to threat the gradient changes in edge detection.
 
-Also keep in mind that text detection will drop the performance. You can use the `-textDetInterval` flag to limit how often the detector should be activated during the seam removal operation.
+To avoid running the text detection algorithm on each frame, you can increase the `-textDetInterval` value.
 
 #### Example
 | With text detection | Without text detection |
@@ -136,7 +136,9 @@ Also keep in mind that text detection will drop the performance. You can use the
 ### Demo
 Below is a screen recording of the text detector in action.
 
-https://github.com/user-attachments/assets/91b4dc04-a8ec-4544-96b4-474765f00814
+https://github.com/user-attachments/assets/72a18266-92ff-442c-bcfa-36dfdbc6866b
+
+
 
 
 ## Usage
