@@ -134,12 +134,9 @@ To avoid running the text detection algorithm on each frame, you can increase th
 | ![text_detection_disabled](https://github.com/user-attachments/assets/1949187a-252c-4d35-91e1-0f3cc4dc68b6) | ![text_detection_enabled](https://github.com/user-attachments/assets/7f097494-b343-4e9c-9a93-7a8b70fed58e)
 
 ### Demo
-Below is a screen recording of the text detector in action.
+Below is a screen recording of the face and text detector in action.
 
 https://github.com/user-attachments/assets/72a18266-92ff-442c-bcfa-36dfdbc6866b
-
-
-
 
 ## Usage
 
